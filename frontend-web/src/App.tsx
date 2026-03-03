@@ -1,11 +1,7 @@
-import './App.css'
+import AppRoutes from "./routes/AppRoutes"
 
 function App() {
-  return (
-    <div className="flex h-screen justify-center items-center bg-blue-500">
-      <h1 className="text-white text-lg font-bold">Edit src/App.tsx to edit this screen.</h1>
-    </div>
-  )
+  return <AppRoutes />
 }
 
 export default App
