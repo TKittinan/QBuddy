@@ -1,14 +1,22 @@
-import type { ReactNode } from "react"
+type CardProps = {
+  children: React.ReactNode;
+  className?: string;
+};
 
-interface Props {
-  children: ReactNode
-  className?: string
-}
-
-export default function Card({ children, className }: Props) {
+export default function Card({ children, className = "" }: CardProps) {
   return (
-    <div className={`bg-white rounded-2xl shadow p-6 ${className}`}>
+    <div
+      className={`
+        w-full
+        max-w-lg
+        bg-white
+        rounded-2xl
+        shadow-xl
+        overflow-hidden
+        ${className}
+      `}
+    >
       {children}
     </div>
-  )
+  );
 }
