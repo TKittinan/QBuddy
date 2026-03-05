@@ -1,5 +1,5 @@
 import { Outlet } from "react-router-dom";
-import Sidebar from "../components/ui/UseAll/Sidebar";
+import Sidebar from "../components/ui/Tabbar/Sidebar";
 
 export default function LiveQueueLayout() {
   return (

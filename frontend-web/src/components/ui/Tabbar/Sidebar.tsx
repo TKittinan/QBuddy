@@ -14,17 +14,17 @@ const Sidebar = () => {
   const { logout } = useAuth();
 
   const handleLogout = () => {
-    logout();            // เคลียร์ auth state
-    navigate("/login");  // กลับไปหน้า login
+    logout();
+    navigate("/login");
   };
 
   return (
     <div className="w-64 min-h-screen bg-[#2F3655] text-slate-200 flex flex-col">
 
       <div className="px-6 py-6 flex items-center gap-3">
-        {/* <div className="w-10 h-10 bg-emerald-400/20 rounded-xl flex items-center justify-center">
+        <div className="w-10 h-10 bg-emerald-400/20 rounded-xl flex items-center justify-center">
           <DashboardIcon className="text-emerald-400" width={20} height={20} />
-        </div> */}
+        </div>
         <div>
           <h1 className="font-semibold text-white leading-none">
             QBuddy

@@ -1,6 +1,6 @@
 import { Outlet } from "react-router-dom";
-import Sidebar from "../components/ui/UseAll/Sidebar";
-import Header from "../components/ui/UseAll/Header";
+import Sidebar from "../components/ui/Tabbar/Sidebar";
+import Header from "../components/ui/Tabbar/Header";
 
 const UserManageLayout = () => {
   return (
