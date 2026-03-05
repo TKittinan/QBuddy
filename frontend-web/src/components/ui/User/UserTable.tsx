@@ -1,31 +1,10 @@
 import UserRow from "./UserRow";
-import type { User } from "../User/index"; 
+import type { User } from "./index"; 
 
 const users: User[] = [
-  {
-    id: "1",
-    name: "John Doe",
-    email: "john.doe@example.com",
-    role: "ADMIN",
-    status: "ACTIVE",
-    createdAt: "2024-03-01T10:00:00Z",
-  },
-  {
-    id: "2",
-    name: "Jane Smith",
-    email: "jane.smith@example.com",
-    role: "STAFF",
-    status: "ACTIVE", 
-    createdAt: "2024-03-02T11:30:00Z",
-  },
-  {
-    id: "3",
-    name: "Bob Brown",
-    email: "bob.b@example.com",
-    role: "CUSTOMER",
-    status: "INACTIVE", 
-    createdAt: "2024-03-03T09:15:00Z",
-  },
+  { id: "1", name: "John Doe", email: "john.doe@example.com", role: "ADMIN", status: "ACTIVE", createdAt: "2024-03-01T10:00:00Z" },
+  { id: "2", name: "Jane Smith", email: "jane.smith@example.com", role: "STAFF", status: "ACTIVE", createdAt: "2024-03-02T11:30:00Z" },
+  { id: "3", name: "Bob Brown", email: "bob.b@example.com", role: "CUSTOMER", status: "INACTIVE", createdAt: "2024-03-03T09:15:00Z" },
 ];
 
 type Props = {
@@ -40,11 +19,12 @@ const UserTable = ({ onSelectUser }: Props) => {
       <table className="w-full text-sm">
         <thead className="border-b text-slate-500">
           <tr>
-            <th className="py-3 text-left">Name</th>
-            <th>Email</th>
-            <th>Role</th> 
-            <th>Status</th>
-            <th className="text-right">Actions</th>
+            {/* ✅ บังคับจัดซ้าย (text-left) และเพิ่ม padding (px-4) ให้กว้างขึ้น */}
+            <th className="py-3 px-4 text-left font-medium">Name</th>
+            <th className="py-3 px-4 text-left font-medium">Email</th>
+            <th className="py-3 px-4 text-left font-medium">Role</th>
+            <th className="py-3 px-4 text-left font-medium">Status</th>
+            <th className="py-3 px-4 text-right font-medium">Actions</th>
           </tr>
         </thead>
 
