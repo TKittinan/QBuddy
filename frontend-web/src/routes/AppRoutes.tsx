@@ -29,7 +29,7 @@ export default function AppRoutes() {
 
       {/* ✅ เส้นทางสำหรับ Place Management */}
       <Route element={<PlaceManagementLayout />}>
-        <Route path="/reservations" element={<PlaceManagement />} />
+        <Route path="/placemanagement" element={<PlaceManagement />} />
       </Route>
 
       <Route path="*" element={<div>404 Not Found</div>} />
