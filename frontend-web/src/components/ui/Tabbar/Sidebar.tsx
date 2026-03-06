@@ -35,9 +35,15 @@ const Sidebar = () => {
         <SidebarItem to="/dashboard" icon={<DashboardIcon />} label="Dashboard" />
         <SidebarItem to="/livequeue" icon={<PersonIcon />} label="QueueManagement" />
         <SidebarItem to="/usermanage" icon={<PersonIcon />} label="UserManage" />
+<<<<<<< HEAD
+        <SidebarItem to="/reservations" icon={<CalendarIcon />} label="Reservations" />
+        <SidebarItem to="/analytics" icon={<BarChartIcon />} label="Analytics" />
+        <SidebarItem to="/staff" icon={<PersonIcon />} label="Staff" />
+=======
         <SidebarItem to="/placemanagement" icon={<CalendarIcon />} label="Placemanagement" />
         <SidebarItem to="/BookingManagement" icon={<BarChartIcon />} label="BookingManagement" />
         <SidebarItem to="/setting" icon={<PersonIcon />} label="Setting" />
+>>>>>>> main
 
         {/* ✅ ซ่อนบน iPad แนวตั้ง เพราะย้ายไปไว้ใน Header Profile แล้ว */}
         <div className="hidden lg:block">
