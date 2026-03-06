@@ -38,8 +38,7 @@ const Sidebar = () => {
         <SidebarItem to="/placemanagement" icon={<CalendarIcon />} label="Placemanagement" />
         <SidebarItem to="/BookingManagement" icon={<BarChartIcon />} label="BookingManagement" />
         <SidebarItem to="/setting" icon={<PersonIcon />} label="Setting" />
-
-        {/* ✅ ซ่อนบน iPad แนวตั้ง เพราะย้ายไปไว้ใน Header Profile แล้ว */}
+        
         <div className="hidden lg:block">
           <div className="border-t border-white/10 my-4" />
           <SidebarItem to="/settings" icon={<GearIcon />} label="Settings" />
