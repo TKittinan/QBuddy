@@ -1,44 +1,38 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-import Login from "../pages/Login";
-import Dashboard from "../pages/Dashboard";
+// Layouts
 import DashboardLayout from "../layout/DashboardLayout";
-import AuthLayout from "../layout/AuthLayout";
-import ProtectedRoute from "./ProtectedRoute";
-import LiveQueue from "../pages/LiveQueue";
 import LiveQueueLayout from "../layout/LiveQueueLayout";
-import UserManagement from "../pages/UserManagement";
 import UserManageLayout from "../layout/UserManageLayout";
+import PlaceManagementLayout from "../layout/PlacemanagementLayout"; // ✅ ชื่อใหม่
+// Pages
+import Dashboard from "../pages/Dashboard";
+import LiveQueue from "../pages/LiveQueue";
+import UserManagement from "../pages/UserManagement";
+import PlaceManagement from "../pages/PlaceManagement"; // ✅ ชื่อใหม่
 
-const AppRoutes = () => {
+export default function AppRoutes() {
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/login" />} />
+      <Route path="/" element={<Navigate to="/dashboard" />} />
 
-      <Route element={<AuthLayout />}>
-        <Route path="/login" element={<Login />} />
+      <Route element={<DashboardLayout />}>
+        <Route path="/dashboard" element={<Dashboard />} />
       </Route>
 
-      <Route element={<ProtectedRoute />}>
-        <Route element={<DashboardLayout />}>
-          <Route path="/dashboard" element={<Dashboard />} />
-        </Route>
+      <Route element={<LiveQueueLayout />}>
+        <Route path="/livequeue" element={<LiveQueue />} />
       </Route>
 
-      <Route element={<ProtectedRoute />}>
-        <Route element={<LiveQueueLayout />}>
-          <Route path="/livequeue" element={<LiveQueue />} />
-        </Route>
+      <Route element={<UserManageLayout />}>
+        <Route path="/usermanage" element={<UserManagement />} />
       </Route>
 
-      <Route element={<ProtectedRoute />}>
-        <Route element={<UserManageLayout />}>
-          <Route path="/usermanage" element={<UserManagement />} />
-        </Route>
+      {/* ✅ เส้นทางสำหรับ Place Management */}
+      <Route element={<PlaceManagementLayout />}>
+        <Route path="/placemanagement" element={<PlaceManagement />} />
       </Route>
-      
-      <Route path="*" element={<Navigate to="/login" />} />
+
+      <Route path="*" element={<div>404 Not Found</div>} />
     </Routes>
   );
-};
-
-export default AppRoutes;
+}
