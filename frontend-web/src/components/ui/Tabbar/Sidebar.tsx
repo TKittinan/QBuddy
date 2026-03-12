@@ -36,9 +36,7 @@ const Sidebar = () => {
         <SidebarItem to="/livequeue" icon={<PersonIcon />} label="QueueManagement" />
         <SidebarItem to="/usermanage" icon={<PersonIcon />} label="UserManage" />
         <SidebarItem to="/placemanagement" icon={<CalendarIcon />} label="Placemanagement" />
-        <SidebarItem to="/BookingManagement" icon={<BarChartIcon />} label="BookingManagement" />
-        <SidebarItem to="/setting" icon={<PersonIcon />} label="Setting" />
-        
+        <SidebarItem to="/bookingManagement" icon={<BarChartIcon />} label="BookingManagement" />
         <div className="hidden lg:block">
           <div className="border-t border-white/10 my-4" />
           <SidebarItem to="/settings" icon={<GearIcon />} label="Settings" />
