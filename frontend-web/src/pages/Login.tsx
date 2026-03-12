@@ -57,7 +57,8 @@ export default function Login() {
   };
 
   return (
-    <div className="w-full flex justify-center">
+    // ✅ แก้ไขบรรทัดนี้: เติม min-h-screen, items-center และพื้นหลัง bg-slate-50
+    <div className="min-h-screen w-full flex items-center justify-center bg-slate-50 p-4">
       <div className="w-full max-w-xl bg-white rounded-2xl shadow-xl overflow-hidden">
         <div className="h-52 bg-gradient-to-br from-teal-600 to-emerald-500 relative">
           <div className="absolute bottom-8 left-8 text-white">
@@ -105,7 +106,7 @@ export default function Login() {
             <button
               type="button"
               onClick={() => setShowPassword((prev) => !prev)}
-              className="absolute right-3 top-[38px] text-gray-400"
+              className="absolute right-3 top-[38px] text-gray-400 hover:text-gray-600 transition-colors"
             >
               {showPassword ? <EyeNoneIcon /> : <EyeOpenIcon />}
             </button>
@@ -114,7 +115,7 @@ export default function Login() {
           <Button
             type="submit"
             variant="primary"
-            className="w-full h-11 rounded-xl text-base"
+            className="w-full h-11 rounded-xl text-base shadow-lg shadow-teal-100"
             disabled={!email.trim() || !password.trim()}
           >
             Sign In

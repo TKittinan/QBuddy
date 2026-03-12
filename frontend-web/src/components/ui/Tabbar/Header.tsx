@@ -4,7 +4,6 @@ import {
   EnvelopeClosedIcon, 
   HamburgerMenuIcon,
   GearIcon,
-  ExitIcon,
   PersonIcon
 } from "@radix-ui/react-icons";
 import { useAuth } from "../../../context/auth/use.Auth";
@@ -16,7 +15,7 @@ interface HeaderProps {
 }
 
 export default function Header({ title, onMenuClick }: HeaderProps) {
-  const { user, logout } = useAuth();
+  const { user} = useAuth();
 
   return (
     <header className="bg-white border-b border-slate-200 px-4 lg:px-8 py-3 lg:py-4 flex items-center justify-between z-40 sticky top-0 shadow-sm">
@@ -79,7 +78,6 @@ export default function Header({ title, onMenuClick }: HeaderProps) {
             // ✅ รายการเมนูหลัก
             { label: "My Profile", icon: <PersonIcon />, divider: true, onClick: () => {} },
             { label: "Settings", icon: <GearIcon />, onClick: () => {} },
-            { label: "Sign Out", icon: <ExitIcon />, className: "text-red-600", onClick: () => logout() },
           ]}
         />
       </div>
