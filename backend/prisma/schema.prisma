@@ -7,12 +7,223 @@ datasource db {
   provider = "postgresql"
 }
 
-model Book {
-  bookId        String    @id @default(uuid()) @db.Uuid
-  title         String
-  author        String
+// Table User
+model User {
+  user_id Int @id @default(autoincrement())
+
+  first_name String
+  last_name String
+  email String @unique
+  password String
+
+  admin Admin?
+  preference User_Preference?
+
+  bookings Booking[]
+  queue_entries Queue_Entry[]
+  activities Activity[]
+  participants Activity_Participant[]
+  messages Message[]
+
+  conversation_participants Conversation_Participant[]
+  ai_recommendations AI_Recommendation[]
+}
+// Table Admin
+model Admin {
+  admin_id   Int  @id @default(autoincrement())
+  user_id    Int  @unique
+  role       String
+  created_at DateTime @default(now())
+
+  user User @relation(fields: [user_id], references: [user_id])
+}
+
+// Table User_Preference
+model User_Preference {
+  preference_id     Int @id @default(autoincrement())
+  user_id           Int @unique
+  favorite_category String?
+  budget_range      String?
+  preferred_time    String?
+  updated_at        DateTime @updatedAt
+
+  user User @relation(fields: [user_id], references: [user_id])
+}
+
+// Table Restaurant
+model Restaurant {
+  restaurant_id Int @id @default(autoincrement())
+  name          String
   description   String?
-  price         Float
-  createdAt     DateTime @default(now())
-  updateAt      DateTime @updatedAt
+  address       String
+  latitude      Float?
+  longitude     Float?
+  phone         String?
+  opening_hours String?
+  price_range   String?
+  average_rating Float?
+  created_at    DateTime @default(now())
+  status        String
+
+  categories    Restaurant_Category[]
+  promotions    Promotion[]
+  queue         Queue?
+  bookings      Booking[]
+  ai_recommend  AI_Recommendation[]
+}
+
+// Table Category
+model Category {
+  category_id Int @id @default(autoincrement())
+  name        String
+  icon        String?
+
+  restaurants Restaurant_Category[]
+}
+
+// Restaurant_Category (M:N)
+model Restaurant_Category {
+  rc_id        Int @id @default(autoincrement())
+  restaurant_id Int
+  category_id   Int
+
+  restaurant Restaurant @relation(fields: [restaurant_id], references: [restaurant_id])
+  category   Category   @relation(fields: [category_id], references: [category_id])
+
+  @@unique([restaurant_id, category_id])
+}
+
+// Promotion
+model Promotion {
+  promo_id      Int @id @default(autoincrement())
+  restaurant_id Int
+  title         String
+  description   String?
+  discount_percent Float?
+  start_date    DateTime
+  end_date      DateTime
+  status        String
+
+  restaurant Restaurant @relation(fields: [restaurant_id], references: [restaurant_id])
+}
+
+// Queue
+model Queue {
+  queue_id Int @id @default(autoincrement())
+  restaurant_id Int @unique
+  current_number Int
+  estimated_wait_time Int?
+  status String
+
+  restaurant Restaurant @relation(fields: [restaurant_id], references: [restaurant_id])
+  entries Queue_Entry[]
+}
+
+// Queue_Entry
+model Queue_Entry {
+  entry_id Int @id @default(autoincrement())
+  queue_id Int
+  user_id  Int
+  party_size Int
+  position Int
+  status String
+  created_at DateTime @default(now())
+
+  queue Queue @relation(fields: [queue_id], references: [queue_id])
+  user  User  @relation(fields: [user_id], references: [user_id])
+}
+
+// Booking
+model Booking {
+  booking_id Int @id @default(autoincrement())
+  user_id Int
+  restaurant_id Int
+  booking_datetime DateTime
+  party_size Int
+  status String
+  special_request String?
+  created_at DateTime @default(now())
+
+  user User @relation(fields: [user_id], references: [user_id])
+  restaurant Restaurant @relation(fields: [restaurant_id], references: [restaurant_id])
+}
+
+// AI_Recommendation
+model AI_Recommendation {
+  recommendation_id Int @id @default(autoincrement())
+  user_id Int
+  restaurant_id Int
+  score Float
+  reason_text String?
+  created_at DateTime @default(now())
+
+  user User @relation(fields: [user_id], references: [user_id])
+  restaurant Restaurant @relation(fields: [restaurant_id], references: [restaurant_id])
+}
+
+// Activity
+model Activity {
+  activity_id Int @id @default(autoincrement())
+  creator_id Int
+  title String
+  description String?
+  category String?
+  location String?
+  activity_datetime DateTime
+  max_participants Int?
+  status String
+  created_at DateTime @default(now())
+
+  creator User @relation(fields: [creator_id], references: [user_id])
+  participants Activity_Participant[]
+  conversation Conversation?
+}
+
+// Activity_Participant
+model Activity_Participant {
+  ap_id Int @id @default(autoincrement())
+  activity_id Int
+  user_id Int
+  status String
+  joined_at DateTime @default(now())
+
+  activity Activity @relation(fields: [activity_id], references: [activity_id])
+  user User @relation(fields: [user_id], references: [user_id])
+
+  @@unique([activity_id, user_id])
+}
+
+// Conversation
+model Conversation {
+  conversation_id Int @id @default(autoincrement())
+  activity_id Int? @unique
+
+  created_at DateTime @default(now())
+
+  activity Activity? @relation(fields: [activity_id], references: [activity_id])
+  participants Conversation_Participant[]
+  messages Message[]
+}
+
+// Conversation_Participant
+model Conversation_Participant {
+  cp_id Int @id @default(autoincrement())
+  conversation_id Int
+  user_id Int
+  
+  conversation Conversation @relation(fields: [conversation_id], references: [conversation_id])
+  user User @relation(fields: [user_id], references: [user_id])
+  @@unique([conversation_id, user_id])
+}
+
+// Message
+model Message {
+  message_id Int @id @default(autoincrement())
+  conversation_id Int
+  sender_id Int
+  message_text String
+  sent_at DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversation_id], references: [conversation_id])
+  sender User @relation(fields: [sender_id], references: [user_id])
 }
