@@ -22,15 +22,15 @@
     "install": "^0.13.0",
     "nodemon": "^3.1.14",
     "npm": "^11.11.1",
-    "prisma": "^7.4.2",
+    "prisma": "^7.5.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   },
   "dependencies": {
-    "@prisma/adapter-pg": "^7.4.2",
-    "@prisma/client": "^7.4.2",
+    "@prisma/adapter-pg": "^7.5.0",
+    "@prisma/client": "^7.5.0",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
-    "pg": "^8.19.0"
+    "pg": "^8.20.0"
   }
 }
