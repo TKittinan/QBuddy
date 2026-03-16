@@ -14,15 +14,12 @@ import PlaceManagement from "../pages/PlaceManagement";
 import BookingManagement from "../pages/BookingManagement";
 import Settings from "../pages/Settings";
 
-// ✅ 1. Import หน้า Login ของคุณเข้ามา (ถ้ายังไม่มีต้องสร้างไฟล์ก่อนนะครับ)
 import Login from "../pages/Login"; 
 
 export default function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/dashboard"/>} />
-
-      {/* ✅ 2. เพิ่ม Route สำหรับหน้า Login ตรงนี้ (อยู่นอก Layout) */}
       <Route path="/login" element={<Login />} />
 
       <Route element={<DashboardLayout />}>
