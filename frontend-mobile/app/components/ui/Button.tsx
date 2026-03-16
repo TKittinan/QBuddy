@@ -1,41 +1,41 @@
-import React from "react";
-import { Slot } from "@radix-ui/react-slot";
-import clsx from "clsx";
+import React from 'react';
+import { TouchableOpacity, Text, StyleSheet, TouchableOpacityProps, View } from 'react-native';
 
-export type ButtonVariant = "primary" | "secondary" | "outline" | "ghost";
-
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: ButtonVariant;
-  asChild?: boolean;
+interface ButtonProps extends TouchableOpacityProps {
+  title: string;
+  variant?: 'primary' | 'social';
+  icon?: React.ReactNode;
 }
 
-const variantClasses: Record<ButtonVariant, string> = {
-  primary:
-    "bg-teal-600 text-white hover:bg-teal-700 focus:ring-teal-400",
-  secondary:
-    "bg-gray-800 text-white hover:bg-gray-900 focus:ring-gray-500",
-  outline:
-    "border border-gray-300 text-gray-700 hover:bg-gray-100",
-  ghost:
-    "text-gray-600 hover:bg-gray-100",
-};
-
 export const Button: React.FC<ButtonProps> = ({
-  variant = "primary",
-  className,
-  asChild = false,
+  title,
+  variant = 'primary',
+  icon,
+  style,
   ...props
 }) => {
-  const Comp = asChild ? Slot : "button";
+  const isPrimary = variant === 'primary';
 
   return (
-    <Comp
-      className={clsx(
-        "px-4 py-2 rounded-lg text-sm font-medium transition focus:outline-none focus:ring-2 disabled:opacity-50",
-        variantClasses[variant],
-        className
-      )}
+    <TouchableOpacity
+      style={[styles.button, isPrimary ? styles.primaryButton : styles.socialButton, style]}
+      activeOpacity={0.8}
       {...props}
-    />
+    >
+      {icon && <View style={styles.iconWrapper}>{icon}</View>}
+      <Text style={[styles.text, isPrimary ? styles.primaryText : styles.socialText]}>
+        {title}
+      </Text>
+    </TouchableOpacity>
   );
 };
+
+const styles = StyleSheet.create({
+  button: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 8, width: '100%', marginBottom: 12 },
+  primaryButton: { backgroundColor: '#6FA4A1' },
+  socialButton: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0' },
+  text: { fontSize: 14, fontWeight: '700' },
+  primaryText: { color: '#FFFFFF' },
+  socialText: { color: '#4A5568' },
+  iconWrapper: { marginRight: 8 },
+});

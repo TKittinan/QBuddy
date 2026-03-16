@@ -1,50 +1,49 @@
-import React from "react";
-import clsx from "clsx";
+import React from 'react';
+import { View, Text, TextInput, TextInputProps, StyleSheet, TouchableOpacity } from 'react-native';
 
-interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
-  label?: string;
-  error?: string;
-  icon?: React.ReactNode;
+interface InputProps extends TextInputProps {
+  label: string;
+  rightIcon?: React.ReactNode;
+  onRightIconPress?: () => void;
+  rightTopElement?: React.ReactNode; 
 }
 
 export const Input: React.FC<InputProps> = ({
   label,
-  error,
-  icon,
-  className,
+  rightIcon,
+  onRightIconPress,
+  rightTopElement,
+  style,
   ...props
 }) => {
   return (
-    <div className="w-full">
-      {label && (
-        <label className="block mb-1 text-sm font-medium text-gray-700">
-          {label}
-        </label>
-      )}
-
-      <div className="relative">
-        {icon && (
-          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-            {icon}
-          </div>
-        )}
-
-        <input
-          className={clsx(
-            "w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2",
-            icon && "pl-10",
-            error
-              ? "border-red-500 focus:ring-red-400"
-              : "border-gray-300 focus:ring-teal-400",
-            className
-          )}
+    <View style={styles.container}>
+      <View style={styles.labelContainer}>
+        <Text style={styles.label}>{label}</Text>
+        {rightTopElement && rightTopElement}
+      </View>
+      
+      <View style={styles.inputContainer}>
+        <TextInput
+          style={[styles.input, style]}
+          placeholderTextColor="#A0AEC0"
           {...props}
         />
-      </div>
-
-      {error && (
-        <p className="mt-1 text-xs text-red-500">{error}</p>
-      )}
-    </div>
+        {rightIcon && (
+          <TouchableOpacity onPress={onRightIconPress} style={styles.iconContainer} activeOpacity={0.7} disabled={!onRightIconPress}>
+            {rightIcon}
+          </TouchableOpacity>
+        )}
+      </View>
+    </View>
   );
 };
+
+const styles = StyleSheet.create({
+  container: { marginBottom: 16, width: '100%' },
+  labelContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  label: { fontSize: 13, fontWeight: '700', color: '#4A5568' },
+  inputContainer: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#CBD5E0', borderRadius: 8, backgroundColor: '#FFFFFF' },
+  input: { flex: 1, paddingHorizontal: 16, paddingVertical: 14, fontSize: 14, color: '#2D3748' },
+  iconContainer: { paddingHorizontal: 16 },
+});
