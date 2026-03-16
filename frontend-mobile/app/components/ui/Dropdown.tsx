@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { createPortal } from "react-dom"; // ✅ ใช้ Portal เพื่อให้ลอยเหนือทุกอย่าง
+import { createPortal } from "react-dom";
 
 export interface DropdownItem {
   label: React.ReactNode;

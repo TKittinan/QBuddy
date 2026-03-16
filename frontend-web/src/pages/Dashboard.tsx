@@ -23,7 +23,7 @@ export default function Dashboard() {
     { title: "Completed Today", value: 342 },
   ];
 
-  // ✅ 2. เปลี่ยนจาก Column<any> เป็น Column<ActivityItem> เพื่อแก้ Error ESLint
+  // 2. เปลี่ยนจาก Column<any> เป็น Column<ActivityItem> เพื่อแก้ Error ESLint
   const columns: Column<ActivityItem>[] = [
     { header: "USER", key: "user", className: "font-medium text-slate-700" },
     { header: "ACTION", key: "action" },

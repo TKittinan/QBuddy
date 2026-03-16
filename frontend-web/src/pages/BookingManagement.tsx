@@ -88,7 +88,7 @@ export default function BookingManagement() {
       key: "id",
       className: "text-right",
       render: (item) => (
-        // ✅ เปลี่ยนมาใช้ Dropdown แทนปุ่ม Eye 
+        //เปลี่ยนมาใช้ Dropdown แทนปุ่ม Eye 
         <Dropdown 
           trigger={
             <button className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors">
@@ -118,7 +118,7 @@ export default function BookingManagement() {
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       
-      {/* 🔝 Header Section */}
+      {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Booking Management</h2>
@@ -126,7 +126,7 @@ export default function BookingManagement() {
         </div>
       </div>
 
-      {/* 🔍 Filters & Search Bar */}
+      {/* Filters & Search Bar */}
       <div className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-3">
           <Dropdown 
@@ -159,7 +159,7 @@ export default function BookingManagement() {
         </div>
       </div>
 
-      {/* 📊 Table Section */}
+      {/* Table Section */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
         <div className="p-1">
           <Table data={mockBookings} columns={columns} />
@@ -175,7 +175,7 @@ export default function BookingManagement() {
         </div>
       </div>
 
-      {/* 📉 Bottom Stats Section */}
+      {/* Bottom Stats Section */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
           <div>

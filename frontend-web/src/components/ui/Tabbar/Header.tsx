@@ -21,7 +21,7 @@ export default function Header({ title, onMenuClick }: HeaderProps) {
     <header className="bg-white border-b border-slate-200 px-4 lg:px-8 py-3 lg:py-4 flex items-center justify-between z-40 sticky top-0 shadow-sm">
       
       <div className="flex items-center gap-3">
-        {/* ✅ แสดงปุ่ม Hamburger บน iPad แนวตั้ง (จอ < 1024px) */}
+        {/* แสดงปุ่ม Hamburger บน iPad แนวตั้ง (จอ < 1024px) */}
         <button 
           onClick={onMenuClick}
           className="lg:hidden p-2 hover:bg-slate-100 rounded-xl text-slate-600 active:scale-95 transition-all"
@@ -35,7 +35,7 @@ export default function Header({ title, onMenuClick }: HeaderProps) {
       </div>
 
       <div className="flex items-center gap-4">
-        {/* 💻 Desktop View (จอ >= 1024px) */}
+        {/* Desktop View (จอ >= 1024px) */}
         <div className="hidden lg:flex items-center gap-6">
           <div className="relative group">
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -56,7 +56,7 @@ export default function Header({ title, onMenuClick }: HeaderProps) {
           </div>
         </div>
 
-        {/* ✅ Profile Menu: รวมเมนูที่ iPad แนวตั้งต้องใช้ */}
+        {/* Profile Menu: รวมเมนูที่ iPad แนวตั้งต้องใช้ */}
         <Dropdown 
           trigger={
             <button className="flex items-center gap-3 hover:bg-slate-50 p-1 pr-2 rounded-xl transition-all">

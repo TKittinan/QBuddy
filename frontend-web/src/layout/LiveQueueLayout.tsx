@@ -28,7 +28,7 @@ export default function LiveQueueLayout() {
 
       {/* 3. Main Content */}
       <div className="flex-1 flex flex-col h-full overflow-hidden">
-        {/* ✅ ส่ง title และฟังก์ชันเปิดเมนูไปที่ Header */}
+        {/* ส่ง title และฟังก์ชันเปิดเมนูไปที่ Header */}
         <Header 
           title="Live Queue Management" 
           onMenuClick={() => setIsSidebarOpen(true)} 
