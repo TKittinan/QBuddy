@@ -33,7 +33,7 @@ export default function UserManagement() {
     setEmailError(""); // เคลียร์ error ทิ้งทุกครั้งที่เปิดฟอร์มใหม่
   };
 
-  // ✅ ฟังก์ชันเช็ครูปแบบอีเมลด้วย Regex
+  // ฟังก์ชันเช็ครูปแบบอีเมลด้วย Regex
   const validateEmail = (email: string) => {
     // ต้องมีตัวอักษร @ และ . (เช่น test@email.com)
     const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -43,7 +43,7 @@ export default function UserManagement() {
   const handleConfirmEdit = () => {
     if (!editingUser) return;
 
-    // ✅ ตรวจสอบอีเมลก่อนบันทึก
+    // ตรวจสอบอีเมลก่อนบันทึก
     if (!editEmail.trim()) {
       setEmailError("กรุณากรอกอีเมล");
       return;

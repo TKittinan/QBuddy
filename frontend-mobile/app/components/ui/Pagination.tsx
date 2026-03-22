@@ -1,3 +1,5 @@
+import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 import { Button } from "./Button";
 
 interface PaginationProps {
@@ -12,26 +14,32 @@ export const Pagination: React.FC<PaginationProps> = ({
   onChange,
 }) => {
   return (
-    <div className="flex items-center gap-2">
+    <View style={styles.container}>
       <Button
+        title="Prev"
         variant="outline"
         disabled={currentPage === 1}
-        onClick={() => onChange(currentPage - 1)}
-      >
-        Prev
-      </Button>
+        onPress={() => onChange(currentPage - 1)}
+        style={styles.btnWidth}
+      />
 
-      <span className="text-sm">
+      <Text style={styles.text}>
         Page {currentPage} of {totalPages}
-      </span>
+      </Text>
 
       <Button
+        title="Next"
         variant="outline"
         disabled={currentPage === totalPages}
-        onClick={() => onChange(currentPage + 1)}
-      >
-        Next
-      </Button>
-    </div>
+        onPress={() => onChange(currentPage + 1)}
+        style={styles.btnWidth}
+      />
+    </View>
   );
 };
+
+const styles = StyleSheet.create({
+  container: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, marginVertical: 20 },
+  text: { fontSize: 14, color: '#4A5568', fontWeight: '500' },
+  btnWidth: { width: 80, paddingVertical: 8 }
+});
