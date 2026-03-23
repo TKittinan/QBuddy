@@ -6,19 +6,22 @@ import { Mail, EyeOff, Eye } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Import Layout หลักและ Hook สำหรับจัดการ Auth
 import { AuthLayout } from '../layout/AuthLayout';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../context/auth/use.Auth';
 
-// จุดเชื่อมต่อ DATABASE จำลองสำหรับตรวจสอบข้อมูล
 const mockLoginAPI = async (loginData: any) => {
   await new Promise(resolve => setTimeout(resolve, 500));
   const existingUsersJson = await AsyncStorage.getItem('mock_users_db');
-  const existingUsers = existingUsersJson ? JSON.parse(existingUsersJson) : [];
   
-  // ค้นหาผู้ใช้จาก Email หรือ Phone
+  // ถ้ายังไม่เคยสมัครเลย ให้แจ้งเตือนก่อน
+  if (!existingUsersJson) {
+    throw new Error('ไม่พบบัญชีผู้ใช้งานในระบบ กรุณาสมัครสมาชิกก่อน');
+  }
+
+  const existingUsers = JSON.parse(existingUsersJson);
+  
   const foundUser = existingUsers.find((u: any) => 
     u.email === loginData.emailOrPhone || u.phone === loginData.emailOrPhone
   );
@@ -31,9 +34,8 @@ const mockLoginAPI = async (loginData: any) => {
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login } = useAuth(); // เรียกใช้ฟังก์ชัน login จาก Central Context
+  const { login } = useAuth();
 
-  // States สำหรับจัดการฟอร์มและข้อความแจ้งเตือน
   const [emailOrPhone, setEmailOrPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -42,7 +44,6 @@ export default function LoginPage() {
   const [passwordError, setPasswordError] = useState('');
 
   const handleLogin = async () => {
-    // ล้าง Error เก่าออกก่อนเริ่มการตรวจสอบใหม่
     setEmailError(''); 
     setPasswordError('');
 
@@ -56,21 +57,31 @@ export default function LoginPage() {
     try {
       const user = await mockLoginAPI({ emailOrPhone, password });
       
-      // เมื่อตรวจสอบผ่าน ให้บันทึกข้อมูลเข้า Context 
-      // ระบบ RootLayout (Police) จะตรวจเช็ค ai_consented และพาไปหน้าถัดไปเองอัตโนมัติ
+      // 1. บันทึกข้อมูลลง Context (และ AsyncStorage 'user_session')
       await login({ 
         id: user.id, 
         name: user.fullName, 
         email: user.email, 
         phone: user.phone,
         role: user.role,
-        ai_consented: user.ai_consented 
+        ai_consented: user.ai_consented // ค่านี้จะติดมาจาก Database จำลอง
       });
 
+      // 2. [จุดที่แก้ไข] เพิ่มการ Redirect ด้วยตัวเองเพื่อความชัวร์ (Fallback)
+      // เช็คว่า User คนนี้เคยยอมรับ AI หรือยัง
+      if (user.ai_consented) {
+        router.replace('/pages/Home' as any);
+      } else {
+        router.replace('/pages/AIConsent' as any);
+      }
+
     } catch (error: any) {
+      // แสดง Alert เพื่อให้รู้ว่า Error ติดที่ตรงไหน (เช่น รหัสผิด หรือ หาเมลไม่เจอ)
+      Alert.alert('การเข้าสู่ระบบไม่สำเร็จ', error.message);
+      
       if (error.message.includes('บัญชี')) {
         setEmailError(error.message);
-      } else {
+      } else if (error.message.includes('รหัสผ่าน')) {
         setPasswordError(error.message);
       }
     } finally { 
