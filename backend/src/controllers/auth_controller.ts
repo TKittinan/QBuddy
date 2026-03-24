@@ -4,7 +4,7 @@ import jwt from "jsonwebtoken";
 import { prisma } from "../lib/prisma";
 
 export const register = async (req: Request, res: Response) => {
-  const { email, password, first_name , last_name } = req.body;
+  const { email, password, name } = req.body;
 
   const hash = await bcrypt.hash(password, 10);
 
@@ -12,8 +12,7 @@ export const register = async (req: Request, res: Response) => {
     data: {
       email,
       password: hash,
-      first_name,
-      last_name,
+      name,
     },
   });
 
