@@ -9,6 +9,8 @@ import restaurantRoute from "./routes/restaurant_route";
 
 import categoryRoute from "./routes/category_route";
 
+import restaurantCategoryRoute from "./routes/restaurant_category_route";
+
 dotenv.config();
 
 const app = express();
@@ -22,6 +24,8 @@ app.use("/auth", authRoute);
 app.use("/restaurants", restaurantRoute);
 
 app.use("/categories", categoryRoute);
+
+app.use("/restaurant-category", restaurantCategoryRoute);
 
 app.listen(3000, () => {
   console.log("Server running on 3000");
