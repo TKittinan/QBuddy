@@ -1,15 +1,25 @@
 import React from 'react';
-import { TouchableOpacity, Text, View, StyleSheet } from 'react-native';
+import { TouchableOpacity, Text, View, StyleSheet, StyleProp, ViewStyle } from 'react-native';
 
 interface CategoryItemProps {
   label: string;
   icon: React.ReactNode;
-  onPress?: () => void;
+  onPress?: () => void; // ฟังก์ชันที่จะทำงานเมื่อกดปุ่ม
+  containerStyle?: StyleProp<ViewStyle>; // รองรับการแต่งสไตล์เพิ่มเติมจากหน้า Page
 }
 
-export const CategoryItem: React.FC<CategoryItemProps> = ({ label, icon, onPress }) => {
+export const CategoryItem: React.FC<CategoryItemProps> = ({ 
+  label, 
+  icon, 
+  onPress, 
+  containerStyle 
+}) => {
   return (
-    <TouchableOpacity style={styles.container} activeOpacity={0.7} onPress={onPress}>
+    <TouchableOpacity 
+      style={[styles.container, containerStyle]} 
+      activeOpacity={0.7} 
+      onPress={onPress}
+    >
       <View style={styles.iconWrapper}>
         {icon}
       </View>
@@ -25,9 +35,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     padding: 12,
     borderRadius: 12,
-    width: '48%', // จัดให้แสดง 2 คอลัมน์
+    width: '48%', // พื้นฐานแสดง 2 คอลัมน์
     marginBottom: 12,
-    // Shadow
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
