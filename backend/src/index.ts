@@ -5,6 +5,8 @@ import dotenv from "dotenv";
 import userRoute from "./routes/user_route";
 import authRoute from "./routes/auth_route";
 
+import restaurantRoute from "./routes/restaurant_route";
+
 dotenv.config();
 
 const app = express();
@@ -14,6 +16,8 @@ app.use(express.json());
 
 app.use("/users", userRoute);
 app.use("/auth", authRoute);
+
+app.use("/restaurants", restaurantRoute);
 
 app.listen(3000, () => {
   console.log("Server running on 3000");
