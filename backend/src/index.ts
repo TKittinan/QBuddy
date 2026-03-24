@@ -11,6 +11,8 @@ import restaurantCategoryRoute from "./routes/restaurant_category_route";
 
 import queueRoute from "./routes/queue_route";
 
+import bookingRoute from "./routes/booking_route";
+
 dotenv.config();
 
 const app = express();
@@ -26,6 +28,8 @@ app.use("/categories", categoryRoute);
 app.use("/restaurant-category", restaurantCategoryRoute);
 
 app.use("/queue", queueRoute);
+
+app.use("/booking" , bookingRoute);
 
 app.listen(3000, () => {
   console.log("Server running on 3000");
