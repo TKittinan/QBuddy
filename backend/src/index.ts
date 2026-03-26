@@ -15,6 +15,8 @@ import bookingRoute from "./routes/booking_route";
 
 import promotionRoute from "./routes/promotion_route";
 
+import activityRoute from "./routes/activity_route";
+
 dotenv.config();
 
 const app = express();
@@ -34,6 +36,9 @@ app.use("/queue", queueRoute);
 app.use("/booking" , bookingRoute);
 
 app.use("/promotion", promotionRoute);
+
+app.use("/activity" , activityRoute)
+
 app.listen(3000, () => {
   console.log("Server running on 3000");
 });
