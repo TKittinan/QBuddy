@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useOutletContext } from "react-router-dom";
 import { RefreshCcw, Plus, Clock, PlayCircle, CheckCircle2, MoreHorizontal, User } from "lucide-react";
 import StatCard from "../components/ui/StatCard";
 import { Table } from "../components/ui/Table/Table";
@@ -7,8 +8,8 @@ import { Button } from "../components/ui/Button";
 import { SidePanelEdit } from "../components/ui/Tabbar/SidePanelEdit";
 import { SearchSelect, type SearchOption } from "../components/ui/SearchSelect";
 
-// 🌟 Import ฟังก์ชันสร้าง ID ร้านค้าจากไฟล์ที่ตั้งชื่อตรงตัว
-import { generateShopId } from "../utils/generateShopId";
+// 🌟 Import Pagination Component
+import { Pagination } from "../components/ui/Pagination"; 
 
 type TicketStatus = "Waiting" | "Serving" | "Completed";
 
@@ -19,21 +20,22 @@ type Ticket = {
   shopId: string;
   waitTime: number;
   status: TicketStatus;
-  createdAt: Date;
+  createdAt: Date | string;
 };
-
-// ใช้ฟังก์ชัน generateShopId สร้าง ID อัตโนมัติ
-const mockShops = [
-  { id: generateShopId("Premium Dining", 1), name: "Premium Dining", serviceType: "Table Service", avgServiceTime: 15 },
-  { id: generateShopId("Fast Cafe", 1), name: "Fast Cafe", serviceType: "Counter Service", avgServiceTime: 5 },
-  { id: generateShopId("Seoul Chon", 1), name: "Seoul Chon", serviceType: "Table Service", avgServiceTime: 15 },
-  { id: generateShopId("Nude Steak", 1), name: "Nude Steak", serviceType: "Table Service", avgServiceTime: 20 },
-  { id: generateShopId("Nude Steak", 2), name: "Nude Steak (Branch 2)", serviceType: "Table Service", avgServiceTime: 20 },
-];
 
 export default function LiveQueue() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
+  // 🌟 เพิ่ม State สำหรับเก็บข้อมูลร้านค้าที่ดึงมาจาก Place Management
+  const [shops, setShops] = useState<any[]>([]);
+  
   const [filter, setFilter] = useState<string>("All");
+
+  // State สำหรับ Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 6;
+
+  const context = useOutletContext<{ searchQuery: string }>();
+  const searchQuery = context?.searchQuery || "";
 
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [customerName, setCustomerName] = useState("");
@@ -43,41 +45,36 @@ export default function LiveQueue() {
   // 1. โหลดข้อมูลตอนเปิดหน้า (Local Storage)
   // ==========================================
   useEffect(() => {
+    // 1. โหลดข้อมูลตั๋วคิว
     const savedTickets = localStorage.getItem("live_queue_tickets");
     if (savedTickets) {
       setTickets(JSON.parse(savedTickets));
     }
-  }, []);
 
-  /*
-  // [FUTURE DB] โค้ดสำหรับดึงข้อมูลจาก Database จริง (GET)
-  useEffect(() => {
-    const fetchTickets = async () => {
-      try {
-        const res = await fetch('/api/tickets');
-        const data = await res.json();
-        setTickets(data);
-      } catch (error) {
-        console.error("Fetch Error:", error);
-      }
-    };
-    fetchTickets();
+    // 🌟 2. โหลดข้อมูลร้านค้ามาจาก Place Management (Single Source of Truth)
+    const savedShops = localStorage.getItem("local_shops_db");
+    if (savedShops) {
+      const parsedShops = JSON.parse(savedShops);
+      // เอาเฉพาะร้านที่สถานะ "Active" เท่านั้นมาแสดงใน Dropdown ให้เลือกรับคิว
+      const activeShops = parsedShops.filter((s: any) => s.status === "Active");
+      setShops(activeShops);
+    }
   }, []);
-  */
 
   const saveTicketsToLocal = (newTickets: Ticket[]) => {
     setTickets(newTickets);
     localStorage.setItem("live_queue_tickets", JSON.stringify(newTickets));
   };
 
+  // 🌟 แปลงข้อมูลร้านค้าที่ดึงมา ให้เข้ากับรูปแบบของ SearchSelect Component
   const shopOptions: SearchOption[] = useMemo(() => {
-    return mockShops.map(shop => ({
+    return shops.map(shop => ({
       id: shop.id,
       label: shop.name,
-      subLabel: shop.serviceType,
+      subLabel: `${shop.serviceType} (${shop.placeId})`, // โชว์รูปแบบสวยๆ เช่น Table Service (#NYK-001)
       originalData: shop
     }));
-  }, []);
+  }, [shops]);
 
   const stats = useMemo(() => {
     const waiting = tickets.filter(t => t.status === "Waiting").length;
@@ -88,16 +85,13 @@ export default function LiveQueue() {
       : 0;
 
     return [
-      { title: "Total Waiting", value: waiting, change: "+1" },
+      { title: "Total Waiting", value: waiting},
       { title: "Currently Serving", value: serving },
       { title: "Avg. Wait Time", value: `${avgWait}m` },
       { title: "Completed Today", value: completed },
     ];
   }, [tickets]);
 
-  // ==========================================
-  // 2. ฟังก์ชันสร้างคิว (Create) พร้อมระบบรันคิว
-  // ==========================================
   const handleCreateTicket = () => {
     if (!customerName || !selectedShopOption) {
       alert("กรุณากรอกชื่อลูกค้าและเลือกร้านค้าให้ครบถ้วน");
@@ -106,11 +100,8 @@ export default function LiveQueue() {
 
     const shopData = selectedShopOption.originalData;
     const shopId = shopData.id;
-
-    // กรองหาเฉพาะคิวที่เป็นของร้านค้านี้
     const shopTickets = tickets.filter(t => t.shopId === shopId);
 
-    // ค้นหาเลขคิวล่าสุดของร้านนี้
     let maxQueueNum = 0;
     shopTickets.forEach(t => {
       const parts = t.id.split('-ctm'); 
@@ -123,62 +114,69 @@ export default function LiveQueue() {
     });
 
     const nextQueueNum = maxQueueNum + 1;
-    // สร้าง ID คิวใหม่ เช่น SC1-ctm1, NS2-ctm3
     const newTicketId = `${shopId}-ctm${nextQueueNum}`;
 
     const peopleAhead = shopTickets.filter(t => t.status === "Waiting").length;
-    const calculatedWait = peopleAhead * shopData.avgServiceTime;
+    const calculatedWait = peopleAhead * (shopData.avgServiceTime || 15); // เผื่อเคสร้านไม่มีค่า avgTime
 
     const newTicket: Ticket = {
       id: newTicketId,
       name: customerName,
-      service: shopData.serviceType,
+      service: shopData.serviceType || "Unknown Service",
       shopId: shopId,
       waitTime: calculatedWait,
       status: "Waiting",
-      createdAt: new Date(),
+      createdAt: new Date().toISOString(),
     };
 
     const updatedTickets = [...tickets, newTicket];
     saveTicketsToLocal(updatedTickets);
     
-    /*
-    // [FUTURE DB] โค้ดสำหรับเพิ่มข้อมูลลง Database จริง (POST)
-    // await fetch('/api/tickets', {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify(newTicket)
-    // });
-    */
-
     setCustomerName("");
     setSelectedShopOption(null);
     setIsPanelOpen(false);
   };
 
-  // ==========================================
-  // 3. ฟังก์ชันอัปเดตสถานะคิว (Update)
-  // ==========================================
   const updateStatus = (id: string, newStatus: TicketStatus) => {
     const updatedTickets = tickets.map(t => 
       t.id === id ? { ...t, status: newStatus } : t
     );
     saveTicketsToLocal(updatedTickets);
-
-    /*
-    // [FUTURE DB] โค้ดสำหรับอัปเดตข้อมูลลง Database จริง (PATCH/PUT)
-    // await fetch(`/api/tickets/${id}`, {
-    //   method: 'PATCH',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify({ status: newStatus })
-    // });
-    */
   };
 
+  // Filter & Sort: กรองข้อมูลและเรียงให้ของใหม่สุดอยู่บนสุด
   const filteredData = useMemo(() => {
-    if (filter === "All") return tickets;
-    return tickets.filter(t => t.status === filter);
-  }, [tickets, filter]);
+    let result = [...tickets];
+
+    if (filter !== "All") {
+      result = result.filter(t => t.status === filter);
+    }
+
+    if (searchQuery) {
+      const lowerQuery = searchQuery.toLowerCase();
+      result = result.filter(t => 
+        t.id.toLowerCase().includes(lowerQuery) || 
+        t.name.toLowerCase().includes(lowerQuery)
+      );
+    }
+
+    // เรียงจากใหม่ไปเก่า (ใบใหม่สุดจะอยู่หน้าแรก แถวบนสุด)
+    result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    return result;
+  }, [tickets, filter, searchQuery]);
+
+  // หั่นข้อมูลตามหน้า
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  const paginatedData = filteredData.slice(
+    (currentPage - 1) * itemsPerPage, 
+    currentPage * itemsPerPage
+  );
+
+  // รีเซ็ตกลับไปหน้า 1 เสมอเวลาเปลี่ยน Tab, ค้นหา หรือ มีคิวใหม่เพิ่มเข้ามา
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filter, searchQuery, tickets.length]);
 
   const queueColumns = [
     { header: "TICKET", key: "id", className: "font-bold text-indigo-600 uppercase" },
@@ -252,7 +250,7 @@ export default function LiveQueue() {
               <Button 
                 key={tab} 
                 variant={filter === tab ? "primary" : "ghost"}
-                className={filter === tab ? "bg-indigo-600 text-white hover:bg-indigo-700" : ""}
+                className={filter === tab ? "bg-teal-600 text-white hover:bg-teal-700" : ""}
                 onClick={() => setFilter(tab)}
               >
                 {tab}
@@ -261,7 +259,15 @@ export default function LiveQueue() {
           </div>
         </div>
 
-        <Table data={filteredData} columns={queueColumns} />
+        <Table data={paginatedData} columns={queueColumns} />
+
+        <Pagination 
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={filteredData.length}
+          itemsPerPage={itemsPerPage}
+          onChange={setCurrentPage}
+        />
       </div>
 
       <SidePanelEdit
@@ -299,7 +305,7 @@ export default function LiveQueue() {
 
           <SearchSelect
             label="Select Shop"
-            placeholder="Search for a shop..."
+            placeholder={shops.length === 0 ? "No active shops available" : "Search for a shop..."}
             options={shopOptions}
             value={selectedShopOption}
             onChange={setSelectedShopOption}

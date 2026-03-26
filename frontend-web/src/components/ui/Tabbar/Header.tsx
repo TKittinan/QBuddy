@@ -12,10 +12,13 @@ import { Dropdown } from "../Dropdown";
 interface HeaderProps {
   title: string;
   onMenuClick?: () => void;
+  // 🌟 เพิ่ม Props สำหรับช่องค้นหา
+  searchQuery?: string;
+  setSearchQuery?: (query: string) => void;
 }
 
-export default function Header({ title, onMenuClick }: HeaderProps) {
-  const { user} = useAuth();
+export default function Header({ title, onMenuClick, searchQuery, setSearchQuery }: HeaderProps) {
+  const { user } = useAuth();
 
   return (
     <header className="bg-white border-b border-slate-200 px-4 lg:px-8 py-3 lg:py-4 flex items-center justify-between z-40 sticky top-0 shadow-sm">
@@ -39,9 +42,12 @@ export default function Header({ title, onMenuClick }: HeaderProps) {
         <div className="hidden lg:flex items-center gap-6">
           <div className="relative group">
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            {/* 🌟 ผูกค่า State เข้ากับ Input */}
             <input
               type="text"
-              placeholder="Search..."
+              placeholder="Search by name or email..."
+              value={searchQuery || ""}
+              onChange={(e) => setSearchQuery && setSearchQuery(e.target.value)}
               className="pl-10 pr-4 py-2 w-64 bg-slate-50 border border-slate-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-100 transition-all"
             />
           </div>
@@ -56,7 +62,7 @@ export default function Header({ title, onMenuClick }: HeaderProps) {
           </div>
         </div>
 
-        {/* Profile Menu: รวมเมนูที่ iPad แนวตั้งต้องใช้ */}
+        {/* Profile Menu */}
         <Dropdown 
           trigger={
             <button className="flex items-center gap-3 hover:bg-slate-50 p-1 pr-2 rounded-xl transition-all">
