@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useOutletContext } from "react-router-dom"; // 🌟 Import เพิ่มเติม
 import { 
   Plus, MoreHorizontal, Edit, Trash2, 
   Mail, Shield, Calendar, CheckCircle2, User as UserIcon
@@ -16,34 +17,100 @@ const initialUsers: User[] = [
 ];
 
 export default function UserManagement() {
-  const [users, setUsers] = useState<User[]>(initialUsers);
+  const [users, setUsers] = useState<User[]>([]);
   
-  // State สำหรับฟอร์ม
+  // 🌟 ดึง searchQuery ที่ส่งมาจาก Layout (Header)
+  const { searchQuery } = useOutletContext<{ searchQuery: string }>();
+  
+  // State สำหรับฟอร์ม Edit
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
-  
-  // ✅ State สำหรับเก็บข้อความ Error ของอีเมล
   const [emailError, setEmailError] = useState("");
+
+  // State สำหรับฟอร์ม Add New User
+  const [isAddPanelOpen, setIsAddPanelOpen] = useState(false);
+  const [addName, setAddName] = useState("");
+  const [addEmail, setAddEmail] = useState("");
+  const [addEmailError, setAddEmailError] = useState("");
+
+  useEffect(() => {
+    const savedUsers = localStorage.getItem("system_users");
+    if (savedUsers) {
+      setUsers(JSON.parse(savedUsers));
+    } else {
+      setUsers(initialUsers);
+      localStorage.setItem("system_users", JSON.stringify(initialUsers));
+    }
+  }, []);
+
+  const saveUsersToLocal = (newUsers: User[]) => {
+    setUsers(newUsers);
+    localStorage.setItem("system_users", JSON.stringify(newUsers));
+  };
+
+  const validateEmail = (email: string) => {
+    const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return regex.test(email);
+  };
+
+  // ==========================================
+  // 🌟 ฟังก์ชันกรองรายชื่อ (Search Filter)
+  // ==========================================
+  const filteredUsers = useMemo(() => {
+    if (!searchQuery) return users;
+    const lowerQuery = searchQuery.toLowerCase();
+    
+    return users.filter(user => 
+      user.name.toLowerCase().includes(lowerQuery) || 
+      user.email.toLowerCase().includes(lowerQuery)
+    );
+  }, [users, searchQuery]);
+
+  const handleConfirmAdd = () => {
+    setAddEmailError("");
+    if (!addName.trim() || !addEmail.trim()) {
+      if (!addEmail.trim()) setAddEmailError("กรุณากรอกอีเมล");
+      alert("กรุณากรอกข้อมูลให้ครบถ้วน");
+      return;
+    }
+    
+    if (!validateEmail(addEmail)) {
+      setAddEmailError("รูปแบบอีเมลไม่ถูกต้อง (เช่น name@example.com)");
+      return;
+    }
+
+    const today = new Date().toLocaleDateString('en-US', { 
+      month: 'short', day: 'numeric', year: 'numeric' 
+    });
+
+    const newUser: User = {
+      id: `usr_${Date.now()}`,
+      name: addName,
+      email: addEmail,
+      role: "CUSTOMER", 
+      status: "INACTIVE", 
+      createdAt: today, 
+    };
+
+    const updatedUsers = [...users, newUser];
+    saveUsersToLocal(updatedUsers);
+    
+    setAddName("");
+    setAddEmail("");
+    setIsAddPanelOpen(false);
+  };
 
   const handleEditClick = (user: User) => {
     setEditingUser(user);
     setEditName(user.name);
     setEditEmail(user.email);
-    setEmailError(""); // เคลียร์ error ทิ้งทุกครั้งที่เปิดฟอร์มใหม่
-  };
-
-  // ✅ ฟังก์ชันเช็ครูปแบบอีเมลด้วย Regex
-  const validateEmail = (email: string) => {
-    // ต้องมีตัวอักษร @ และ . (เช่น test@email.com)
-    const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return regex.test(email);
+    setEmailError("");
   };
 
   const handleConfirmEdit = () => {
     if (!editingUser) return;
 
-    // ✅ ตรวจสอบอีเมลก่อนบันทึก
     if (!editEmail.trim()) {
       setEmailError("กรุณากรอกอีเมล");
       return;
@@ -54,13 +121,19 @@ export default function UserManagement() {
       return;
     }
 
-    // ถ้าผ่านหมด ค่อยบันทึกข้อมูล
     const updatedUsers = users.map((u) => 
       u.id === editingUser.id ? { ...u, name: editName, email: editEmail } : u
     );
     
-    setUsers(updatedUsers); 
+    saveUsersToLocal(updatedUsers); 
     setEditingUser(null);
+  };
+
+  const handleDeleteUser = (id: string) => {
+    if (confirm("Are you sure you want to delete this user?")) {
+      const updatedUsers = users.filter((u) => u.id !== id);
+      saveUsersToLocal(updatedUsers);
+    }
   };
 
   const columns: Column<User>[] = [
@@ -104,7 +177,7 @@ export default function UserManagement() {
           }
           items={[
             { label: "Edit User", icon: <Edit size={16} />, onClick: () => handleEditClick(user) },
-            { label: "Delete User", icon: <Trash2 size={16} />, className: "text-red-600", divider: true, onClick: () => confirm("Are you sure to delete this user?") },
+            { label: "Delete User", icon: <Trash2 size={16} />, className: "text-red-600", divider: true, onClick: () => handleDeleteUser(user.id) },
           ]}
         />
       ),
@@ -115,12 +188,66 @@ export default function UserManagement() {
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-bold text-slate-800">System Users</h2>
-        <Button variant="primary" className="flex items-center gap-2">
+        <Button 
+          variant="primary" 
+          className="flex items-center gap-2"
+          onClick={() => setIsAddPanelOpen(true)}
+        >
           <Plus size={18} /> Add New User
         </Button>
       </div>
 
-      <Table data={users} columns={columns} />
+      {/* 🌟 ส่งข้อมูลที่ผ่านการกรองแล้ว (filteredUsers) ให้ Table แทน */}
+      <Table data={filteredUsers} columns={columns} />
+
+      <SidePanelEdit
+        isOpen={isAddPanelOpen}
+        onClose={() => setIsAddPanelOpen(false)}
+        title="Add New User"
+        footer={
+          <button 
+            onClick={handleConfirmAdd}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-indigo-600 rounded-2xl text-sm font-bold text-white hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 active:scale-[0.98]"
+          >
+            <Plus size={18} />
+            Create User
+          </button>
+        }
+      >
+        <div className="space-y-6">
+          <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">New Customer Details</h4>
+          <div className="space-y-4">
+            <Input 
+              label="Full Name"
+              icon={<UserIcon size={18} />}
+              type="text" 
+              value={addName}
+              onChange={(e) => setAddName(e.target.value)}
+              placeholder="Enter full name"
+              className="bg-slate-50 border-slate-200"
+            />
+            <Input 
+              label="Email Address"
+              icon={<Mail size={18} />}
+              type="email" 
+              value={addEmail}
+              onChange={(e) => {
+                setAddEmail(e.target.value);
+                if (addEmailError) setAddEmailError(""); 
+              }}
+              placeholder="name@example.com"
+              className="bg-slate-50 border-slate-200"
+              error={addEmailError}
+            />
+            <div className="pt-2">
+              <DetailItem icon={<Shield size={18} />} label="Assigned Role" value="CUSTOMER (Fixed)" />
+            </div>
+            <div>
+              <DetailItem icon={<CheckCircle2 size={18} />} label="Initial Status" value="INACTIVE (Awaiting App Login)" />
+            </div>
+          </div>
+        </div>
+      </SidePanelEdit>
 
       <SidePanelEdit
         isOpen={!!editingUser}
@@ -153,7 +280,6 @@ export default function UserManagement() {
             
             <div className="space-y-6">
               <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">User Information</h4>
-              
               <div className="space-y-4">
                 <Input 
                   label="Full Name"
@@ -164,8 +290,6 @@ export default function UserManagement() {
                   placeholder="Enter full name"
                   className="bg-slate-50 border-slate-200"
                 />
-
-                {/* ✅ ส่ง Error ลงไปให้ Component Input */}
                 <Input 
                   label="Email Address"
                   icon={<Mail size={18} />}
@@ -173,13 +297,12 @@ export default function UserManagement() {
                   value={editEmail}
                   onChange={(e) => {
                     setEditEmail(e.target.value);
-                    if (emailError) setEmailError(""); // ✅ พิมพ์ใหม่ให้เคลียร์ Error ทิ้งอัตโนมัติ
+                    if (emailError) setEmailError("");
                   }}
                   placeholder="name@example.com"
                   className="bg-slate-50 border-slate-200"
-                  error={emailError} // ⬅️ ถ้ามีข้อผิดพลาด กรอบจะแดงทันที
+                  error={emailError}
                 />
-
                 <div className="pt-2">
                   <DetailItem icon={<Shield size={18} />} label="Role" value={editingUser.role} />
                 </div>

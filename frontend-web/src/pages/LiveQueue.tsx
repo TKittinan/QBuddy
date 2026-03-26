@@ -1,52 +1,200 @@
-import { RefreshCcw, Plus, MoreHorizontal, CheckCircle2, Clock, PlayCircle } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { useOutletContext } from "react-router-dom";
+import { RefreshCcw, Plus, Clock, PlayCircle, CheckCircle2, MoreHorizontal, User } from "lucide-react";
 import StatCard from "../components/ui/StatCard";
 import { Table } from "../components/ui/Table/Table";
 import { Dropdown } from "../components/ui/Dropdown";
 import { Button } from "../components/ui/Button";
-import type { Column } from "../types";
+import { SidePanelEdit } from "../components/ui/Tabbar/SidePanelEdit";
+import { SearchSelect, type SearchOption } from "../components/ui/SearchSelect";
+
+// 🌟 Import Pagination Component
+import { Pagination } from "../components/ui/Pagination"; 
+
+type TicketStatus = "Waiting" | "Serving" | "Completed";
 
 type Ticket = {
   id: string;
   name: string;
   service: string;
-  wait: string;
-  status: "Serving" | "Waiting" | "Completed";
+  shopId: string;
+  waitTime: number;
+  status: TicketStatus;
+  createdAt: Date | string;
 };
 
-const stats = [
-  { title: "Total Waiting", value: 24, change: "+5%" },
-  { title: "Currently Serving", value: 5 },
-  { title: "Avg. Wait Time", value: "12m", change: "+2m" },
-  { title: "Completed Today", value: 142 },
-];
-
-const tickets: Ticket[] = [
-  { id: "A-101", name: "Mike Ross", service: "Billing", wait: "15m", status: "Serving" },
-  { id: "B-054", name: "Jessica Pearson", service: "Technical Support", wait: "22m", status: "Waiting" },
-  { id: "A-102", name: "Sarah Jenkins", service: "General Inquiry", wait: "4m", status: "Waiting" },
-  { id: "C-003", name: "Louis Litt", service: "New Account", wait: "1m", status: "Waiting" },
-  { id: "A-099", name: "Donna Paulsen", service: "General Inquiry", wait: "35m", status: "Completed" },
-];
-
 export default function LiveQueue() {
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  // 🌟 เพิ่ม State สำหรับเก็บข้อมูลร้านค้าที่ดึงมาจาก Place Management
+  const [shops, setShops] = useState<any[]>([]);
   
-  const queueColumns: Column<Ticket>[] = [
-    { header: "TICKET", key: "id", className: "font-bold text-indigo-600" },
+  const [filter, setFilter] = useState<string>("All");
+
+  // State สำหรับ Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 6;
+
+  const context = useOutletContext<{ searchQuery: string }>();
+  const searchQuery = context?.searchQuery || "";
+
+  const [isPanelOpen, setIsPanelOpen] = useState(false);
+  const [customerName, setCustomerName] = useState("");
+  const [selectedShopOption, setSelectedShopOption] = useState<SearchOption | null>(null);
+
+  // ==========================================
+  // 1. โหลดข้อมูลตอนเปิดหน้า (Local Storage)
+  // ==========================================
+  useEffect(() => {
+    // 1. โหลดข้อมูลตั๋วคิว
+    const savedTickets = localStorage.getItem("live_queue_tickets");
+    if (savedTickets) {
+      setTickets(JSON.parse(savedTickets));
+    }
+
+    // 🌟 2. โหลดข้อมูลร้านค้ามาจาก Place Management (Single Source of Truth)
+    const savedShops = localStorage.getItem("local_shops_db");
+    if (savedShops) {
+      const parsedShops = JSON.parse(savedShops);
+      // เอาเฉพาะร้านที่สถานะ "Active" เท่านั้นมาแสดงใน Dropdown ให้เลือกรับคิว
+      const activeShops = parsedShops.filter((s: any) => s.status === "Active");
+      setShops(activeShops);
+    }
+  }, []);
+
+  const saveTicketsToLocal = (newTickets: Ticket[]) => {
+    setTickets(newTickets);
+    localStorage.setItem("live_queue_tickets", JSON.stringify(newTickets));
+  };
+
+  // 🌟 แปลงข้อมูลร้านค้าที่ดึงมา ให้เข้ากับรูปแบบของ SearchSelect Component
+  const shopOptions: SearchOption[] = useMemo(() => {
+    return shops.map(shop => ({
+      id: shop.id,
+      label: shop.name,
+      subLabel: `${shop.serviceType} (${shop.placeId})`, // โชว์รูปแบบสวยๆ เช่น Table Service (#NYK-001)
+      originalData: shop
+    }));
+  }, [shops]);
+
+  const stats = useMemo(() => {
+    const waiting = tickets.filter(t => t.status === "Waiting").length;
+    const serving = tickets.filter(t => t.status === "Serving").length;
+    const completed = tickets.filter(t => t.status === "Completed").length;
+    const avgWait = tickets.length > 0 
+      ? Math.round(tickets.reduce((acc, curr) => acc + curr.waitTime, 0) / tickets.length)
+      : 0;
+
+    return [
+      { title: "Total Waiting", value: waiting},
+      { title: "Currently Serving", value: serving },
+      { title: "Avg. Wait Time", value: `${avgWait}m` },
+      { title: "Completed Today", value: completed },
+    ];
+  }, [tickets]);
+
+  const handleCreateTicket = () => {
+    if (!customerName || !selectedShopOption) {
+      alert("กรุณากรอกชื่อลูกค้าและเลือกร้านค้าให้ครบถ้วน");
+      return;
+    }
+
+    const shopData = selectedShopOption.originalData;
+    const shopId = shopData.id;
+    const shopTickets = tickets.filter(t => t.shopId === shopId);
+
+    let maxQueueNum = 0;
+    shopTickets.forEach(t => {
+      const parts = t.id.split('-ctm'); 
+      if (parts.length === 2) {
+        const num = parseInt(parts[1], 10);
+        if (!isNaN(num) && num > maxQueueNum) {
+          maxQueueNum = num;
+        }
+      }
+    });
+
+    const nextQueueNum = maxQueueNum + 1;
+    const newTicketId = `${shopId}-ctm${nextQueueNum}`;
+
+    const peopleAhead = shopTickets.filter(t => t.status === "Waiting").length;
+    const calculatedWait = peopleAhead * (shopData.avgServiceTime || 15); // เผื่อเคสร้านไม่มีค่า avgTime
+
+    const newTicket: Ticket = {
+      id: newTicketId,
+      name: customerName,
+      service: shopData.serviceType || "Unknown Service",
+      shopId: shopId,
+      waitTime: calculatedWait,
+      status: "Waiting",
+      createdAt: new Date().toISOString(),
+    };
+
+    const updatedTickets = [...tickets, newTicket];
+    saveTicketsToLocal(updatedTickets);
+    
+    setCustomerName("");
+    setSelectedShopOption(null);
+    setIsPanelOpen(false);
+  };
+
+  const updateStatus = (id: string, newStatus: TicketStatus) => {
+    const updatedTickets = tickets.map(t => 
+      t.id === id ? { ...t, status: newStatus } : t
+    );
+    saveTicketsToLocal(updatedTickets);
+  };
+
+  // Filter & Sort: กรองข้อมูลและเรียงให้ของใหม่สุดอยู่บนสุด
+  const filteredData = useMemo(() => {
+    let result = [...tickets];
+
+    if (filter !== "All") {
+      result = result.filter(t => t.status === filter);
+    }
+
+    if (searchQuery) {
+      const lowerQuery = searchQuery.toLowerCase();
+      result = result.filter(t => 
+        t.id.toLowerCase().includes(lowerQuery) || 
+        t.name.toLowerCase().includes(lowerQuery)
+      );
+    }
+
+    // เรียงจากใหม่ไปเก่า (ใบใหม่สุดจะอยู่หน้าแรก แถวบนสุด)
+    result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    return result;
+  }, [tickets, filter, searchQuery]);
+
+  // หั่นข้อมูลตามหน้า
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  const paginatedData = filteredData.slice(
+    (currentPage - 1) * itemsPerPage, 
+    currentPage * itemsPerPage
+  );
+
+  // รีเซ็ตกลับไปหน้า 1 เสมอเวลาเปลี่ยน Tab, ค้นหา หรือ มีคิวใหม่เพิ่มเข้ามา
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filter, searchQuery, tickets.length]);
+
+  const queueColumns = [
+    { header: "TICKET", key: "id", className: "font-bold text-indigo-600 uppercase" },
     { header: "CUSTOMER NAME", key: "name", className: "font-medium text-slate-700" },
     { header: "SERVICE TYPE", key: "service" },
     { 
       header: "WAIT TIME", 
-      key: "wait",
-      render: (item) => (
+      key: "waitTime",
+      render: (item: Ticket) => (
         <div className="flex items-center gap-2 text-slate-500">
-          <Clock size={14} /> {item.wait}
+          <Clock size={14} /> {item.waitTime}m
         </div>
       )
     },
     {
       header: "STATUS",
       key: "status",
-      render: (item) => {
+      render: (item: Ticket) => {
         const styles = {
           Serving: "bg-blue-50 text-blue-600",
           Waiting: "bg-amber-50 text-amber-600",
@@ -59,7 +207,7 @@ export default function LiveQueue() {
       header: "ACTIONS",
       key: "id",
       className: "text-right",
-      render: (item) => (
+      render: (item: Ticket) => (
         <Dropdown 
           trigger={
             <button className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors">
@@ -67,9 +215,8 @@ export default function LiveQueue() {
             </button>
           }
           items={[
-            { label: "Start Serving", icon: <PlayCircle size={16} />, className: "text-blue-600", onClick: () => alert(`Serving ${item.id}`) },
-            { label: "Mark Completed", icon: <CheckCircle2 size={16} />, className: "text-emerald-600", onClick: () => alert(`Completed ${item.id}`) },
-            { label: "Cancel Ticket", className: "text-red-600", divider: true, onClick: () => confirm("Cancel?") },
+            { label: "Start Serving", icon: <PlayCircle size={16} />, className: "text-blue-600", onClick: () => updateStatus(item.id, "Serving") },
+            { label: "Mark Completed", icon: <CheckCircle2 size={16} />, className: "text-emerald-600", onClick: () => updateStatus(item.id, "Completed") },
           ]}
         />
       ),
@@ -78,44 +225,93 @@ export default function LiveQueue() {
 
   return (
     <div className="space-y-8">
-      {/* ✅ ใช้ Button Generic แทนปุ่ม Hardcode */}
       <div className="flex justify-end gap-3">
-        <Button variant="outline" className="flex items-center gap-2">
-          <RefreshCcw size={16} /> Refresh Data
+        <Button variant="outline" onClick={() => window.location.reload()}>
+          <RefreshCcw size={16} className="mr-2" /> Refresh Data
         </Button>
 
-        <Button variant="primary" className="flex items-center gap-2 bg-[#1E1E2D] hover:bg-slate-800 border-none">
-          <Plus size={16} /> New Ticket
+        <Button 
+          variant="primary" 
+          className="bg-[#1E1E2D] hover:bg-slate-800"
+          onClick={() => setIsPanelOpen(true)}
+        >
+          <Plus size={16} className="mr-2" /> New Ticket
         </Button>
       </div>
 
-      {/* Stats Section */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
-        {stats.map((stat, i) => (
-          <StatCard key={i} {...stat} />
-        ))}
+        {stats.map((stat, i) => <StatCard key={i} {...stat} />)}
       </div>
 
-      {/* Table Section */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex flex-wrap gap-2">
-            {["All Services", "Billing", "Technical Support"].map((tab, i) => (
-              <Button key={i} variant={i === 0 ? "primary" : "ghost"} className={i === 0 ? "bg-indigo-600" : ""}>
+            {["All", "Waiting", "Serving", "Completed"].map((tab) => (
+              <Button 
+                key={tab} 
+                variant={filter === tab ? "primary" : "ghost"}
+                className={filter === tab ? "bg-teal-600 text-white hover:bg-teal-700" : ""}
+                onClick={() => setFilter(tab)}
+              >
                 {tab}
               </Button>
             ))}
           </div>
-          <input
-            type="text"
-            placeholder="Search ticket..."
-            className="px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-100 w-full md:w-64"
-          />
         </div>
 
-        {/* ✅ ใช้ Table Generic */}
-        <Table data={tickets} columns={queueColumns} />
+        <Table data={paginatedData} columns={queueColumns} />
+
+        <Pagination 
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={filteredData.length}
+          itemsPerPage={itemsPerPage}
+          onChange={setCurrentPage}
+        />
       </div>
+
+      <SidePanelEdit
+        isOpen={isPanelOpen}
+        onClose={() => setIsPanelOpen(false)}
+        title="New Ticket"
+        footer={
+          <button 
+            type="button"
+            onClick={handleCreateTicket}
+            className="w-full bg-[#5E5CE6] hover:bg-indigo-700 text-white font-semibold py-3 rounded-xl transition-colors"
+          >
+            Confirm Ticket
+          </button>
+        }
+      >
+        <div className="space-y-8">
+          <div className="space-y-3">
+            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              Customer Name
+            </label>
+            <div className="relative">
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                <User size={18} />
+              </div>
+              <input
+                type="text"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                placeholder="Enter customer name..."
+                className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none transition-all"
+              />
+            </div>
+          </div>
+
+          <SearchSelect
+            label="Select Shop"
+            placeholder={shops.length === 0 ? "No active shops available" : "Search for a shop..."}
+            options={shopOptions}
+            value={selectedShopOption}
+            onChange={setSelectedShopOption}
+          />
+        </div>
+      </SidePanelEdit>
     </div>
   );
 }

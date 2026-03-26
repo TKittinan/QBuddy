@@ -1,10 +1,13 @@
 import { useState } from "react";
 import { Outlet } from "react-router-dom";
-import Sidebar from "../components/ui/Tabbar/Sidebar"; // ✅ ใช้ Sidebar โค้ดเดิมของคุณ
+import Sidebar from "../components/ui/Tabbar/Sidebar";
 import Header from "../components/ui/Tabbar/Header";
 
 export default function LiveQueueLayout() {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // ✅ คุมการเปิด/ปิด Sidebar บน Mobile/iPad Portrait
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  
+  // 🌟 เพิ่ม State สำหรับเก็บคำค้นหา
+  const [searchQuery, setSearchQuery] = useState("");
 
   return (
     <div className="h-screen flex bg-slate-50 overflow-hidden relative font-sans">
@@ -28,15 +31,18 @@ export default function LiveQueueLayout() {
 
       {/* 3. Main Content */}
       <div className="flex-1 flex flex-col h-full overflow-hidden">
-        {/* ✅ ส่ง title และฟังก์ชันเปิดเมนูไปที่ Header */}
+        {/* ✅ ส่ง searchQuery และ setSearchQuery ไปที่ Header */}
         <Header 
           title="Live Queue Management" 
           onMenuClick={() => setIsSidebarOpen(true)} 
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
         />
 
         <main className="flex-1 p-4 lg:p-8 overflow-y-auto bg-slate-50">
           <div className="max-w-[1400px] mx-auto">
-            <Outlet />
+            {/* ✅ ส่งคำค้นหาลงไปให้หน้าลูก (LiveQueue) */}
+            <Outlet context={{ searchQuery }} />
           </div>
         </main>
       </div>

@@ -1,7 +1,6 @@
 import type { Column } from "../../../types";
 import { TableRow } from "./TableRow";
 
-// ✅ เพิ่ม emptyMessage กลับเข้าใน Interface
 interface TableProps<T> {
   data: T[];
   columns: Column<T>[];
@@ -13,7 +12,7 @@ export function Table<T extends { id?: string | number }>({
   data, 
   columns, 
   isLoading = false,
-  emptyMessage = "No data found" // ✅ กำหนดค่า Default
+  emptyMessage = "No data found"
 }: TableProps<T>) {
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
@@ -41,7 +40,7 @@ export function Table<T extends { id?: string | number }>({
                 <TableRow key={row.id || index} row={row} columns={columns} />
               ))
             ) : (
-              // ✅ ใช้ค่า emptyMessage ที่ส่งมา
+              // ใช้ค่า emptyMessage ที่ส่งมา
               <tr>
                 <td colSpan={columns.length} className="py-12 text-center text-gray-400 italic">
                   {emptyMessage}
