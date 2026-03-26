@@ -19,6 +19,8 @@ import activityRoute from "./routes/activity_route";
 
 import chatRoute from "./routes/chat_route";
 
+import aiRoute from "./routes/ai_route";
+
 dotenv.config();
 
 const app = express();
@@ -42,6 +44,8 @@ app.use("/promotion", promotionRoute);
 app.use("/activity" , activityRoute)
 
 app.use("/chat", chatRoute);
+
+app.use("/ai", aiRoute);
 
 app.listen(3000, () => {
   console.log("Server running on 3000");
