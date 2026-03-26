@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
 import { prisma } from "./../lib/prisma";
 
+import { createConversation, addUserToConversation } from "./chat_controller";
+
 // สร้าง activity user คนสร้าง = creator
 export const createActivity = async (req: Request, res: Response) => {
   try {
@@ -34,6 +36,12 @@ export const createActivity = async (req: Request, res: Response) => {
         status: "open",
       },
     });
+
+    // สร้าง chat room ของ activity นี้
+    const conversation = await createConversation(activity.activity_id);
+
+    // เอา creator เข้า chat ด้วย
+    await addUserToConversation(conversation.conversation_id, creator_id);
 
     // creator ต้อง join เอง
     await prisma.activity_Participant.create({
@@ -96,6 +104,16 @@ export const joinActivity = async (req: Request, res: Response) => {
         status: "joined",
       },
     });
+
+    // หา conversation ของ activity
+    const conversation = await prisma.conversation.findUnique({
+    where: { activity_id },
+    });
+
+    // ถ้ามี chat room → เอา user เข้า
+    if (conversation) {
+    await addUserToConversation(conversation.conversation_id, user_id);
+    }
 
     res.json(data);
   } catch (error) {

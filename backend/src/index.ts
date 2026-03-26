@@ -17,6 +17,8 @@ import promotionRoute from "./routes/promotion_route";
 
 import activityRoute from "./routes/activity_route";
 
+import chatRoute from "./routes/chat_route";
+
 dotenv.config();
 
 const app = express();
@@ -38,6 +40,8 @@ app.use("/booking" , bookingRoute);
 app.use("/promotion", promotionRoute);
 
 app.use("/activity" , activityRoute)
+
+app.use("/chat", chatRoute);
 
 app.listen(3000, () => {
   console.log("Server running on 3000");
