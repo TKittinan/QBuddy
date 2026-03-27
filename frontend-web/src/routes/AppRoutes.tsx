@@ -15,6 +15,8 @@ import BookingManagement from "../pages/BookingManagement";
 import Settings from "../pages/Settings";
 
 import Login from "../pages/Login"; 
+import StaffManagementLayout from "../layout/StaffManagementLayout";
+import StaffManagement from "../pages/StaffManagement";
 
 export default function AppRoutes() {
   return (
@@ -44,6 +46,10 @@ export default function AppRoutes() {
 
       <Route element={<SettingsLayout/>}>
         <Route path="/settings" element={<Settings/>} />
+      </Route>
+
+      <Route element={<StaffManagementLayout/>}>
+        <Route path="/staffmanagement" element={<StaffManagement/>} />
       </Route>
 
       <Route path="*" element={<div>404 Not Found</div>} />
