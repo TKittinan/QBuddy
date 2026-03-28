@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useOutletContext } from "react-router-dom"; // 🌟 Import เพิ่มเติม
+import { useOutletContext } from "react-router-dom"; 
 import { 
   Plus, MoreHorizontal, Edit, Trash2, 
   Mail, Shield, Calendar, CheckCircle2, User as UserIcon
@@ -9,6 +9,7 @@ import { Dropdown } from "../components/ui/Dropdown";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input"; 
 import { SidePanelEdit } from "../components/ui/Tabbar/SidePanelEdit";
+import { Status } from "../components/ui/Status"; // นำเข้า Component Status
 import type { User, Column } from "../types";
 
 const initialUsers: User[] = [
@@ -19,16 +20,13 @@ const initialUsers: User[] = [
 export default function UserManagement() {
   const [users, setUsers] = useState<User[]>([]);
   
-  // 🌟 ดึง searchQuery ที่ส่งมาจาก Layout (Header)
   const { searchQuery } = useOutletContext<{ searchQuery: string }>();
   
-  // State สำหรับฟอร์ม Edit
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [emailError, setEmailError] = useState("");
 
-  // State สำหรับฟอร์ม Add New User
   const [isAddPanelOpen, setIsAddPanelOpen] = useState(false);
   const [addName, setAddName] = useState("");
   const [addEmail, setAddEmail] = useState("");
@@ -54,9 +52,6 @@ export default function UserManagement() {
     return regex.test(email);
   };
 
-  // ==========================================
-  // 🌟 ฟังก์ชันกรองรายชื่อ (Search Filter)
-  // ==========================================
   const filteredUsers = useMemo(() => {
     if (!searchQuery) return users;
     const lowerQuery = searchQuery.toLowerCase();
@@ -156,13 +151,8 @@ export default function UserManagement() {
     {
       header: "STATUS",
       key: "status",
-      render: (user) => (
-        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-          user.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
-        }`}>
-          {user.status}
-        </span>
-      ),
+      // เรียกใช้ Component Status
+      render: (user) => <Status status={user.status} />,
     },
     {
       header: "ACTIONS",
@@ -197,7 +187,6 @@ export default function UserManagement() {
         </Button>
       </div>
 
-      {/* 🌟 ส่งข้อมูลที่ผ่านการกรองแล้ว (filteredUsers) ให้ Table แทน */}
       <Table data={filteredUsers} columns={columns} />
 
       <SidePanelEdit
@@ -271,11 +260,10 @@ export default function UserManagement() {
               </div>
               <h3 className="text-2xl font-bold text-slate-800">{editingUser.name}</h3>
               <p className="text-slate-500 text-sm mt-1">{editingUser.email}</p>
-              <span className={`mt-4 px-3 py-1 rounded-full text-xs font-bold ${
-                editingUser.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'
-              }`}>
-                {editingUser.status}
-              </span>
+              {/* เรียกใช้ Component Status ตอนกดแก้ไขด้วยเพื่อให้ดูเป็นมาตรฐาน */}
+              <div className="mt-4">
+                <Status status={editingUser.status} />
+              </div>
             </div>
             
             <div className="space-y-6">

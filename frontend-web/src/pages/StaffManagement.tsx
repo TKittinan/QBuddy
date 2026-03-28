@@ -10,15 +10,16 @@ import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input"; 
 import { SidePanelEdit } from "../components/ui/Tabbar/SidePanelEdit";
 import { Pagination } from "../components/ui/Pagination";
+import { Status } from "../components/ui/Status"; // นำเข้า Component Status
 import type { User, Column } from "../types";
 
-// 🌟 ข้อมูลเริ่มต้นพร้อมรหัสผ่านสำหรับการทดสอบ
+// ข้อมูลเริ่มต้นพร้อมรหัสผ่านสำหรับการทดสอบ
 const initialStaffs: User[] = [
   { 
     id: "admin_1", 
     name: "admin1", 
     email: "admin1@qbuddy.com", 
-    password: "admin123", // รหัสผ่าน Admin
+    password: "admin123", 
     role: "ADMIN", 
     status: "OFFLINE", 
     createdAt: "Oct 01, 2023" 
@@ -27,7 +28,7 @@ const initialStaffs: User[] = [
     id: "staff_1", 
     name: "staff1", 
     email: "staff1@qbuddy.com", 
-    password: "staff123", // รหัสผ่าน Staff
+    password: "staff123", 
     role: "STAFF", 
     status: "ONLINE", 
     createdAt: "Sep 20, 2023" 
@@ -105,7 +106,6 @@ export default function StaffManagement() {
       id: `staff_${Date.now()}`,
       name: addName,
       email: addEmail,
-      // กำหนดรหัสผ่านเริ่มต้นตอนแอดพนักงานใหม่ (เอาไว้แก้ทีหลังได้ถ้าระบบสมบูรณ์)
       password: "password123", 
       role: addRole, 
       status: "UNVERIFIED", 
@@ -146,6 +146,7 @@ export default function StaffManagement() {
     {
       header: "STAFF INFO",
       key: "name",
+      className: "w-[40%] text-left",
       render: (user) => (
         <div className="flex items-center gap-3">
           <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold uppercase ${
@@ -163,6 +164,7 @@ export default function StaffManagement() {
     { 
       header: "ROLE", 
       key: "role",
+      className: "w-[20%] text-left",
       render: (user) => (
         <span className={`px-2 py-1 rounded border text-[10px] font-bold ${
           user.role === 'ADMIN' ? 'border-rose-200 text-rose-600 bg-rose-50' : 'border-indigo-200 text-indigo-600 bg-indigo-50'
@@ -174,18 +176,17 @@ export default function StaffManagement() {
     {
       header: "STATUS",
       key: "status",
-      render: (user) => {
-        let badgeClass = "bg-slate-100 text-slate-500"; 
-        if (user.status === "ONLINE") badgeClass = "bg-emerald-100 text-emerald-700";
-        if (user.status === "OFFLINE") badgeClass = "bg-slate-200 text-slate-700";
-
-        return <span className={`px-3 py-1 rounded-full text-xs font-semibold ${badgeClass}`}>{user.status}</span>;
-      },
+      className: "w-[20%] text-center",
+      render: (user) => (
+        <div className="flex justify-center">
+          <Status status={user.status} />
+        </div>
+      ),
     },
     {
       header: "ACTIONS",
       key: "id",
-      className: "text-right",
+      className: "text-right w-[20%]",
       render: (user) => (
         <Dropdown 
           align="right"
@@ -266,6 +267,10 @@ export default function StaffManagement() {
               </div>
               <h3 className="text-2xl font-bold text-slate-800">{editingUser.name}</h3>
               <p className="text-slate-500 text-sm mt-1">{editingUser.email}</p>
+              
+              <div className="mt-4">
+                <Status status={editingUser.status} />
+              </div>
             </div>
             
             <div className="space-y-6">

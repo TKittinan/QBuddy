@@ -10,6 +10,7 @@ import { Dropdown } from "../components/ui/Dropdown";
 import { Pagination } from "../components/ui/Pagination";
 import { SidePanelEdit } from "../components/ui/Tabbar/SidePanelEdit";
 import { Input } from "../components/ui/Input"; 
+import { Status } from "../components/ui/Status"; // นำเข้า Component Status
 import type { Column } from "../types";
 
 import { generateShopId } from "../utils/generateShopId";
@@ -27,7 +28,7 @@ export type Place = {
   createdAt: string;
 };
 
-// 🌟 ข้อมูลตั้งต้นสำหรับใช้ทดสอบ (มี Active 2 ร้าน, Disabled 1 ร้าน)
+// ข้อมูลตั้งต้นสำหรับใช้ทดสอบ (มี Active 2 ร้าน, Disabled 1 ร้าน)
 const defaultPlaces: Place[] = [
   { 
     id: generateShopId("Seoul Chon", 1), 
@@ -232,13 +233,8 @@ export default function PlaceManagement() {
     {
       header: "STATUS",
       key: "status",
-      render: (item) => (
-        <span className={`px-3 py-1 rounded-full text-[10px] font-bold ${
-          item.status === 'Active' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'
-        }`}>
-          ● {item.status}
-        </span>
-      ),
+      // เรียกใช้ Component Status
+      render: (item) => <Status status={item.status} />,
     },
     { 
       header: "QUEUE COUNT", 
@@ -272,7 +268,7 @@ export default function PlaceManagement() {
       
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          {/* 🌟 1. ตั้ง align="left" และ 2. ปรับ Button ให้เป็น flex แนวนอน ห้ามขึ้นบรรทัดใหม่ */}
+          {/* 1. ตั้ง align="left" และ 2. ปรับ Button ให้เป็น flex แนวนอน ห้ามขึ้นบรรทัดใหม่ */}
           <Dropdown 
             align="left" 
             trigger={
