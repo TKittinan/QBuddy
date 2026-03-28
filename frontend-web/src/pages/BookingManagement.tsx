@@ -11,6 +11,7 @@ import { Input } from "../components/ui/Input";
 import { Pagination } from "../components/ui/Pagination";
 import { SidePanelEdit } from "../components/ui/Tabbar/SidePanelEdit";
 import { SearchSelect, type SearchOption } from "../components/ui/SearchSelect";
+import { Status } from "../components/ui/Status"; // นำเข้า Component StatusBadge ตรงนี้
 import type { Column } from "../types";
 
 type BookingStatus = "Waiting" | "Completed" | "Cancelled";
@@ -34,7 +35,7 @@ const formatDateTime = (dateString: string) => {
   return d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
 };
 
-// 🌟 ฟังก์ชันหาเวลาปัจจุบันในรูปแบบที่ input type="datetime-local" ต้องการ (YYYY-MM-DDTHH:mm)
+// ฟังก์ชันหาเวลาปัจจุบันในรูปแบบที่ input type="datetime-local" ต้องการ (YYYY-MM-DDTHH:mm)
 const getCurrentDateTimeLocal = () => {
   const d = new Date();
   const year = d.getFullYear();
@@ -113,7 +114,7 @@ export default function BookingManagement() {
       return;
     }
 
-    // 🌟 เช็คว่าเวลาที่เลือกน้อยกว่าเวลาปัจจุบันหรือไม่ (กันเคสพิมพ์ใส่คีย์บอร์ด)
+    // เช็คว่าเวลาที่เลือกน้อยกว่าเวลาปัจจุบันหรือไม่ (กันเคสพิมพ์ใส่คีย์บอร์ด)
     const selectedDate = new Date(addDateTime);
     const currentDate = new Date();
     if (selectedDate < currentDate) {
@@ -175,7 +176,7 @@ export default function BookingManagement() {
   const handleConfirmEdit = () => {
     if (!editingBooking) return;
 
-    // 🌟 เช็คเวลาย้อนหลังสำหรับตอนแก้ไขเช่นกัน
+    // เช็คเวลาย้อนหลังสำหรับตอนแก้ไขเช่นกัน
     const selectedDate = new Date(editDateTime);
     const currentDate = new Date();
     if (selectedDate < currentDate) {
@@ -267,11 +268,8 @@ export default function BookingManagement() {
     {
       header: "STATUS",
       key: "status",
-      render: (item) => {
-        if (item.status === "Waiting") return <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-600 border border-amber-100"><span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Waiting</span>;
-        if (item.status === "Completed") return <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-600 border border-emerald-100"><CheckCircle2 size={12} /> Completed</span>;
-        return <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-600 border border-rose-100"><XCircle size={12} /> Cancelled</span>;
-      },
+      // เปลี่ยนมาใช้งาน Component กลางแทนการเขียนโค้ดยาวๆ
+      render: (item) => <Status status={item.status} />
     },
     {
       header: "ACTIONS",
@@ -375,7 +373,7 @@ export default function BookingManagement() {
       </div>
 
       {/* ======================================= */}
-      {/* 🟢 Panel สร้างการจอง (Add Booking) */}
+      {/* Panel สร้างการจอง (Add Booking) */}
       {/* ======================================= */}
       <SidePanelEdit
         isOpen={isAddPanelOpen}
@@ -424,7 +422,7 @@ export default function BookingManagement() {
                 <input
                   type="datetime-local"
                   value={addDateTime}
-                  min={getCurrentDateTimeLocal()} // 🌟 ชั้นที่ 1 บังคับหน้า UI ไม่ให้เลือกอดีต
+                  min={getCurrentDateTimeLocal()} // ชั้นที่ 1 บังคับหน้า UI ไม่ให้เลือกอดีต
                   onChange={(e) => setAddDateTime(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-[#5AB2A8] outline-none"
                 />
@@ -435,7 +433,7 @@ export default function BookingManagement() {
       </SidePanelEdit>
 
       {/* ======================================= */}
-      {/* 🔵 Panel แก้ไขการจอง (Edit Booking) */}
+      {/* Panel แก้ไขการจอง (Edit Booking) */}
       {/* ======================================= */}
       <SidePanelEdit
         isOpen={!!editingBooking}
@@ -484,7 +482,7 @@ export default function BookingManagement() {
                   <input
                     type="datetime-local"
                     value={editDateTime}
-                    min={getCurrentDateTimeLocal()} // 🌟 กันในตอนแก้ไขด้วยเช่นกัน
+                    min={getCurrentDateTimeLocal()} // กันในตอนแก้ไขด้วยเช่นกัน
                     onChange={(e) => setEditDateTime(e.target.value)}
                     className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-[#5AB2A8] outline-none"
                   />

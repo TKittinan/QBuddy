@@ -11,6 +11,12 @@ import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import { useAuth } from "../context/auth/use.Auth";
 
+// 🌟 เพิ่มข้อมูลตั้งต้นไว้ที่หน้า Login ด้วย เผื่อกรณีเคลียร์เครื่องใหม่ จะได้มีไอดีให้ล็อคอิน
+const defaultStaffs = [
+  { id: "admin_1", name: "admin1", email: "admin1@qbuddy.com", password: "admin123", role: "ADMIN", status: "OFFLINE", createdAt: "Oct 01, 2023" },
+  { id: "staff_1", name: "staff1", email: "staff1@qbuddy.com", password: "staff123", role: "STAFF", status: "OFFLINE", createdAt: "Sep 20, 2023" },
+];
+
 export default function Login() {
   const navigate = useNavigate();
   const { login, user } = useAuth();
@@ -18,8 +24,10 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
+  const [generalError, setGeneralError] = useState(""); 
 
   useEffect(() => {
     if (user) {
@@ -33,6 +41,7 @@ export default function Login() {
     let isValid = true;
     setEmailError("");
     setPasswordError("");
+    setGeneralError("");
 
     if (!email.trim()) {
       setEmailError("Email is required");
@@ -46,18 +55,47 @@ export default function Login() {
 
     if (!isValid) return;
 
-    login({
-      id: "1",
-      name: "Admin User",
-      role: "admin",
-      email,
-    });
+    // 🌟 1. ดึงข้อมูลจาก Local Storage ถ้าไม่มีหรือเป็น [] ให้ใช้ defaultStaffs แทน
+    let savedStaffs = JSON.parse(localStorage.getItem("system_staffs") || "null");
+    if (!savedStaffs || savedStaffs.length === 0) {
+      savedStaffs = defaultStaffs;
+      // เซฟลงเครื่องไว้เลย จะได้เชื่อมกับหน้า Staff Management
+      localStorage.setItem("system_staffs", JSON.stringify(defaultStaffs)); 
+    }
 
-    navigate("/dashboard");
+    // 2. ค้นหาอีเมล
+    const foundUser = savedStaffs.find((staff: any) => staff.email.toLowerCase() === email.toLowerCase());
+
+    if (foundUser) {
+      // 3. ค้นหาอีเมลเจอแล้ว ให้เช็ครหัสผ่านต่อ
+      if (foundUser.password === password) {
+        
+        // รหัสผ่านถูกต้อง! เปลี่ยนสถานะเป็น ONLINE
+        const updatedStaffs = savedStaffs.map((s: any) => 
+          s.email === foundUser.email ? { ...s, status: "ONLINE" } : s
+        );
+        localStorage.setItem("system_staffs", JSON.stringify(updatedStaffs));
+
+        login({
+          id: foundUser.id,
+          name: foundUser.name,
+          role: foundUser.role, 
+          email: foundUser.email
+        });
+
+        navigate("/dashboard");
+
+      } else {
+        // รหัสผ่านผิด
+        setPasswordError("Incorrect password");
+      }
+    } else {
+      // อีเมลไม่มีในระบบ
+      setGeneralError("Access Denied: This email is not registered in the system.");
+    }
   };
 
   return (
-    // ✅ แก้ไขบรรทัดนี้: เติม min-h-screen, items-center และพื้นหลัง bg-slate-50
     <div className="min-h-screen w-full flex items-center justify-center bg-slate-50 p-4">
       <div className="w-full max-w-xl bg-white rounded-2xl shadow-xl overflow-hidden">
         <div className="h-52 bg-gradient-to-br from-teal-600 to-emerald-500 relative">
@@ -71,7 +109,7 @@ export default function Login() {
           </div>
         </div>
 
-        <form onSubmit={handleLogin} className="p-10 space-y-7">
+        <form onSubmit={handleLogin} className="p-10 space-y-7 relative">
           <div className="text-center">
             <h1 className="text-2xl font-semibold text-gray-800">
               Welcome Back
@@ -81,35 +119,49 @@ export default function Login() {
             </p>
           </div>
 
-          <Input
-            label="Email Address"
-            type="email"
-            placeholder="name@company.com"
-            icon={<EnvelopeClosedIcon />}
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            error={emailError}
-          />
+          {generalError && (
+            <div className="bg-red-50 text-red-600 border border-red-100 px-4 py-3 rounded-xl text-sm font-medium text-center">
+              {generalError}
+            </div>
+          )}
 
-          <div className="relative">
+          <div className="space-y-5">
             <Input
-              label="Password"
-              type={showPassword ? "text" : "password"}
-              placeholder="Enter your password"
-              icon={<LockClosedIcon />}
-              className="pr-10"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              error={passwordError}
+              label="Email Address"
+              type="email"
+              placeholder="name@company.com"
+              icon={<EnvelopeClosedIcon />}
+              value={email}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (generalError) setGeneralError(""); 
+              }}
+              error={emailError}
             />
 
-            <button
-              type="button"
-              onClick={() => setShowPassword((prev) => !prev)}
-              className="absolute right-3 top-[38px] text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              {showPassword ? <EyeNoneIcon /> : <EyeOpenIcon />}
-            </button>
+            <div className="relative">
+              <Input
+                label="Password"
+                type={showPassword ? "text" : "password"}
+                placeholder="Enter your password"
+                icon={<LockClosedIcon />}
+                className="pr-10"
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (passwordError) setPasswordError("");
+                }}
+                error={passwordError}
+              />
+
+              <button
+                type="button"
+                onClick={() => setShowPassword((prev) => !prev)}
+                className="absolute right-3 top-[38px] text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                {showPassword ? <EyeNoneIcon /> : <EyeOpenIcon />}
+              </button>
+            </div>
           </div>
 
           <Button

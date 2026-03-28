@@ -4,8 +4,9 @@ export interface User {
   id: string;
   name: string;
   email: string;
+  password?: string;
   role: "ADMIN" | "STAFF" | "CUSTOMER";
-  status: "ACTIVE" | "INACTIVE" | "SUSPENDED";
+  status: "ACTIVE" | "INACTIVE" | "SUSPENDED" | "ONLINE" | "OFFLINE" | "UNVERIFIED";
   createdAt: string;
 }
 

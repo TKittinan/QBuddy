@@ -7,8 +7,9 @@ import { Dropdown } from "../components/ui/Dropdown";
 import { Button } from "../components/ui/Button";
 import { SidePanelEdit } from "../components/ui/Tabbar/SidePanelEdit";
 import { SearchSelect, type SearchOption } from "../components/ui/SearchSelect";
+import { Status } from "../components/ui/Status"; // แก้เป็น Status ตามชื่อไฟล์จริง
 
-// 🌟 Import Pagination Component
+// Import Pagination Component
 import { Pagination } from "../components/ui/Pagination"; 
 
 type TicketStatus = "Waiting" | "Serving" | "Completed";
@@ -25,7 +26,7 @@ type Ticket = {
 
 export default function LiveQueue() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
-  // 🌟 เพิ่ม State สำหรับเก็บข้อมูลร้านค้าที่ดึงมาจาก Place Management
+  // เพิ่ม State สำหรับเก็บข้อมูลร้านค้าที่ดึงมาจาก Place Management
   const [shops, setShops] = useState<any[]>([]);
   
   const [filter, setFilter] = useState<string>("All");
@@ -51,7 +52,7 @@ export default function LiveQueue() {
       setTickets(JSON.parse(savedTickets));
     }
 
-    // 🌟 2. โหลดข้อมูลร้านค้ามาจาก Place Management (Single Source of Truth)
+    // 2. โหลดข้อมูลร้านค้ามาจาก Place Management (Single Source of Truth)
     const savedShops = localStorage.getItem("local_shops_db");
     if (savedShops) {
       const parsedShops = JSON.parse(savedShops);
@@ -66,7 +67,7 @@ export default function LiveQueue() {
     localStorage.setItem("live_queue_tickets", JSON.stringify(newTickets));
   };
 
-  // 🌟 แปลงข้อมูลร้านค้าที่ดึงมา ให้เข้ากับรูปแบบของ SearchSelect Component
+  // แปลงข้อมูลร้านค้าที่ดึงมา ให้เข้ากับรูปแบบของ SearchSelect Component
   const shopOptions: SearchOption[] = useMemo(() => {
     return shops.map(shop => ({
       id: shop.id,
@@ -194,14 +195,8 @@ export default function LiveQueue() {
     {
       header: "STATUS",
       key: "status",
-      render: (item: Ticket) => {
-        const styles = {
-          Serving: "bg-blue-50 text-blue-600",
-          Waiting: "bg-amber-50 text-amber-600",
-          Completed: "bg-emerald-50 text-emerald-600",
-        };
-        return <span className={`px-3 py-1 rounded-full text-xs font-bold ${styles[item.status]}`}>{item.status}</span>;
-      },
+      // เรียกใช้ Status Component 
+      render: (item: Ticket) => <Status status={item.status} />
     },
     {
       header: "ACTIONS",

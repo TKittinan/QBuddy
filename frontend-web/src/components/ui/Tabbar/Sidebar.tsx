@@ -3,17 +3,27 @@ import {
   PersonIcon,
   CalendarIcon,
   BarChartIcon,
-  GearIcon,
   ExitIcon,
+  GearIcon,
 } from "@radix-ui/react-icons";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../../../context/auth/use.Auth";
+import { GroupIcon } from "lucide-react";
 
 const Sidebar = () => {
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
+
+  const isAdmin = user?.role === "ADMIN";
 
   const handleLogout = () => {
+    if (user) {
+      const savedStaffs = JSON.parse(localStorage.getItem("system_staffs") || "[]");
+      const updatedStaffs = savedStaffs.map((staff: any) => 
+        staff.email === user.email ? { ...staff, status: "OFFLINE" } : staff
+      );
+      localStorage.setItem("system_staffs", JSON.stringify(updatedStaffs));
+    }
     logout();
     navigate("/login");
   };
@@ -31,19 +41,27 @@ const Sidebar = () => {
         </div>
       </div>
 
-      <nav className="flex-1 px-4 space-y-2">
+      <nav className="flex-1 px-4 space-y-2 overflow-y-auto">
         <SidebarItem to="/dashboard" icon={<DashboardIcon />} label="Dashboard" />
         <SidebarItem to="/livequeue" icon={<PersonIcon />} label="QueueManagement" />
-        <SidebarItem to="/usermanage" icon={<PersonIcon />} label="UserManage" />
-        <SidebarItem to="/placemanagement" icon={<CalendarIcon />} label="Placemanagement" />
+        <SidebarItem to="/placemanagement" icon={<CalendarIcon />} label="PlaceManagement" />
         <SidebarItem to="/bookingManagement" icon={<BarChartIcon />} label="BookingManagement" />
-        <div className="hidden lg:block">
-          <div className="border-t border-white/10 my-4" />
-          <SidebarItem to="/settings" icon={<GearIcon />} label="Settings" />
-        </div>
+        
+        {/* แสดงเฉพาะ ADMIN */}
+        {isAdmin && (
+          <>
+            <div className="border-t border-white/10 my-4 mx-2" />
+            <SidebarItem to="/usermanage" icon={<PersonIcon />} label="UserManage" />
+            <SidebarItem to="/staffmanagement" icon={<GroupIcon size={18} />} label="StaffManagement" />
+          </>
+        )}
+
+        {/* 🌟 ดึง Settings กลับมาและแสดงให้ทุกคนเห็น (ต่อตูดด้านล่าง) */}
+        <div className="border-t border-white/10 my-4 mx-2" />
+        <SidebarItem to="/settings" icon={<GearIcon />} label="Settings" />
+
       </nav>
 
-      {/* ✅ ซ่อนปุ่ม Sign Out บน iPad แนวตั้ง */}
       <div className="px-4 pb-6 hidden lg:block">
         <button
           onClick={handleLogout}
@@ -53,7 +71,6 @@ const Sidebar = () => {
           <span className="text-sm">Sign Out</span>
         </button>
       </div>
-
     </div>
   );
 };
