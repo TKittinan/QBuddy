@@ -1,5 +1,3 @@
-// app/layout/AuthLayout.tsx
-
 import React, { ReactNode } from 'react';
 import { SafeAreaView, KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';

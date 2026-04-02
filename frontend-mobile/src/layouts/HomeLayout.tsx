@@ -1,8 +1,12 @@
+// src/layouts/HomeLayout.tsx
 import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, Image, TouchableOpacity } from 'react-native';
-import { Mic, Home, Sparkles, ClipboardList, User } from 'lucide-react-native';
+import { View, Text, StyleSheet, SafeAreaView, Image } from 'react-native';
+import { Mic } from 'lucide-react-native';
 import { Input } from '../components/ui/Input';
 import { useAuth } from '../context/auth/use.Auth';
+
+// 🚨 1. Import ตัว BottomNav ที่เราเพิ่งสร้าง
+import { Navigation } from '../components/ui/Navigation';
 
 interface HomeLayoutProps {
   children: React.ReactNode;
@@ -37,27 +41,9 @@ export const HomeLayout: React.FC<HomeLayoutProps> = ({ children }) => {
         {children}
       </View>
 
-      <View style={styles.tabBarContainer}>
-        <TouchableOpacity style={styles.tabItem}>
-          <Home size={24} color="#6FA4A1" />
-          <Text style={[styles.tabLabel, { color: '#6FA4A1' }]}>Home</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.tabItem}>
-          <Sparkles size={24} color="#A0AEC0" />
-          <Text style={styles.tabLabel}>AI / Discover</Text>
-        </TouchableOpacity>
+      {/* 🚨 2. เรียกใช้ Component และบอกว่าหน้าแรกคือแท็บ home */}
+      <Navigation activeTab="home" />
 
-        <TouchableOpacity style={styles.tabItem}>
-          <ClipboardList size={24} color="#A0AEC0" />
-          <Text style={styles.tabLabel}>Queue</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.tabItem}>
-          <User size={24} color="#A0AEC0" />
-          <Text style={styles.tabLabel}>Profile</Text>
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   );
 };
@@ -80,16 +66,4 @@ const styles = StyleSheet.create({
   onlineStatus: { position: 'absolute', bottom: 2, right: 2, width: 12, height: 12, borderRadius: 6, backgroundColor: '#48BB78', borderWidth: 2, borderColor: '#2D3748' },
   searchBar: { backgroundColor: 'rgba(255, 255, 255, 0.12)', borderWidth: 0, borderRadius: 12 },
   content: { flex: 1, backgroundColor: '#F7FAFC' },
-  tabBarContainer: {
-    flexDirection: 'row',
-    height: 70,
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
-    paddingBottom: 10,
-    justifyContent: 'space-around',
-    alignItems: 'center',
-  },
-  tabItem: { alignItems: 'center', justifyContent: 'center' },
-  tabLabel: { fontSize: 10, marginTop: 4, color: '#A0AEC0', fontWeight: '600' },
 });

@@ -1,27 +1,24 @@
-// app/pages/Login.tsx
-
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { Mail, EyeOff, Eye } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { AuthLayout } from '../layout/AuthLayout';
-import { Input } from '../components/ui/Input';
-import { Button } from '../components/ui/Button';
-import { useAuth } from '../context/auth/use.Auth';
+// 👇 แก้ไข Path ตรงนี้ให้ชี้ไปที่ src/layouts
+import { AuthLayout } from '../../layouts/AuthLayout';
+import { Input } from '../../components/ui/Input';
+import { Button } from '../../components/ui/Button';
+import { useAuth } from '../../context/auth/use.Auth';
 
 const mockLoginAPI = async (loginData: any) => {
   await new Promise(resolve => setTimeout(resolve, 500));
   const existingUsersJson = await AsyncStorage.getItem('mock_users_db');
   
-  // ถ้ายังไม่เคยสมัครเลย ให้แจ้งเตือนก่อน
   if (!existingUsersJson) {
     throw new Error('ไม่พบบัญชีผู้ใช้งานในระบบ กรุณาสมัครสมาชิกก่อน');
   }
 
   const existingUsers = JSON.parse(existingUsersJson);
-  
   const foundUser = existingUsers.find((u: any) => 
     u.email === loginData.emailOrPhone || u.phone === loginData.emailOrPhone
   );
@@ -57,18 +54,16 @@ export default function LoginPage() {
     try {
       const user = await mockLoginAPI({ emailOrPhone, password });
       
-      // 1. บันทึกข้อมูลลง Context (และ AsyncStorage 'user_session')
       await login({ 
         id: user.id, 
         name: user.fullName, 
         email: user.email, 
         phone: user.phone,
         role: user.role,
-        ai_consented: user.ai_consented // ค่านี้จะติดมาจาก Database จำลอง
+        ai_consented: user.ai_consented 
       });
 
-      // 2. [จุดที่แก้ไข] เพิ่มการ Redirect ด้วยตัวเองเพื่อความชัวร์ (Fallback)
-      // เช็คว่า User คนนี้เคยยอมรับ AI หรือยัง
+      // Redirect Fallback
       if (user.ai_consented) {
         router.replace('/pages/Home' as any);
       } else {
@@ -76,9 +71,7 @@ export default function LoginPage() {
       }
 
     } catch (error: any) {
-      // แสดง Alert เพื่อให้รู้ว่า Error ติดที่ตรงไหน (เช่น รหัสผิด หรือ หาเมลไม่เจอ)
       Alert.alert('การเข้าสู่ระบบไม่สำเร็จ', error.message);
-      
       if (error.message.includes('บัญชี')) {
         setEmailError(error.message);
       } else if (error.message.includes('รหัสผ่าน')) {

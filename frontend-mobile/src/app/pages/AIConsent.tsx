@@ -3,8 +3,8 @@ import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity } from 'react-na
 import { Search, Calendar, Store } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Button } from '../components/ui/Button';
-import { useAuth } from '../context/auth/use.Auth';
+import { Button } from '../../components/ui/Button';
+import { useAuth } from '../../context/auth/use.Auth';
 
 export default function AIConsentPage() {
   const router = useRouter();

@@ -4,7 +4,7 @@ import { TouchableOpacity, Text, View, StyleSheet, StyleProp, ViewStyle } from '
 interface CategoryItemProps {
   label: string;
   icon: React.ReactNode;
-  onPress?: () => void; // ฟังก์ชันที่จะทำงานเมื่อกดปุ่ม
+  onPress?: () => void;
   containerStyle?: StyleProp<ViewStyle>; // รองรับการแต่งสไตล์เพิ่มเติมจากหน้า Page
 }
 

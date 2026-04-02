@@ -1,15 +1,13 @@
-// app/pages/Register.tsx
-
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { ArrowLeft, EyeOff, Eye, CheckCircle2, XCircle } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Import Layout และฟังก์ชันเช็คที่อยู่ด้านใน
-import { AuthLayout, UserRegCheck } from '../layout/AuthLayout'; 
-import { Input } from '../components/ui/Input';
-import { Button } from '../components/ui/Button';
+// 👇 แก้ไข Path ตรงนี้ให้ชี้ไปที่ src/layouts
+import { AuthLayout, UserRegCheck } from '../../layouts/AuthLayout'; 
+import { Input } from '../../components/ui/Input';
+import { Button } from '../../components/ui/Button';
 
 const validateEmail = (email: string) => {
   const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -74,7 +72,6 @@ export default function RegisterPage() {
     if (isValid) {
       setIsLoading(true);
       try {
-        // ดึง Logic การเช็คซ้ำมาจาก Layout มาใช้งาน
         const checkResult = await UserRegCheck(fullName, email, phone);
         
         if (checkResult.isNameTaken) { setFullNameError('ชื่อนี้ถูกใช้งานไปแล้ว'); isValid = false; }
@@ -125,7 +122,6 @@ export default function RegisterPage() {
           rightIcon={showPassword ? <Eye size={20} color="#64748B" /> : <EyeOff size={20} color="#64748B" />} 
           onRightIconPress={() => setShowPassword(!showPassword)} 
         />
-        {/* แก้ Render Error: เปลี่ยนจาก div เป็น View */}
         <View style={styles.passwordRequirements}>
           {renderReqItem(passwordReqs.length8, 'อย่างน้อย 8 ตัวอักษร')}
           {renderReqItem(passwordReqs.hasUpper, 'มีตัวอักษรพิมพ์ใหญ่ (A-Z)')}
@@ -150,7 +146,7 @@ const styles = StyleSheet.create({
   fieldContainer: { marginBottom: 16 },
   errorBorder: { borderColor: '#E53E3E', borderWidth: 1.5 },
   errorText: { color: '#E53E3E', fontSize: 12, marginTop: 4 },
-  passwordRequirements: { marginTop: 8 }, // แก้ไขส่วนที่เคยเป็น div
+  passwordRequirements: { marginTop: 8 }, 
   reqItemContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
   reqIcon: { marginRight: 6 },
   reqText: { fontSize: 12 },
