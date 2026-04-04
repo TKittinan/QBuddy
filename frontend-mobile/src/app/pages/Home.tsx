@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Utensils, Calendar, Coffee, TreePine, Scissors, Sparkles, PlusSquare, Users } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
@@ -6,11 +6,30 @@ import { useRouter } from 'expo-router';
 import { HomeLayout } from '../../layouts/HomeLayout';
 import { AIChat } from '../../components/ui/AIChat';
 import { CategoryItem } from '../../components/ui/CategoryItem';
+import { useAuth } from '../../context/auth/use.Auth';
 
 export default function HomePage() {
   const router = useRouter();
+  const { user } = useAuth();
 
-  // ฟังก์ชันจัดการการกดของแต่ละหมวดหมู่ (สำหรับหมวดหมู่ทั่วไป)
+  /*
+  // ==============================================================
+  // 🚀 FUTURE API: ดึงข้อมูลหน้า Home (แนะนำให้ใช้ React Query)
+  // ==============================================================
+  // useEffect(() => {
+  //   const fetchHomeData = async () => {
+  //     // 1. ดึง AI Recommendation คัดมาแค่ 1 อันดับแรกโชว์หน้า Home
+  //     const topRecRes = await axios.get(`/api/recommendations/${user?.id}?limit=1`);
+  //     setTopRecommendation(topRecRes.data);
+  //
+  //     // 2. ดึง Categories จากตาราง Category ใน DB
+  //     const categoriesRes = await axios.get('/api/categories');
+  //     setCategories(categoriesRes.data);
+  //   };
+  //   fetchHomeData();
+  // }, []);
+  */
+
   const handleCategoryPress = (category: string) => {
     router.push(`/pages/category/${category}` as any);
   };
@@ -25,14 +44,12 @@ export default function HomePage() {
             <Text style={styles.sectionTitle}>AI Recommendation</Text>
             <Sparkles size={18} color="#2D3748" />
           </View>
-          {/* 👇 เพิ่มปุ่ม "ดูทั้งหมด" เพื่อเชื่อมไปหน้า SmartFeed 👇 */}
           <TouchableOpacity onPress={() => router.push('/pages/SmartFeed' as any)}>
             <Text style={styles.seeAllText}>ดูทั้งหมด</Text>
           </TouchableOpacity>
         </View>
         
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
-          {/* 👇 ทำให้ตัวการ์ดรูปภาพสามารถกดเพื่อไปหน้า SmartFeed ได้ด้วย 👇 */}
           <TouchableOpacity activeOpacity={0.9} onPress={() => router.push('/pages/SmartFeed' as any)}>
             <AIChat 
               title="ร้านอาหารสุดหรู"
@@ -51,33 +68,11 @@ export default function HomePage() {
         </View>
 
         <View style={styles.categoryGrid}>
-          <CategoryItem 
-            label="ร้านอาหาร" 
-            icon={<Utensils size={20} color="#DD6B20" />} 
-            onPress={() => handleCategoryPress('restaurant')}
-          />
-          <CategoryItem 
-            label="อีเวนท์" 
-            icon={<Calendar size={20} color="#805AD5" />} 
-            onPress={() => handleCategoryPress('event')}
-          />
-          <CategoryItem 
-            label="คาเฟ่" 
-            icon={<Coffee size={20} color="#D69E2E" />} 
-            onPress={() => handleCategoryPress('cafe')}
-          />
-          <CategoryItem 
-            label="อุทยาน" 
-            icon={<TreePine size={20} color="#38A169" />} 
-            onPress={() => handleCategoryPress('park')}
-          />
-          
-          {/* ปุ่ม "หาเพื่อน" */}
-          <CategoryItem 
-            label="หาเพื่อน" 
-            icon={<Users size={20} color="#38B2AC" />} 
-            onPress={() => router.push('/pages/FindFriends' as any)} 
-          />
+          <CategoryItem label="ร้านอาหาร" icon={<Utensils size={20} color="#DD6B20" />} onPress={() => handleCategoryPress('restaurant')} />
+          <CategoryItem label="อีเวนท์" icon={<Calendar size={20} color="#805AD5" />} onPress={() => handleCategoryPress('event')} />
+          <CategoryItem label="คาเฟ่" icon={<Coffee size={20} color="#D69E2E" />} onPress={() => handleCategoryPress('cafe')} />
+          <CategoryItem label="อุทยาน" icon={<TreePine size={20} color="#38A169" />} onPress={() => handleCategoryPress('park')} />
+          <CategoryItem label="หาเพื่อน" icon={<Users size={20} color="#38B2AC" />} onPress={() => router.push('/pages/FindFriends' as any)} />
         </View>
 
       </ScrollView>
@@ -89,12 +84,7 @@ const styles = StyleSheet.create({
   scrollPadding: { paddingBottom: 30 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, marginTop: 20, marginBottom: 16 },
   sectionTitle: { fontSize: 18, fontWeight: '800', color: '#2D3748', marginRight: 8 },
-  seeAllText: { fontSize: 14, fontWeight: '600', color: '#38B2AC' }, // เพิ่มสไตล์สำหรับข้อความ 'ดูทั้งหมด'
+  seeAllText: { fontSize: 14, fontWeight: '600', color: '#38B2AC' },
   horizontalScroll: { paddingLeft: 20, marginBottom: 10 },
-  categoryGrid: { 
-    flexDirection: 'row', 
-    flexWrap: 'wrap', 
-    justifyContent: 'space-between', 
-    paddingHorizontal: 20 
-  },
+  categoryGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', paddingHorizontal: 20 },
 });

@@ -4,7 +4,6 @@ import { ArrowLeft, EyeOff, Eye, CheckCircle2, XCircle } from 'lucide-react-nati
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// 👇 แก้ไข Path ตรงนี้ให้ชี้ไปที่ src/layouts
 import { AuthLayout, UserRegCheck } from '../../layouts/AuthLayout'; 
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
@@ -15,6 +14,24 @@ const validateEmail = (email: string) => {
 };
 
 const mockRegisterAPI = async (userData: any) => {
+  /*
+  // ==============================================================
+  // 🚀 FUTURE API: Insert เข้าตาราง User ใน Prisma
+  // ==============================================================
+  // try {
+  //   const registerRes = await axios.post('/api/auth/register', {
+  //     name: userData.fullName,
+  //     email: userData.email,
+  //     password: userData.password
+  //     // Note: ตาราง User ใน Prisma ปัจจุบันไม่มี column 'phone' 
+  //     // ต้องอัปเดต schema.prisma เพิ่ม phone String? ด้วยถ้าจะใช้งาน
+  //   });
+  //   return registerRes.data;
+  // } catch (error) {
+  //   throw new Error(error.response?.data?.message || 'สมัครสมาชิกไม่สำเร็จ');
+  // }
+  */
+
   await new Promise(resolve => setTimeout(resolve, 500));
   const existingUsersJson = await AsyncStorage.getItem('mock_users_db');
   const existingUsers = existingUsersJson ? JSON.parse(existingUsersJson) : [];
@@ -113,15 +130,7 @@ export default function RegisterPage() {
       </View>
 
       <View style={styles.fieldContainer}>
-        <Input 
-          label="Password" 
-          placeholder="Password" 
-          value={password} 
-          onChangeText={setPassword} 
-          secureTextEntry={!showPassword} 
-          rightIcon={showPassword ? <Eye size={20} color="#64748B" /> : <EyeOff size={20} color="#64748B" />} 
-          onRightIconPress={() => setShowPassword(!showPassword)} 
-        />
+        <Input label="Password" placeholder="Password" value={password} onChangeText={setPassword} secureTextEntry={!showPassword} rightIcon={showPassword ? <Eye size={20} color="#64748B" /> : <EyeOff size={20} color="#64748B" />} onRightIconPress={() => setShowPassword(!showPassword)} />
         <View style={styles.passwordRequirements}>
           {renderReqItem(passwordReqs.length8, 'อย่างน้อย 8 ตัวอักษร')}
           {renderReqItem(passwordReqs.hasUpper, 'มีตัวอักษรพิมพ์ใหญ่ (A-Z)')}

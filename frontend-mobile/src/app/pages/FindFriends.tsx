@@ -1,4 +1,4 @@
-// app/pages/FindFriends.tsx
+// src/app/pages/FindFriends.tsx
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Image, ScrollView, Modal, Alert } from 'react-native';
 import { Search, MapPin, Plus, Utensils, Coffee, Dumbbell, X } from 'lucide-react-native';
@@ -22,16 +22,28 @@ const activitySchema = z.object({
 
 type ActivityFormData = z.infer<typeof activitySchema>;
 
-// --- MOCK DATA ---
+// 🛠️ ฟังก์ชันคำนวณระยะทางเส้นโค้งของโลก (Haversine Formula) สำหรับฝั่ง Local
+const getDistanceInKm = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+  const R = 6371; 
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return (R * c).toFixed(1); 
+};
+
+// --- MOCK DATA (จำลองพิกัด Lat/Lng และวันหมดอายุ) ---
 const mockAiMatches = [
-  { id: '1', name: 'กฤษฎา', distance: '1.2 กม.', match: 92, image: 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=400', tags: ['สายกิน', 'ชอบถ่ายรูป'], category: 'ร้านอาหาร' },
-  { id: '2', name: 'สุชาวดี', distance: '2.5 กม.', match: 88, image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400', tags: ['คาเฟ่'], category: 'คาเฟ่' },
+  { id: '1', name: 'กฤษฎา', match: 92, image: 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=400', category: 'ร้านอาหาร', lat: 13.7563, lng: 100.5018 },
+  { id: '2', name: 'สุชาวดี', match: 88, image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400', category: 'คาเฟ่', lat: 13.7600, lng: 100.5100 },
 ];
 
 const initialNearbyUsers = [
-  { id: '101', name: 'พรพิชัย', activity: 'อยากหาเพื่อนไปกินอาหาร', time: 'วันนี้ 18:00 น.', distance: '0.8 กม.', avatar: 'https://i.pravatar.cc/150?u=1', category: 'ร้านอาหาร' },
-  { id: '102', name: 'วิศรุต', activity: 'หาเพื่อนไปนั่งทำงานเงียบๆ', time: 'พรุ่งนี้ 06:00 น.', distance: '1.5 กม.', avatar: 'https://i.pravatar.cc/150?u=2', category: 'คาเฟ่' },
-  { id: '103', name: 'ธนภัทร', activity: 'หาคนช่วยเซฟเครื่องเล่น', time: 'วันนี้ 19:00 น.', distance: '2.3 กม.', avatar: 'https://i.pravatar.cc/150?u=3', category: 'ยิม' },
+  // expireAt: จำลองให้อีก 2 ชั่วโมงหมดอายุ (เพื่อทดสอบว่ามันไม่หายไปก่อน)
+  { id: '101', name: 'พรพิชัย', activity: 'อยากหาเพื่อนไปกินอาหาร', expireAt: Date.now() + 7200000, timeStr: 'วันนี้ 18:00 น.', lat: 13.7550, lng: 100.5050, avatar: 'https://i.pravatar.cc/150?u=1', category: 'ร้านอาหาร' },
+  { id: '102', name: 'วิศรุต', activity: 'หาเพื่อนไปนั่งทำงานเงียบๆ', expireAt: Date.now() + 86400000, timeStr: 'พรุ่งนี้ 06:00 น.', lat: 13.7500, lng: 100.5200, avatar: 'https://i.pravatar.cc/150?u=2', category: 'คาเฟ่' },
 ];
 
 export default function FindFriendsPage() {
@@ -43,7 +55,7 @@ export default function FindFriendsPage() {
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   
-  const [allNearbyUsers, setAllNearbyUsers] = useState<any[]>(initialNearbyUsers);
+  const [allNearbyUsers, setAllNearbyUsers] = useState<any[]>([]);
   const [joinedActivities, setJoinedActivities] = useState<string[]>([]);
 
   const { control, handleSubmit, formState: { errors }, reset, setValue } = useForm<ActivityFormData>({
@@ -52,74 +64,115 @@ export default function FindFriendsPage() {
   });
 
   // ==========================================
-  // 🔌 1. โหลดข้อมูล (เวอร์ชันป้องกันบั๊ก 100%)
+  // 🔌 1. โหลดข้อมูล & Real-time Location Tracking
   // ==========================================
   useEffect(() => {
     let isMounted = true; 
+    let locationSubscription: Location.LocationSubscription | null = null;
 
-    const initData = async () => {
+    const initDataAndLocation = async () => {
       if (isMounted) setIsLoading(true);
 
-      // --- 🛡️ 1.1 จัดการ GPS (แยก Try-Catch) ---
+      // --- 📡 1.1 ติดตาม GPS แบบ Real-time ---
       try {
         let { status } = await Location.requestForegroundPermissionsAsync();
         if (status === 'granted') {
+          // ดึงครั้งแรกก่อน
           let currentLocation = await Location.getCurrentPositionAsync({});
           if (isMounted) setLocation(currentLocation);
+
+          // ฝังตัวจับระยะ ถ้าขยับเกิน 10 เมตร ให้อัปเดต State (จำลอง Realtime Tracking)
+          locationSubscription = await Location.watchPositionAsync(
+            { accuracy: Location.Accuracy.High, distanceInterval: 10 },
+            (newLoc) => { if (isMounted) setLocation(newLoc); }
+          );
         }
       } catch (locError) {
-        console.log("⚠️ ดึง GPS ไม่สำเร็จ (ข้ามไปใช้งานแบบไม่มีพิกัด):", locError);
+        console.log("⚠️ GPS Tracking failed:", locError);
       }
 
-      // --- 🛡️ 1.2 จัดการ Local Storage (กันข้อมูลเสีย) ---
+      // --- 💾 1.2 โหลด Local Storage และคัดกรองข้อมูลที่หมดอายุ (TTL) ---
       try {
         const storedActivitiesStr = await AsyncStorage.getItem('@user_activities');
-        let storedActivities = [];
+        let storedActivities = storedActivitiesStr ? JSON.parse(storedActivitiesStr) : [];
         
-        if (storedActivitiesStr) {
-          try {
-            storedActivities = JSON.parse(storedActivitiesStr);
-          } catch (parseError) {
-            console.error("⚠️ ข้อมูลในเครื่องอ่านไม่ออก รีเซ็ตใหม่:", parseError);
-            storedActivities = []; 
-          }
+        const currentTime = Date.now();
+        
+        // 🧹 Filter เอาเฉพาะกิจกรรมที่ 'เวลายังไม่หมด' (expireAt > ปัจจุบัน)
+        const validStoredActivities = storedActivities.filter((act: any) => act.expireAt > currentTime);
+        
+        // ถ้ามีอันไหนถูกลบออกไป ให้เซฟทับตัวใหม่ลงเครื่อง
+        if (validStoredActivities.length !== storedActivities.length) {
+          await AsyncStorage.setItem('@user_activities', JSON.stringify(validStoredActivities));
         }
-        
-        if (isMounted) setAllNearbyUsers([...storedActivities, ...initialNearbyUsers]);
-      } catch (storageError) {
-        console.error("❌ ดึงข้อมูลจากเครื่องไม่สำเร็จ:", storageError);
-        if (isMounted) setAllNearbyUsers(initialNearbyUsers);
+
+        if (isMounted) {
+          // รวมข้อมูลจากเครื่อง กับ Mock data เริ่มต้น
+          setAllNearbyUsers([...validStoredActivities, ...initialNearbyUsers]);
+        }
+
+        /*
+        // ==============================================================
+        // 🚀 FUTURE API (DB INTEGRATION): 
+        // Backend จะดึงจาก Prisma โดยใช้ PostGIS หาระยะทาง และตัดคิวหมดอายุทิ้ง
+        // ==============================================================
+        // const res = await axios.get('/api/activities', {
+        //   params: {
+        //     lat: currentLocation.coords.latitude,
+        //     lng: currentLocation.coords.longitude,
+        //     category: activeFilter,
+        //     radius_km: 10
+        //   }
+        // });
+        // setAllNearbyUsers(res.data);
+        //
+        // 📝 ตัวอย่าง Prisma Query ฝั่ง Backend (Node.js):
+        // const activities = await prisma.activity.findMany({
+        //   where: {
+        //     status: 'open',
+        //     category: req.query.category,
+        //     activity_datetime: { gt: new Date() } // <-- ⏰ ดึงเฉพาะที่เวลายังไม่หมด (สำคัญมาก)
+        //   }
+        // });
+        */
+      } catch (error) {
+        console.error("❌ Data load error:", error);
       } finally {
         if (isMounted) setIsLoading(false);
       }
     };
 
-    initData();
+    initDataAndLocation();
 
-    return () => { isMounted = false; };
+    // Cleanup function: ปิดการติดตาม GPS เวลาออกหน้าจอ
+    return () => { 
+      isMounted = false; 
+      if (locationSubscription) locationSubscription.remove();
+    };
   }, []);
 
   // ==========================================
-  // 🔌 2. บันทึกข้อมูลกิจกรรมใหม่
+  // 🔌 2. บันทึกข้อมูลกิจกรรมใหม่ลง Local Storage
   // ==========================================
   const onSubmitActivity = async (data: ActivityFormData) => {
     try {
+      const mockLat = location ? location.coords.latitude : 13.7563; // Fallback to BKK
+      const mockLng = location ? location.coords.longitude : 100.5018;
+      
       const newActivity = {
         id: `act_${Date.now()}`,
         name: user?.name || 'Me',
-        // ลบอายุ 22 ที่เคย fix ทิ้งไป
         activity: data.activityDesc,
-        time: 'วันนี้ (เพิ่งสร้าง)',
-        distance: '0.0 กม.',
+        timeStr: 'วันนี้ (เพิ่งสร้าง)',
+        expireAt: Date.now() + (2 * 60 * 60 * 1000), // ⏰ หมดอายุใน 2 ชั่วโมง
+        lat: mockLat,
+        lng: mockLng,
         avatar: 'https://i.pravatar.cc/150?u=me',
         category: data.category
       };
 
       const storedActivitiesStr = await AsyncStorage.getItem('@user_activities');
-      let storedActivities = [];
-      if (storedActivitiesStr) {
-        try { storedActivities = JSON.parse(storedActivitiesStr); } catch (e) {}
-      }
+      let storedActivities = storedActivitiesStr ? JSON.parse(storedActivitiesStr) : [];
       
       storedActivities.unshift(newActivity); 
       
@@ -130,9 +183,23 @@ export default function FindFriendsPage() {
       setIsModalVisible(false);
       reset(); 
       setActiveFilter(data.category);
+
+      /*
+      // ==============================================================
+      // 🚀 FUTURE API (POST ใหม่ลง DB):
+      // ==============================================================
+      // await axios.post('/api/activities', {
+      //   creator_id: user.id,
+      //   title: data.activityDesc,
+      //   category: data.category,
+      //   location_lat: mockLat,
+      //   location_lng: mockLng,
+      //   activity_datetime: new Date(Date.now() + 2*60*60*1000).toISOString(),
+      //   status: 'open'
+      // });
+      */
     } catch (error) {
-      console.error("Save Activity Error:", error);
-      Alert.alert('ข้อผิดพลาด', 'ไม่สามารถบันทึกกิจกรรมได้ในขณะนี้ กรุณาลองใหม่');
+      Alert.alert('ข้อผิดพลาด', 'ไม่สามารถบันทึกกิจกรรมได้ในขณะนี้');
     }
   };
 
@@ -141,17 +208,31 @@ export default function FindFriendsPage() {
       Alert.alert('เปิดแชท', `กำลังเปิดหน้าต่างแชทกับคุณ ${activityName}...`);
     } else {
       setJoinedActivities((prev) => [...prev, activityId]);
-      Alert.alert('สำเร็จ', `ส่งคำขอเข้าร่วมกิจกรรมของ ${activityName} แล้ว! ตอนนี้คุณสามารถทักแชทได้เลย`);
+      Alert.alert('สำเร็จ', `ส่งคำขอเข้าร่วมกิจกรรมของ ${activityName} แล้ว!`);
     }
   };
 
-  const displayedUsers = allNearbyUsers.filter(u => {
-    const matchCategory = u.category === activeFilter;
-    const matchSearch = u.activity.includes(searchQuery) || u.name.includes(searchQuery);
-    return matchCategory && matchSearch;
-  });
+  // ==========================================
+  // 🔌 3. ประมวลผลก่อน Render (Sort & Filter)
+  // ==========================================
+  // คำนวณระยะทางแบบ Real-time ตามตำแหน่ง GPS ล่าสุด
+  const processUsers = (usersList: any[]) => {
+    return usersList
+      .filter(u => u.category === activeFilter && (u.activity?.includes(searchQuery) || u.name.includes(searchQuery)))
+      .map(u => {
+        let distanceStr = "ไม่ทราบระยะทาง";
+        let distanceVal = 999;
+        if (location) {
+          distanceVal = parseFloat(getDistanceInKm(location.coords.latitude, location.coords.longitude, u.lat, u.lng));
+          distanceStr = `${distanceVal} กม.`;
+        }
+        return { ...u, distanceStr, distanceVal };
+      })
+      .sort((a, b) => a.distanceVal - b.distanceVal); // 📍 เรียงจากใกล้ไปไกล
+  };
 
-  const displayedAi = mockAiMatches.filter(u => u.category === activeFilter);
+  const displayedUsers = processUsers(allNearbyUsers);
+  const displayedAi = processUsers(mockAiMatches); // ให้ AI คำนวณระยะด้วย
 
   const FilterChip = ({ label, icon: Icon }: any) => (
     <TouchableOpacity 
@@ -166,7 +247,6 @@ export default function FindFriendsPage() {
   return (
     <FindFriendsLayout title="หาเพื่อน" subtitle="ค้นหาคนที่สนใจเหมือนคุณ">
       
-      {/* 🔍 Search Bar */}
       <View className="px-5 mt-4">
         <View className="flex-row items-center bg-white rounded-xl px-4 py-3 shadow-sm border border-gray-100">
           <Search size={20} color="#A0AEC0" />
@@ -180,7 +260,6 @@ export default function FindFriendsPage() {
         </View>
       </View>
 
-      {/* 📌 Filter Categories */}
       <View className="pl-5 mt-4">
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <FilterChip label="ร้านอาหาร" icon={Utensils} />
@@ -189,7 +268,6 @@ export default function FindFriendsPage() {
         </ScrollView>
       </View>
 
-      {/* ✨ AI Recommendation Section */}
       <View className="mt-6 pl-5">
         <View className="flex-row items-center justify-between pr-5 mb-3">
           <Text className="text-base font-bold text-gray-800">AI แนะนำเพื่อนที่เข้ากันได้ ✨</Text>
@@ -204,11 +282,10 @@ export default function FindFriendsPage() {
                 </View>
               </View>
               <View className="px-3 pt-3">
-                {/* 🚨 ลบอายุออก เหลือแค่ชื่อ */}
                 <Text className="text-base font-bold text-gray-800">{friend.name}</Text>
                 <View className="flex-row items-center mt-1 mb-2">
                   <MapPin size={12} color="#6FA4A1" />
-                  <Text className="text-xs text-gray-500 ml-1">{friend.distance}</Text>
+                  <Text className="text-xs text-gray-500 ml-1">{friend.distanceStr}</Text>
                 </View>
                 <TouchableOpacity 
                   onPress={() => handleJoinPress(friend.id, friend.name)}
@@ -226,11 +303,9 @@ export default function FindFriendsPage() {
         </ScrollView>
       </View>
 
-      {/* 👥 Nearby Friends List */}
       <View className="px-5 mt-8 relative">
         <Text className="text-base font-bold text-gray-800 mb-3">คนใกล้เคียง</Text>
         
-        {/* Floating Action Button */}
         <View className="absolute -top-3 right-5 z-20">
           <TouchableOpacity 
             onPress={() => {
@@ -251,13 +326,12 @@ export default function FindFriendsPage() {
             <View key={user.id} className="flex-row bg-white rounded-xl p-4 mb-3 shadow-sm border border-gray-100 items-center">
               <Image source={{ uri: user.avatar }} className="w-14 h-14 rounded-full mr-4" />
               <View className="flex-1">
-                {/* 🚨 ลบอายุออก เหลือแค่ชื่อ */}
                 <Text className="text-sm font-bold text-gray-800">{user.name}</Text>
                 <Text className="text-xs text-gray-600 mt-0.5" numberOfLines={2}>{user.activity}</Text>
                 <View className="flex-row items-center mt-1.5">
-                  <Text className="text-[10px] font-semibold text-[#6FA4A1] bg-teal-50 px-2 py-0.5 rounded mr-2">{user.time}</Text>
+                  <Text className="text-[10px] font-semibold text-[#6FA4A1] bg-teal-50 px-2 py-0.5 rounded mr-2">{user.timeStr}</Text>
                   <MapPin size={10} color="#A0AEC0" />
-                  <Text className="text-[10px] text-gray-500 ml-1">{user.distance}</Text>
+                  <Text className="text-[10px] text-gray-500 ml-1">{user.distanceStr}</Text>
                 </View>
               </View>
               
@@ -278,9 +352,6 @@ export default function FindFriendsPage() {
         )}
       </View>
 
-      {/* ========================================== */}
-      {/* 📝 MODAL: สร้างกิจกรรม */}
-      {/* ========================================== */}
       <Modal visible={isModalVisible} animationType="slide" transparent={true}>
         <View className="flex-1 justify-end bg-black/50">
           <View className="bg-white rounded-t-3xl p-6">
@@ -290,17 +361,10 @@ export default function FindFriendsPage() {
             </View>
 
             <Text className="text-sm font-bold text-gray-700 mb-2">หมวดหมู่</Text>
-            <Controller
-              control={control}
-              name="category"
-              render={({ field: { onChange, value } }) => (
+            <Controller control={control} name="category" render={({ field: { onChange, value } }) => (
                 <View className="flex-row mb-4">
                   {['ร้านอาหาร', 'คาเฟ่', 'ยิม'].map(cat => (
-                    <TouchableOpacity 
-                      key={cat}
-                      onPress={() => onChange(cat)}
-                      className={`px-3 py-1.5 rounded-full mr-2 border ${value === cat ? 'bg-[#6FA4A1] border-[#6FA4A1]' : 'bg-gray-100 border-gray-200'}`}
-                    >
+                    <TouchableOpacity key={cat} onPress={() => onChange(cat)} className={`px-3 py-1.5 rounded-full mr-2 border ${value === cat ? 'bg-[#6FA4A1] border-[#6FA4A1]' : 'bg-gray-100 border-gray-200'}`}>
                       <Text className={`text-xs ${value === cat ? 'text-white' : 'text-gray-600'}`}>{cat}</Text>
                     </TouchableOpacity>
                   ))}
@@ -309,15 +373,9 @@ export default function FindFriendsPage() {
             />
 
             <Text className="text-sm font-bold text-gray-700 mb-2">เลือกคิว/ร้านที่คุณจองไว้</Text>
-            <Controller
-              control={control}
-              name="selectedQueueId"
-              render={({ field: { onChange, value } }) => (
+            <Controller control={control} name="selectedQueueId" render={({ field: { onChange, value } }) => (
                 <View>
-                  <TouchableOpacity 
-                    onPress={() => onChange('Q_123')} 
-                    className={`border p-4 rounded-xl flex-row items-center justify-between mb-2 ${value === 'Q_123' ? 'border-[#6FA4A1] bg-teal-50' : 'border-gray-300'}`}
-                  >
+                  <TouchableOpacity onPress={() => onChange('Q_123')} className={`border p-4 rounded-xl flex-row items-center justify-between mb-2 ${value === 'Q_123' ? 'border-[#6FA4A1] bg-teal-50' : 'border-gray-300'}`}>
                     <View>
                       <Text className="font-bold text-gray-800">สุกี้ตี๋น้อย (สาขารัชโยธิน)</Text>
                       <Text className="text-xs text-gray-500 mt-1">วันที่ 1/1/69 เวลา 13:50 • คิว A102</Text>
@@ -330,29 +388,15 @@ export default function FindFriendsPage() {
             />
 
             <Text className="text-sm font-bold text-gray-700 mt-4 mb-2">บอกเพื่อนหน่อยว่าอยากได้คนแบบไหน?</Text>
-            <Controller
-              control={control}
-              name="activityDesc"
-              render={({ field: { onChange, value } }) => (
+            <Controller control={control} name="activityDesc" render={({ field: { onChange, value } }) => (
                 <View>
-                  <TextInput
-                    className={`border p-4 rounded-xl text-base text-gray-800 h-24 ${errors.activityDesc ? 'border-red-500' : 'border-gray-300'}`}
-                    placeholder="เช่น จองโต๊ะ 4 คนไว้ อยากหาเพื่อนกินอีก 2-3 คน หารเท่ากันครับ"
-                    multiline
-                    textAlignVertical="top"
-                    value={value}
-                    onChangeText={onChange}
-                  />
+                  <TextInput className={`border p-4 rounded-xl text-base text-gray-800 h-24 ${errors.activityDesc ? 'border-red-500' : 'border-gray-300'}`} placeholder="เช่น จองโต๊ะ 4 คนไว้ อยากหาเพื่อนกินอีก 2-3 คน หารเท่ากันครับ" multiline textAlignVertical="top" value={value} onChangeText={onChange} />
                   {errors.activityDesc && <Text className="text-red-500 text-xs mt-1">{errors.activityDesc.message}</Text>}
                 </View>
               )}
             />
 
-            <Button 
-              title="ประกาศหากิจกรรม" 
-              className="mt-6 bg-[#6FA4A1]"
-              onPress={handleSubmit(onSubmitActivity)} 
-            />
+            <Button title="ประกาศหากิจกรรม" className="mt-6 bg-[#6FA4A1]" onPress={handleSubmit(onSubmitActivity)} />
           </View>
         </View>
       </Modal>

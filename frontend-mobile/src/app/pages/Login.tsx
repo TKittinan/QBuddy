@@ -4,13 +4,29 @@ import { Mail, EyeOff, Eye } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// 👇 แก้ไข Path ตรงนี้ให้ชี้ไปที่ src/layouts
 import { AuthLayout } from '../../layouts/AuthLayout';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { useAuth } from '../../context/auth/use.Auth';
 
 const mockLoginAPI = async (loginData: any) => {
+  /*
+  // ==============================================================
+  // 🚀 FUTURE API: ระบบ Login ตรวจสอบกับตาราง User
+  // ==============================================================
+  // try {
+  //   const loginRes = await axios.post('/api/auth/login', {
+  //     email: loginData.emailOrPhone,
+  //     password: loginData.password
+  //   });
+  //   // * แนะนำให้เปลี่ยน AsyncStorage เป็น SecureStore ใน Production
+  //   await SecureStore.setItemAsync('access_token', loginRes.data.token);
+  //   return loginRes.data.user;
+  // } catch (error) {
+  //   throw new Error(error.response?.data?.message || 'การเชื่อมต่อผิดพลาด');
+  // }
+  */
+
   await new Promise(resolve => setTimeout(resolve, 500));
   const existingUsersJson = await AsyncStorage.getItem('mock_users_db');
   
@@ -63,7 +79,6 @@ export default function LoginPage() {
         ai_consented: user.ai_consented 
       });
 
-      // Redirect Fallback
       if (user.ai_consented) {
         router.replace('/pages/Home' as any);
       } else {
@@ -91,41 +106,16 @@ export default function LoginPage() {
       </View>
 
       <View style={styles.fieldContainer}>
-        <Input 
-          label="Email or Phone" 
-          placeholder="Email or Phone" 
-          value={emailOrPhone} 
-          onChangeText={setEmailOrPhone} 
-          rightIcon={<Mail size={20} color="#64748B" />} 
-          inputContainerStyle={emailError ? styles.errorBorder : undefined} 
-        />
+        <Input label="Email or Phone" placeholder="Email or Phone" value={emailOrPhone} onChangeText={setEmailOrPhone} rightIcon={<Mail size={20} color="#64748B" />} inputContainerStyle={emailError ? styles.errorBorder : undefined} />
         {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
       </View>
 
       <View style={styles.fieldContainer}>
-        <Input 
-          label="Password" 
-          placeholder="Password" 
-          value={password} 
-          onChangeText={setPassword} 
-          secureTextEntry={!showPassword} 
-          rightIcon={showPassword ? <Eye size={20} color="#64748B" /> : <EyeOff size={20} color="#64748B" />} 
-          onRightIconPress={() => setShowPassword(!showPassword)} 
-          inputContainerStyle={passwordError ? styles.errorBorder : undefined} 
-          rightTopElement={
-            <TouchableOpacity activeOpacity={0.7}>
-              <Text style={styles.forgotText}>Forgot?</Text>
-            </TouchableOpacity>
-          } 
-        />
+        <Input label="Password" placeholder="Password" value={password} onChangeText={setPassword} secureTextEntry={!showPassword} rightIcon={showPassword ? <Eye size={20} color="#64748B" /> : <EyeOff size={20} color="#64748B" />} onRightIconPress={() => setShowPassword(!showPassword)} inputContainerStyle={passwordError ? styles.errorBorder : undefined} rightTopElement={<TouchableOpacity activeOpacity={0.7}><Text style={styles.forgotText}>Forgot?</Text></TouchableOpacity>} />
         {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
       </View>
 
-      <Button 
-        title={isLoading ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"} 
-        onPress={handleLogin} 
-        disabled={isLoading} 
-      />
+      <Button title={isLoading ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"} onPress={handleLogin} disabled={isLoading} />
 
       <View style={styles.footerContainer}>
         <Text style={styles.footerText}>Don't have an account? </Text>
