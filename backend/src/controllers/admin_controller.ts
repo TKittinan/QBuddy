@@ -32,8 +32,31 @@ export const createAdmin = async (req: Request, res: Response) => {
         role,
       },
     });
-
     res.json(data);
+  } catch (error) {
+    res.status(500).json({ message: "error" });
+  }
+};
+
+
+// ลบสิทธิ์ admin (กลับเป็น user ธรรมดา)
+export const removeAdmin = async (req: Request, res: Response) => {
+  try {
+    const user_id = Number(req.body.user_id);
+
+    const admin = await prisma.admin.findUnique({
+      where: { user_id },
+    });
+
+    if (!admin) {
+      return res.status(404).json({ message: "Not admin" });
+    }
+
+    await prisma.admin.delete({
+      where: { user_id },
+    });
+
+    res.json({ message: "removed admin" });
   } catch (error) {
     res.status(500).json({ message: "error" });
   }
