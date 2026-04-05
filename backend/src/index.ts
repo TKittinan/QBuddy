@@ -22,6 +22,8 @@ import chatRoute from "./routes/chat_route";
 
 import aiRoute from "./routes/ai_route";
 
+import aiChatRoute from "./routes/ai_chat_route";
+
 dotenv.config();
 
 const app = express();
@@ -48,6 +50,8 @@ app.use("/activity" , activityRoute)
 app.use("/chat", chatRoute);
 
 app.use("/ai", aiRoute);
+
+app.use("/ai-chat", aiChatRoute);
 
 app.listen(3000, () => {
   console.log("Server running on 3000");
