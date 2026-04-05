@@ -3,6 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 
 import userRoute from "./routes/user_route";
+import adminRoute from "./routes/admin_route";
 import authRoute from "./routes/auth_route";
 
 import restaurantRoute from "./routes/restaurant_route";
@@ -29,6 +30,7 @@ app.use(cors());
 app.use(express.json());
 
 app.use("/users", userRoute);
+app.use("/admin", adminRoute);
 app.use("/auth", authRoute);
 
 app.use("/restaurants", restaurantRoute);
