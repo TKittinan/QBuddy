@@ -1,7 +1,7 @@
 export interface User {
   id: string;
   name: string;
-  role: "ADMIN" | "STAFF"; // 🌟 ปรับเป็นตัวพิมพ์ใหญ่ให้ตรงกับระบบ Staff Management
+  role: "ADMIN" | "STAFF";
   email: string;
 }
 

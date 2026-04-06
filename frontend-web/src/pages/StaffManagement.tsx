@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useOutletContext } from "react-router-dom"; 
 import { 
   Plus, MoreHorizontal, Edit, Trash2, 
-  Mail, Shield, Calendar, User as UserIcon, ChevronDown, CheckCircle2
+  Mail, Shield, Calendar, User as UserIcon, CheckCircle2, Lock
 } from "lucide-react";
 import { Table } from "../components/ui/Table/Table";
 import { Dropdown } from "../components/ui/Dropdown";
@@ -10,16 +10,16 @@ import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input"; 
 import { SidePanelEdit } from "../components/ui/Tabbar/SidePanelEdit";
 import { Pagination } from "../components/ui/Pagination";
-import { Status } from "../components/ui/Status"; // นำเข้า Component Status
+import { Status } from "../components/ui/Status"; 
 import type { User, Column } from "../types";
+// import axios from "axios"; // 🌟 [อนาคต] เอาคอมเมนต์ออกเมื่อติดตั้ง axios แล้ว
 
-// ข้อมูลเริ่มต้นพร้อมรหัสผ่านสำหรับการทดสอบ
 const initialStaffs: User[] = [
   { 
     id: "admin_1", 
     name: "admin1", 
     email: "admin1@qbuddy.com", 
-    password: "admin123", 
+    password: "admin123", // เอาไว้ให้ระบบ Login จำลองเช็ค
     role: "ADMIN", 
     status: "OFFLINE", 
     createdAt: "Oct 01, 2023" 
@@ -28,7 +28,7 @@ const initialStaffs: User[] = [
     id: "staff_1", 
     name: "staff1", 
     email: "staff1@qbuddy.com", 
-    password: "staff123", 
+    password: "staff123", // เอาไว้ให้ระบบ Login จำลองเช็ค
     role: "STAFF", 
     status: "ONLINE", 
     createdAt: "Sep 20, 2023" 
@@ -51,17 +51,40 @@ export default function StaffManagement() {
   const [isAddPanelOpen, setIsAddPanelOpen] = useState(false);
   const [addName, setAddName] = useState("");
   const [addEmail, setAddEmail] = useState("");
+  const [addPassword, setAddPassword] = useState(""); 
   const [addRole, setAddRole] = useState<"ADMIN" | "STAFF">("STAFF");
   const [addEmailError, setAddEmailError] = useState("");
+  const [addPasswordError, setAddPasswordError] = useState(""); 
 
+  // ==========================================
+  // 🌟 1. ดึงข้อมูลพนักงาน (GET)
+  // ==========================================
   useEffect(() => {
-    const savedStaffs = localStorage.getItem("system_staffs");
-    if (savedStaffs && savedStaffs !== "[]") {
-      setStaffs(JSON.parse(savedStaffs));
-    } else {
-      setStaffs(initialStaffs);
-      localStorage.setItem("system_staffs", JSON.stringify(initialStaffs));
-    }
+    const loadData = async () => {
+      /*
+      // 🌟 [REAL DATABASE - อนาคต]
+      try {
+        // ต้องส่ง Token ไปยืนยันตัวตนด้วยถึงจะดึงรายชื่อพนักงานได้
+        const token = localStorage.getItem("access_token"); 
+        const response = await axios.get("http://localhost:5000/api/users", {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setStaffs(response.data);
+      } catch (error) {
+        console.error("Fetch Error:", error);
+      }
+      */
+
+      // ⚠️ [LOCAL MOCK - ปัจจุบัน]
+      const savedStaffs = localStorage.getItem("system_staffs");
+      if (savedStaffs && savedStaffs !== "[]") {
+        setStaffs(JSON.parse(savedStaffs));
+      } else {
+        setStaffs(initialStaffs);
+        localStorage.setItem("system_staffs", JSON.stringify(initialStaffs));
+      }
+    };
+    loadData();
   }, []);
 
   const saveStaffsToLocal = (newStaffs: User[]) => {
@@ -86,13 +109,18 @@ export default function StaffManagement() {
 
   const totalPages = Math.ceil(filteredStaffs.length / itemsPerPage);
   const paginatedData = filteredStaffs.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-
   useEffect(() => { setCurrentPage(1); }, [searchQuery, staffs.length]);
 
-  const handleConfirmAdd = () => {
+  // ==========================================
+  // 🌟 2. เพิ่มพนักงานใหม่ (POST / Register)
+  // ==========================================
+  const handleConfirmAdd = async () => {
     setAddEmailError("");
-    if (!addName.trim() || !addEmail.trim()) {
+    setAddPasswordError("");
+
+    if (!addName.trim() || !addEmail.trim() || !addPassword.trim()) {
       if (!addEmail.trim()) setAddEmailError("กรุณากรอกอีเมล");
+      if (!addPassword.trim()) setAddPasswordError("กรุณากรอกรหัสผ่าน");
       alert("กรุณากรอกข้อมูลให้ครบถ้วน");
       return;
     }
@@ -100,22 +128,51 @@ export default function StaffManagement() {
       setAddEmailError("รูปแบบอีเมลไม่ถูกต้อง");
       return;
     }
+    if (addPassword.length < 6) {
+      setAddPasswordError("รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร");
+      return;
+    }
 
+    /*
+    // 🌟 [REAL DATABASE - อนาคต เชื่อม Auth Controller]
+    try {
+      const response = await axios.post("http://localhost:5000/api/auth/register", {
+        name: addName,
+        email: addEmail,
+        password: addPassword, // ส่งให้ Backend เอาไป Hashing (bcrypt)
+        role: addRole
+      });
+      
+      const newStaffFromDB = response.data;
+      setStaffs([...staffs, newStaffFromDB]);
+      
+      // ล้างข้อมูลและปิดฟอร์ม
+      setAddName(""); setAddEmail(""); setAddPassword(""); setAddRole("STAFF"); setIsAddPanelOpen(false);
+    } catch (error) {
+      console.error("Register Error:", error);
+      alert("อีเมลนี้อาจมีในระบบแล้ว หรือระบบขัดข้อง");
+    }
+    */
+
+    // ⚠️ [LOCAL MOCK - ปัจจุบัน]
     const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     const newStaff: User = {
       id: `staff_${Date.now()}`,
       name: addName,
       email: addEmail,
-      password: "password123", 
+      password: addPassword, // ซ่อนไว้ ไม่โชว์บนจอ เอาไว้จำลอง Login
       role: addRole, 
       status: "UNVERIFIED", 
       createdAt: today, 
     };
 
     saveStaffsToLocal([...staffs, newStaff]);
-    setAddName(""); setAddEmail(""); setAddRole("STAFF"); setIsAddPanelOpen(false);
+    setAddName(""); setAddEmail(""); setAddPassword(""); setAddRole("STAFF"); setIsAddPanelOpen(false);
   };
 
+  // ==========================================
+  // 🌟 3. แก้ไขข้อมูลพนักงาน (PUT / Update)
+  // ==========================================
   const handleEditClick = (user: User) => {
     setEditingUser(user);
     setEditName(user.name);
@@ -124,11 +181,29 @@ export default function StaffManagement() {
     setEmailError("");
   };
 
-  const handleConfirmEdit = () => {
+  const handleConfirmEdit = async () => {
     if (!editingUser) return;
     if (!editEmail.trim()) { setEmailError("กรุณากรอกอีเมล"); return; }
     if (!validateEmail(editEmail)) { setEmailError("รูปแบบอีเมลไม่ถูกต้อง"); return; }
 
+    /*
+    // 🌟 [REAL DATABASE - อนาคต]
+    try {
+      const response = await axios.put(`http://localhost:5000/api/users/${editingUser.id}`, {
+        name: editName,
+        email: editEmail,
+        role: editRole
+      });
+      
+      const updatedStaffs = staffs.map(u => u.id === editingUser.id ? response.data : u);
+      setStaffs(updatedStaffs);
+      setEditingUser(null);
+    } catch (error) {
+      console.error("Update Error:", error);
+    }
+    */
+
+    // ⚠️ [LOCAL MOCK - ปัจจุบัน]
     const updatedStaffs = staffs.map((u) => 
       u.id === editingUser.id ? { ...u, name: editName, email: editEmail, role: editRole } : u
     );
@@ -136,8 +211,22 @@ export default function StaffManagement() {
     setEditingUser(null);
   };
 
-  const handleDeleteUser = (id: string) => {
+  // ==========================================
+  // 🌟 4. ลบพนักงาน (DELETE)
+  // ==========================================
+  const handleDeleteUser = async (id: string) => {
     if (confirm("Are you sure you want to delete this staff member?")) {
+      /*
+      // 🌟 [REAL DATABASE - อนาคต]
+      try {
+        await axios.delete(`http://localhost:5000/api/users/${id}`);
+        setStaffs(staffs.filter((u) => u.id !== id));
+      } catch (error) {
+        console.error("Delete Error:", error);
+      }
+      */
+
+      // ⚠️ [LOCAL MOCK - ปัจจุบัน]
       saveStaffsToLocal(staffs.filter((u) => u.id !== id));
     }
   };
@@ -221,6 +310,9 @@ export default function StaffManagement() {
         <Pagination currentPage={currentPage} totalPages={totalPages} totalItems={filteredStaffs.length} itemsPerPage={itemsPerPage} onChange={setCurrentPage} />
       </div>
 
+      {/* ========================================== */}
+      {/* 🌟 Add New Staff Panel */}
+      {/* ========================================== */}
       <SidePanelEdit isOpen={isAddPanelOpen} onClose={() => setIsAddPanelOpen(false)} title="Add New Staff"
         footer={
           <button onClick={handleConfirmAdd} className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-[#5AB2A8] rounded-2xl text-sm font-bold text-white hover:bg-[#4a968d] transition-all shadow-lg shadow-teal-100 active:scale-[0.98]">
@@ -233,18 +325,49 @@ export default function StaffManagement() {
           <div className="space-y-4">
             <Input label="Full Name" icon={<UserIcon size={18} />} type="text" value={addName} onChange={(e) => setAddName(e.target.value)} placeholder="Enter full name" className="bg-slate-50 border-slate-200" />
             <Input label="Email Address" icon={<Mail size={18} />} type="email" value={addEmail} onChange={(e) => { setAddEmail(e.target.value); if (addEmailError) setAddEmailError(""); }} placeholder="name@qbuddy.com" className="bg-slate-50 border-slate-200" error={addEmailError} />
+            
+            <Input 
+              label="Password" 
+              icon={<Lock size={18} />} 
+              type="password" 
+              value={addPassword} 
+              onChange={(e) => { setAddPassword(e.target.value); if (addPasswordError) setAddPasswordError(""); }} 
+              placeholder="Min. 6 characters" 
+              className="bg-slate-50 border-slate-200" 
+              error={addPasswordError} 
+            />
+
             <div className="space-y-2 pt-2">
               <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Select Role</label>
-              <Dropdown align="left"
-                trigger={
-                  <Button variant="outline" className="w-full bg-slate-50 border border-slate-200 justify-between text-slate-700 py-3">
-                    <div className="flex items-center gap-2"><Shield size={16} className="text-slate-400"/> {addRole}</div>
-                    <ChevronDown size={14} className="text-slate-400"/>
-                  </Button>
-                }
-                items={[ { label: "STAFF (Limited Access)", onClick: () => setAddRole("STAFF") }, { label: "ADMIN (Full Access)", onClick: () => setAddRole("ADMIN") } ]}
-              />
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setAddRole("STAFF")}
+                  className={`flex-1 flex flex-col items-center justify-center gap-1 py-3 px-4 rounded-xl border transition-all ${
+                    addRole === "STAFF" 
+                      ? "border-indigo-500 bg-indigo-50 text-indigo-700 ring-2 ring-indigo-500/20" 
+                      : "border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100"
+                  }`}
+                >
+                  <Shield size={20} className="mb-1" />
+                  <span className="text-xs font-bold">STAFF</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setAddRole("ADMIN")}
+                  className={`flex-1 flex flex-col items-center justify-center gap-1 py-3 px-4 rounded-xl border transition-all ${
+                    addRole === "ADMIN" 
+                      ? "border-rose-500 bg-rose-50 text-rose-700 ring-2 ring-rose-500/20" 
+                      : "border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100"
+                  }`}
+                >
+                  <Shield size={20} className="mb-1" />
+                  <span className="text-xs font-bold">ADMIN</span>
+                </button>
+              </div>
             </div>
+            
             <div className="pt-2">
               <DetailItem icon={<Shield size={18} />} label="Initial Status" value="UNVERIFIED (Awaiting First Login)" />
             </div>
@@ -252,6 +375,9 @@ export default function StaffManagement() {
         </div>
       </SidePanelEdit>
 
+      {/* ========================================== */}
+      {/* 🌟 Edit Staff Panel */}
+      {/* ========================================== */}
       <SidePanelEdit isOpen={!!editingUser} onClose={() => setEditingUser(null)} title="Edit Staff"
         footer={
           <button onClick={handleConfirmEdit} className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-[#5AB2A8] rounded-2xl text-sm font-bold text-white hover:bg-[#4a968d] transition-all shadow-lg shadow-teal-100 active:scale-[0.98]">
@@ -278,18 +404,38 @@ export default function StaffManagement() {
               <div className="space-y-4">
                 <Input label="Full Name" icon={<UserIcon size={18} />} type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className="bg-slate-50 border-slate-200" />
                 <Input label="Email Address" icon={<Mail size={18} />} type="email" value={editEmail} onChange={(e) => { setEditEmail(e.target.value); if (emailError) setEmailError(""); }} className="bg-slate-50 border-slate-200" error={emailError} />
+                
                 <div className="space-y-2 pt-2">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Update Role</label>
-                  <Dropdown align="left"
-                    trigger={
-                      <Button variant="outline" className="w-full bg-slate-50 border border-slate-200 justify-between text-slate-700 py-3">
-                        <div className="flex items-center gap-2"><Shield size={16} className="text-slate-400"/> {editRole}</div>
-                        <ChevronDown size={14} className="text-slate-400"/>
-                      </Button>
-                    }
-                    items={[ { label: "STAFF", onClick: () => setEditRole("STAFF") }, { label: "ADMIN", onClick: () => setEditRole("ADMIN") } ]}
-                  />
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setEditRole("STAFF")}
+                      className={`flex-1 flex flex-col items-center justify-center gap-1 py-3 px-4 rounded-xl border transition-all ${
+                        editRole === "STAFF" 
+                          ? "border-indigo-500 bg-indigo-50 text-indigo-700 ring-2 ring-indigo-500/20" 
+                          : "border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100"
+                      }`}
+                    >
+                      <Shield size={20} className="mb-1" />
+                      <span className="text-xs font-bold">STAFF</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setEditRole("ADMIN")}
+                      className={`flex-1 flex flex-col items-center justify-center gap-1 py-3 px-4 rounded-xl border transition-all ${
+                        editRole === "ADMIN" 
+                          ? "border-rose-500 bg-rose-50 text-rose-700 ring-2 ring-rose-500/20" 
+                          : "border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100"
+                      }`}
+                    >
+                      <Shield size={20} className="mb-1" />
+                      <span className="text-xs font-bold">ADMIN</span>
+                    </button>
+                  </div>
                 </div>
+
                 <div className="pt-2">
                   <DetailItem icon={<Calendar size={18} />} label="Account Created" value={editingUser.createdAt} />
                 </div>
