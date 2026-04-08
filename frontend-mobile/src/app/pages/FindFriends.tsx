@@ -22,7 +22,7 @@ const activitySchema = z.object({
 
 type ActivityFormData = z.infer<typeof activitySchema>;
 
-// 🛠️ ฟังก์ชันคำนวณระยะทางเส้นโค้งของโลก (Haversine Formula) สำหรับฝั่ง Local
+//  ฟังก์ชันคำนวณระยะทางเส้นโค้งของโลก (Haversine Formula) สำหรับฝั่ง Local
 const getDistanceInKm = (lat1: number, lon1: number, lat2: number, lon2: number) => {
   const R = 6371; 
   const dLat = (lat2 - lat1) * (Math.PI / 180);
@@ -64,7 +64,7 @@ export default function FindFriendsPage() {
   });
 
   // ==========================================
-  // 🔌 1. โหลดข้อมูล & Real-time Location Tracking
+  //  1. โหลดข้อมูล & Real-time Location Tracking
   // ==========================================
   useEffect(() => {
     let isMounted = true; 
@@ -73,7 +73,7 @@ export default function FindFriendsPage() {
     const initDataAndLocation = async () => {
       if (isMounted) setIsLoading(true);
 
-      // --- 📡 1.1 ติดตาม GPS แบบ Real-time ---
+      // --- 1.1 ติดตาม GPS แบบ Real-time ---
       try {
         let { status } = await Location.requestForegroundPermissionsAsync();
         if (status === 'granted') {
@@ -88,17 +88,17 @@ export default function FindFriendsPage() {
           );
         }
       } catch (locError) {
-        console.log("⚠️ GPS Tracking failed:", locError);
+        console.log("GPS Tracking failed:", locError);
       }
 
-      // --- 💾 1.2 โหลด Local Storage และคัดกรองข้อมูลที่หมดอายุ (TTL) ---
+      // ---1.2 โหลด Local Storage และคัดกรองข้อมูลที่หมดอายุ (TTL) ---
       try {
         const storedActivitiesStr = await AsyncStorage.getItem('@user_activities');
         let storedActivities = storedActivitiesStr ? JSON.parse(storedActivitiesStr) : [];
         
         const currentTime = Date.now();
         
-        // 🧹 Filter เอาเฉพาะกิจกรรมที่ 'เวลายังไม่หมด' (expireAt > ปัจจุบัน)
+        // Filter เอาเฉพาะกิจกรรมที่ 'เวลายังไม่หมด' (expireAt > ปัจจุบัน)
         const validStoredActivities = storedActivities.filter((act: any) => act.expireAt > currentTime);
         
         // ถ้ามีอันไหนถูกลบออกไป ให้เซฟทับตัวใหม่ลงเครื่อง
@@ -113,7 +113,7 @@ export default function FindFriendsPage() {
 
         /*
         // ==============================================================
-        // 🚀 FUTURE API (DB INTEGRATION): 
+        //  FUTURE API (DB INTEGRATION): 
         // Backend จะดึงจาก Prisma โดยใช้ PostGIS หาระยะทาง และตัดคิวหมดอายุทิ้ง
         // ==============================================================
         // const res = await axios.get('/api/activities', {
@@ -126,12 +126,12 @@ export default function FindFriendsPage() {
         // });
         // setAllNearbyUsers(res.data);
         //
-        // 📝 ตัวอย่าง Prisma Query ฝั่ง Backend (Node.js):
+        // ตัวอย่าง Prisma Query ฝั่ง Backend (Node.js):
         // const activities = await prisma.activity.findMany({
         //   where: {
         //     status: 'open',
         //     category: req.query.category,
-        //     activity_datetime: { gt: new Date() } // <-- ⏰ ดึงเฉพาะที่เวลายังไม่หมด (สำคัญมาก)
+        //     activity_datetime: { gt: new Date() } // <--ดึงเฉพาะที่เวลายังไม่หมด (สำคัญมาก)
         //   }
         // });
         */
@@ -152,7 +152,7 @@ export default function FindFriendsPage() {
   }, []);
 
   // ==========================================
-  // 🔌 2. บันทึกข้อมูลกิจกรรมใหม่ลง Local Storage
+  //  2. บันทึกข้อมูลกิจกรรมใหม่ลง Local Storage
   // ==========================================
   const onSubmitActivity = async (data: ActivityFormData) => {
     try {
@@ -164,7 +164,7 @@ export default function FindFriendsPage() {
         name: user?.name || 'Me',
         activity: data.activityDesc,
         timeStr: 'วันนี้ (เพิ่งสร้าง)',
-        expireAt: Date.now() + (2 * 60 * 60 * 1000), // ⏰ หมดอายุใน 2 ชั่วโมง
+        expireAt: Date.now() + (2 * 60 * 60 * 1000), // หมดอายุใน 2 ชั่วโมง
         lat: mockLat,
         lng: mockLng,
         avatar: 'https://i.pravatar.cc/150?u=me',
@@ -186,7 +186,7 @@ export default function FindFriendsPage() {
 
       /*
       // ==============================================================
-      // 🚀 FUTURE API (POST ใหม่ลง DB):
+      //  FUTURE API (POST ใหม่ลง DB):
       // ==============================================================
       // await axios.post('/api/activities', {
       //   creator_id: user.id,
@@ -213,7 +213,7 @@ export default function FindFriendsPage() {
   };
 
   // ==========================================
-  // 🔌 3. ประมวลผลก่อน Render (Sort & Filter)
+  //  3. ประมวลผลก่อน Render (Sort & Filter)
   // ==========================================
   // คำนวณระยะทางแบบ Real-time ตามตำแหน่ง GPS ล่าสุด
   const processUsers = (usersList: any[]) => {
@@ -228,7 +228,7 @@ export default function FindFriendsPage() {
         }
         return { ...u, distanceStr, distanceVal };
       })
-      .sort((a, b) => a.distanceVal - b.distanceVal); // 📍 เรียงจากใกล้ไปไกล
+      .sort((a, b) => a.distanceVal - b.distanceVal); // เรียงจากใกล้ไปไกล
   };
 
   const displayedUsers = processUsers(allNearbyUsers);

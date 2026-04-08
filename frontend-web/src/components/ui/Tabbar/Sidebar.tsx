@@ -56,7 +56,7 @@ const Sidebar = () => {
           </>
         )}
 
-        {/* 🌟 ดึง Settings กลับมาและแสดงให้ทุกคนเห็น (ต่อตูดด้านล่าง) */}
+        {/*  ดึง Settings กลับมาและแสดงให้ทุกคนเห็น (ต่อตูดด้านล่าง) */}
         <div className="border-t border-white/10 my-4 mx-2" />
         <SidebarItem to="/settings" icon={<GearIcon />} label="Settings" />
 

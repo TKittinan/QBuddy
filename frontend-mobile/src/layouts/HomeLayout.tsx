@@ -5,7 +5,7 @@ import { Mic } from 'lucide-react-native';
 import { Input } from '../components/ui/Input';
 import { useAuth } from '../context/auth/use.Auth';
 
-// 🚨 1. Import ตัว BottomNav ที่เราเพิ่งสร้าง
+// 1. Import ตัว BottomNav ที่เราเพิ่งสร้าง
 import { Navigation } from '../components/ui/Navigation';
 
 interface HomeLayoutProps {

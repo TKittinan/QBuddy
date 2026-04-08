@@ -62,7 +62,7 @@ export default function UserDetailPanel({ user, onClose }: Props) {
   );
 }
 
-// ✅ แก้ Error 'Unexpected any' โดยระบุ Type ให้ icon เป็น React.ReactNode
+// แก้ Error 'Unexpected any' โดยระบุ Type ให้ icon เป็น React.ReactNode
 interface DetailItemProps {
   icon: React.ReactNode; 
   label: string; 

@@ -11,7 +11,7 @@ import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import { useAuth } from "../context/auth/use.Auth";
 
-// 🌟 เพิ่มข้อมูลตั้งต้นไว้ที่หน้า Login ด้วย เผื่อกรณีเคลียร์เครื่องใหม่ จะได้มีไอดีให้ล็อคอิน
+//  เพิ่มข้อมูลตั้งต้นไว้ที่หน้า Login ด้วย เผื่อกรณีเคลียร์เครื่องใหม่ จะได้มีไอดีให้ล็อคอิน
 const defaultStaffs = [
   { id: "admin_1", name: "admin1", email: "admin1@qbuddy.com", password: "admin123", role: "ADMIN", status: "OFFLINE", createdAt: "Oct 01, 2023" },
   { id: "staff_1", name: "staff1", email: "staff1@qbuddy.com", password: "staff123", role: "STAFF", status: "OFFLINE", createdAt: "Sep 20, 2023" },
@@ -55,7 +55,7 @@ export default function Login() {
 
     if (!isValid) return;
 
-    // 🌟 1. ดึงข้อมูลจาก Local Storage ถ้าไม่มีหรือเป็น [] ให้ใช้ defaultStaffs แทน
+    //  1. ดึงข้อมูลจาก Local Storage ถ้าไม่มีหรือเป็น [] ให้ใช้ defaultStaffs แทน
     let savedStaffs = JSON.parse(localStorage.getItem("system_staffs") || "null");
     if (!savedStaffs || savedStaffs.length === 0) {
       savedStaffs = defaultStaffs;

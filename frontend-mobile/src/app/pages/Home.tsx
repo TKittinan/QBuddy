@@ -14,7 +14,7 @@ export default function HomePage() {
 
   /*
   // ==============================================================
-  // 🚀 FUTURE API: ดึงข้อมูลหน้า Home (แนะนำให้ใช้ React Query)
+  //  FUTURE API: ดึงข้อมูลหน้า Home (แนะนำให้ใช้ React Query)
   // ==============================================================
   // useEffect(() => {
   //   const fetchHomeData = async () => {

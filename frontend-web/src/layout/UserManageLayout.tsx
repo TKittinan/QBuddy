@@ -6,7 +6,7 @@ import Header from "../components/ui/Tabbar/Header";
 const UserManageLayout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
-  // 🌟 เพิ่ม State สำหรับเก็บคำค้นหา
+  //  เพิ่ม State สำหรับเก็บคำค้นหา
   const [searchQuery, setSearchQuery] = useState("");
 
   return (
@@ -30,7 +30,7 @@ const UserManageLayout = () => {
       )}
 
       <div className="flex-1 flex flex-col h-full overflow-hidden">
-        {/* ✅ Header ส่ง Props ค้นหาไปให้ input ใช้งาน */}
+        {/*  Header ส่ง Props ค้นหาไปให้ input ใช้งาน */}
         <Header 
           title="User Management" 
           onMenuClick={() => setIsSidebarOpen(true)} 
@@ -40,7 +40,7 @@ const UserManageLayout = () => {
 
         <main className="flex-1 p-4 lg:p-8 overflow-y-auto bg-slate-50">
           <div className="max-w-[1400px] mx-auto">
-            {/* ✅ ส่งคำค้นหาลงไปให้หน้าลูก (UserManagement) */}
+            {/*  ส่งคำค้นหาลงไปให้หน้าลูก (UserManagement) */}
             <Outlet context={{ searchQuery }} />
           </div>
         </main>

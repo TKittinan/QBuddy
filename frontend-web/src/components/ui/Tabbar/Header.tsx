@@ -5,8 +5,8 @@ import {
   HamburgerMenuIcon,
   GearIcon,
   BellIcon,
-  ExitIcon,      // 🌟 Import icon สำหรับ Logout
-  Cross2Icon     // 🌟 Import icon สำหรับปุ่มกากบาทปิดช่องค้นหา
+  ExitIcon,      //  Import icon สำหรับ Logout
+  Cross2Icon     //  Import icon สำหรับปุ่มกากบาทปิดช่องค้นหา
 } from "@radix-ui/react-icons";
 import { useAuth } from "../../../context/auth/use.Auth";
 import { Dropdown } from "../Dropdown";
@@ -20,20 +20,20 @@ interface HeaderProps {
 }
 
 export default function Header({ title, onMenuClick, searchQuery, setSearchQuery }: HeaderProps) {
-  const { user, logout } = useAuth(); // 🌟 ดึง logout ออกมาจาก useAuth
+  const { user, logout } = useAuth(); //  ดึง logout ออกมาจาก useAuth
   const navigate = useNavigate(); 
 
-  // 🌟 State สำหรับคุมการเปิด/ปิดช่องค้นหาบนมือถือ
+  //  State สำหรับคุมการเปิด/ปิดช่องค้นหาบนมือถือ
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
 
-  // 🌟 ฟังก์ชันจัดการการ Logout
+  //  ฟังก์ชันจัดการการ Logout
   const handleLogout = () => {
     logout();
     navigate("/login");
   };
 
   // ==========================================
-  // 📱 โหมด Mobile Search (เมื่อกดปุ่ม Search ใน Dropdown)
+  // โหมด Mobile Search (เมื่อกดปุ่ม Search ใน Dropdown)
   // ==========================================
   if (isMobileSearchOpen) {
     return (
@@ -115,16 +115,16 @@ export default function Header({ title, onMenuClick, searchQuery, setSearchQuery
           </div>
         </div>
 
-        {/* 🌟 ส่วนจัดการ Profile Menu */}
+        {/*ส่วนจัดการ Profile Menu */}
         <div className="lg:hidden">
           <Dropdown 
             trigger={profileButtonUI}
             items={[
-              // 🌟 เมื่อกดปุ่ม Search ให้เปลี่ยน Header เป็นช่องค้นหา
+              //เมื่อกดปุ่ม Search ให้เปลี่ยน Header เป็นช่องค้นหา
               { label: "Search", icon: <MagnifyingGlassIcon />, onClick: () => setIsMobileSearchOpen(true) },
               { label: "Messages", icon: <EnvelopeClosedIcon />, onClick: () => {} },
               { label: "Settings", icon: <GearIcon />, divider: true, onClick: () => navigate("/settings") },
-              // 🌟 ปุ่ม Sign Out ใช้งานได้จริง
+              // ปุ่ม Sign Out ใช้งานได้จริง
               { label: "Sign Out", icon: <ExitIcon />, className: "text-red-600 font-bold", onClick: handleLogout },
             ]}
           />

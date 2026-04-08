@@ -6,7 +6,7 @@ import Header from "../components/ui/Tabbar/Header";
 export default function BookingManagementLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
-  // 🌟 เพิ่ม State สำหรับค้นหา
+  //  เพิ่ม State สำหรับค้นหา
   const [searchQuery, setSearchQuery] = useState("");
 
   return (
@@ -32,7 +32,7 @@ export default function BookingManagementLayout() {
       {/* 3. Main Content Area */}
       <div className="flex-1 flex flex-col h-full overflow-hidden">
         
-        {/* 🌟 ส่ง searchQuery ให้ Header เพื่อใช้งานช่องค้นหา */}
+        {/*  ส่ง searchQuery ให้ Header เพื่อใช้งานช่องค้นหา */}
         <Header 
           title="Booking Management" 
           onMenuClick={() => setIsSidebarOpen(true)} 
@@ -42,7 +42,7 @@ export default function BookingManagementLayout() {
 
         <main className="flex-1 p-4 lg:p-8 overflow-y-auto bg-slate-50">
           <div className="max-w-[1400px] mx-auto">
-            {/* 🌟 ส่งคำค้นหาลงหน้าลูก */}
+            {/*  ส่งคำค้นหาลงหน้าลูก */}
             <Outlet context={{ searchQuery }} />
           </div>
         </main>

@@ -31,7 +31,7 @@ export const Navigation = ({ activeTab }: NavigationProps) => {
         return (
           <TouchableOpacity 
             key={tab.id}
-            // 🛡️ ปรับปรุง 1: ลบ w-16 ออกเพื่อให้พื้นที่ยืดหยุ่นได้ และเพิ่ม padding แนวนอนเล็กน้อย
+            // ปรับปรุง 1: ลบ w-16 ออกเพื่อให้พื้นที่ยืดหยุ่นได้ และเพิ่ม padding แนวนอนเล็กน้อย
             className="items-center justify-center px-1"
             onPress={() => router.push(tab.route as any)}
           >

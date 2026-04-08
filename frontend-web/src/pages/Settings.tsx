@@ -5,7 +5,7 @@ import {
 } from "lucide-react";
 import { Input } from "../components/ui/Input";
 import { Button } from "../components/ui/Button";
-import { useAuth } from "../context/auth/use.Auth"; // 🌟 ดึง useAuth มาใช้
+import { useAuth } from "../context/auth/use.Auth"; //  ดึง useAuth มาใช้
 
 type Tab = "general" | "queue" | "security";
 
@@ -21,7 +21,7 @@ export default function Settings() {
     autoCancelMins: "15",
   });
 
-  // 🌟 State สำหรับเปลี่ยนรหัสผ่าน
+  //  State สำหรับเปลี่ยนรหัสผ่าน
   const [passwords, setPasswords] = useState({
     current: "",
     newPass: "",
@@ -42,7 +42,7 @@ export default function Settings() {
 
   const handleSave = () => {
     if (activeTab === "security") {
-      // 🌟 ลอจิกเปลี่ยนรหัสผ่าน
+      //  ลอจิกเปลี่ยนรหัสผ่าน
       if (!passwords.current || !passwords.newPass || !passwords.confirm) {
         setPassError("Please fill in all password fields.");
         return;
@@ -73,7 +73,7 @@ export default function Settings() {
         setPassError("Incorrect current password.");
       }
     } else {
-      // 🌟 บันทึก Tab อื่นๆ (สมมติ)
+      //  บันทึก Tab อื่นๆ (สมมติ)
       alert("Settings saved successfully!");
     }
   };

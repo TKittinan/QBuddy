@@ -5,7 +5,7 @@ import Header from "../components/ui/Tabbar/Header";
 
 export default function PlaceManagementLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState(""); // 🌟 เพิ่ม State ค้นหา
+  const [searchQuery, setSearchQuery] = useState(""); //  เพิ่ม State ค้นหา
 
   return (
     <div className="h-screen flex bg-slate-50 overflow-hidden relative">
@@ -25,7 +25,7 @@ export default function PlaceManagementLayout() {
       )}
 
       <div className="flex-1 flex flex-col h-full overflow-hidden">
-        {/* 🌟 ส่ง searchQuery ให้ Header */}
+        {/*  ส่ง searchQuery ให้ Header */}
         <Header 
           title="Place Management" 
           onMenuClick={() => setIsSidebarOpen(true)} 
@@ -35,7 +35,7 @@ export default function PlaceManagementLayout() {
 
         <main className="flex-1 p-4 lg:p-8 overflow-y-auto bg-slate-50">
           <div className="max-w-[1400px] mx-auto">
-            {/* 🌟 ส่งคำค้นหาลงหน้าลูก */}
+            {/*  ส่งคำค้นหาลงหน้าลูก */}
             <Outlet context={{ searchQuery }} />
           </div>
         </main>

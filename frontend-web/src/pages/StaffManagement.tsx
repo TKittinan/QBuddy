@@ -12,7 +12,7 @@ import { SidePanelEdit } from "../components/ui/Tabbar/SidePanelEdit";
 import { Pagination } from "../components/ui/Pagination";
 import { Status } from "../components/ui/Status"; 
 import type { User, Column } from "../types";
-// import axios from "axios"; // 🌟 [อนาคต] เอาคอมเมนต์ออกเมื่อติดตั้ง axios แล้ว
+// import axios from "axios"; //  [อนาคต] เอาคอมเมนต์ออกเมื่อติดตั้ง axios แล้ว
 
 const initialStaffs: User[] = [
   { 
@@ -57,12 +57,12 @@ export default function StaffManagement() {
   const [addPasswordError, setAddPasswordError] = useState(""); 
 
   // ==========================================
-  // 🌟 1. ดึงข้อมูลพนักงาน (GET)
+  //  1. ดึงข้อมูลพนักงาน (GET)
   // ==========================================
   useEffect(() => {
     const loadData = async () => {
       /*
-      // 🌟 [REAL DATABASE - อนาคต]
+      //  [REAL DATABASE - อนาคต]
       try {
         // ต้องส่ง Token ไปยืนยันตัวตนด้วยถึงจะดึงรายชื่อพนักงานได้
         const token = localStorage.getItem("access_token"); 
@@ -75,7 +75,7 @@ export default function StaffManagement() {
       }
       */
 
-      // ⚠️ [LOCAL MOCK - ปัจจุบัน]
+      // [LOCAL MOCK - ปัจจุบัน]
       const savedStaffs = localStorage.getItem("system_staffs");
       if (savedStaffs && savedStaffs !== "[]") {
         setStaffs(JSON.parse(savedStaffs));
@@ -112,7 +112,7 @@ export default function StaffManagement() {
   useEffect(() => { setCurrentPage(1); }, [searchQuery, staffs.length]);
 
   // ==========================================
-  // 🌟 2. เพิ่มพนักงานใหม่ (POST / Register)
+  //  2. เพิ่มพนักงานใหม่ (POST / Register)
   // ==========================================
   const handleConfirmAdd = async () => {
     setAddEmailError("");
@@ -134,7 +134,7 @@ export default function StaffManagement() {
     }
 
     /*
-    // 🌟 [REAL DATABASE - อนาคต เชื่อม Auth Controller]
+    //  [REAL DATABASE - อนาคต เชื่อม Auth Controller]
     try {
       const response = await axios.post("http://localhost:5000/api/auth/register", {
         name: addName,
@@ -154,7 +154,7 @@ export default function StaffManagement() {
     }
     */
 
-    // ⚠️ [LOCAL MOCK - ปัจจุบัน]
+    // [LOCAL MOCK - ปัจจุบัน]
     const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     const newStaff: User = {
       id: `staff_${Date.now()}`,
@@ -171,7 +171,7 @@ export default function StaffManagement() {
   };
 
   // ==========================================
-  // 🌟 3. แก้ไขข้อมูลพนักงาน (PUT / Update)
+  //  3. แก้ไขข้อมูลพนักงาน (PUT / Update)
   // ==========================================
   const handleEditClick = (user: User) => {
     setEditingUser(user);
@@ -187,7 +187,7 @@ export default function StaffManagement() {
     if (!validateEmail(editEmail)) { setEmailError("รูปแบบอีเมลไม่ถูกต้อง"); return; }
 
     /*
-    // 🌟 [REAL DATABASE - อนาคต]
+    //  [REAL DATABASE - อนาคต]
     try {
       const response = await axios.put(`http://localhost:5000/api/users/${editingUser.id}`, {
         name: editName,
@@ -203,7 +203,7 @@ export default function StaffManagement() {
     }
     */
 
-    // ⚠️ [LOCAL MOCK - ปัจจุบัน]
+    // [LOCAL MOCK - ปัจจุบัน]
     const updatedStaffs = staffs.map((u) => 
       u.id === editingUser.id ? { ...u, name: editName, email: editEmail, role: editRole } : u
     );
@@ -212,12 +212,12 @@ export default function StaffManagement() {
   };
 
   // ==========================================
-  // 🌟 4. ลบพนักงาน (DELETE)
+  //  4. ลบพนักงาน (DELETE)
   // ==========================================
   const handleDeleteUser = async (id: string) => {
     if (confirm("Are you sure you want to delete this staff member?")) {
       /*
-      // 🌟 [REAL DATABASE - อนาคต]
+      //  [REAL DATABASE - อนาคต]
       try {
         await axios.delete(`http://localhost:5000/api/users/${id}`);
         setStaffs(staffs.filter((u) => u.id !== id));
@@ -226,7 +226,7 @@ export default function StaffManagement() {
       }
       */
 
-      // ⚠️ [LOCAL MOCK - ปัจจุบัน]
+      // [LOCAL MOCK - ปัจจุบัน]
       saveStaffsToLocal(staffs.filter((u) => u.id !== id));
     }
   };
@@ -311,7 +311,7 @@ export default function StaffManagement() {
       </div>
 
       {/* ========================================== */}
-      {/* 🌟 Add New Staff Panel */}
+      {/*  Add New Staff Panel */}
       {/* ========================================== */}
       <SidePanelEdit isOpen={isAddPanelOpen} onClose={() => setIsAddPanelOpen(false)} title="Add New Staff"
         footer={
@@ -376,7 +376,7 @@ export default function StaffManagement() {
       </SidePanelEdit>
 
       {/* ========================================== */}
-      {/* 🌟 Edit Staff Panel */}
+      {/*  Edit Staff Panel */}
       {/* ========================================== */}
       <SidePanelEdit isOpen={!!editingUser} onClose={() => setEditingUser(null)} title="Edit Staff"
         footer={

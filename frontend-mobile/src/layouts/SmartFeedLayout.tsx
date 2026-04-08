@@ -4,7 +4,7 @@ import { SafeAreaView, View, Text, TouchableOpacity, Platform } from 'react-nati
 import { Sparkles, ArrowLeft } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
-// 🚨 1. Import ตัว BottomNav
+// 1. Import ตัว BottomNav
     import { Navigation } from '../components/ui/Navigation';
 
 interface SmartFeedLayoutProps {

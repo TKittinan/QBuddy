@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { createPortal } from "react-dom"; // ✅ ใช้ Portal เพื่อให้ลอยเหนือทุกอย่าง
+import { createPortal } from "react-dom"; //ใช้ Portal เพื่อให้ลอยเหนือทุกอย่าง
 
 export interface DropdownItem {
   label: React.ReactNode;
@@ -13,7 +13,7 @@ export interface DropdownProps {
   trigger: React.ReactNode;
   items: DropdownItem[];
   className?: string;
-  align?: "left" | "right" | "center"; // 🌟 เพิ่ม Props สำหรับจัดตำแหน่ง
+  align?: "left" | "right" | "center";
 }
 
 export function Dropdown({ trigger, items, className = "w-48", align = "right" }: DropdownProps) {
@@ -26,7 +26,7 @@ export function Dropdown({ trigger, items, className = "w-48", align = "right" }
     if (!isOpen && triggerRef.current) {
       const rect = triggerRef.current.getBoundingClientRect();
       
-      // 🌟 คำนวณจุดอ้างอิง (X) ให้ตรงกับ Props ที่ส่งมา
+      // คำนวณจุดอ้างอิง (X) ให้ตรงกับ Props ที่ส่งมา
       let leftPos = 0;
       if (align === "left") {
         leftPos = rect.left + window.scrollX;
@@ -52,7 +52,7 @@ export function Dropdown({ trigger, items, className = "w-48", align = "right" }
       }
     };
 
-    // 🌟 ปิดเมนูอัตโนมัติเมื่อมีการ Scroll เพื่อไม่ให้เมนูลอยค้างผิดที่
+    // ปิดเมนูอัตโนมัติเมื่อมีการ Scroll เพื่อไม่ให้เมนูลอยค้างผิดที่
     const handleScroll = () => {
       if (isOpen) setIsOpen(false);
     };
@@ -68,7 +68,7 @@ export function Dropdown({ trigger, items, className = "w-48", align = "right" }
     };
   }, [isOpen]);
 
-  // 🌟 จัดหน้าเมนูให้ชิดซ้าย ขวา หรือกลาง โดยไม่ต้องฟิกซ์ความกว้าง 192px
+  // จัดหน้าเมนูให้ชิดซ้าย ขวา หรือกลาง โดยไม่ต้องฟิกซ์ความกว้าง 192px
   let transformStyle = "none";
   if (align === "right") transformStyle = "translateX(-100%)";
   if (align === "center") transformStyle = "translateX(-50%)";
@@ -88,7 +88,7 @@ export function Dropdown({ trigger, items, className = "w-48", align = "right" }
             left: coords.left,
             transform: transformStyle // เลื่อนตาม Align ที่ตั้งไว้
           }}
-          // 🌟 เปลี่ยนจาก fixed เป็น absolute เพื่อให้วิ่งตาม window.scrollY ได้เนียนๆ
+          // เปลี่ยนจาก fixed เป็น absolute เพื่อให้วิ่งตาม window.scrollY ได้เนียนๆ
           className={`absolute bg-white rounded-xl shadow-2xl border border-slate-100 z-[9999] py-1 overflow-hidden animate-in fade-in zoom-in duration-150 ${className}`}
         >
           {items.map((item, index) => (

@@ -5,7 +5,7 @@ import { Sparkles, Map, Star, Clock, CheckCircle2, Bookmark } from 'lucide-react
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 
-// 🚨 Import Layout ที่เราเพิ่งสร้าง
+// Import Layout ที่เราเพิ่งสร้าง
 import { SmartFeedLayout } from '../../layouts/SmartFeedLayout';
 
 // --- MOCK DATA: ฐานข้อมูลร้านค้าทั้งหมด ---
@@ -57,7 +57,7 @@ export default function SmartFeedPage() {
 
       /*
       // ==============================================================
-      // 🚀 FUTURE API INTEGRATION (รอต่อ Database ลูกค้า)
+      //  FUTURE API INTEGRATION (รอต่อ Database ลูกค้า)
       // ==============================================================
       // const historyRes = await axios.get(`/api/bookings/history/${user.id}`);
       // const aiRecommendation = await axios.post('/api/ai/recommend', { history: historyRes.data, limitTop: 3, limitRecommended: 2 });

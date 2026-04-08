@@ -16,7 +16,7 @@ const validateEmail = (email: string) => {
 const mockRegisterAPI = async (userData: any) => {
   /*
   // ==============================================================
-  // 🚀 FUTURE API: Insert เข้าตาราง User ใน Prisma
+  //  FUTURE API: Insert เข้าตาราง User ใน Prisma
   // ==============================================================
   // try {
   //   const registerRes = await axios.post('/api/auth/register', {

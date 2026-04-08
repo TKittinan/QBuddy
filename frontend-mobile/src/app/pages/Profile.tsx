@@ -25,7 +25,7 @@ const MOCK_SAVED_PLACES = [
 
 export default function ProfilePage() {
   const router = useRouter();
-  // 🚨 แก้บั๊ก Logout: ต้องเรียกใช้ฟังก์ชัน logout() จาก Context เพื่อเคลียร์ Global State ด้วย
+  // แก้บั๊ก Logout: ต้องเรียกใช้ฟังก์ชัน logout() จาก Context เพื่อเคลียร์ Global State ด้วย
   const { user, logout } = useAuth(); 
 
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
@@ -46,12 +46,12 @@ export default function ProfilePage() {
   const [settings, setSettings] = useState({ notifications: true, location: true });
 
   // ==========================================
-  // 🔌 1. โหลดข้อมูลเริ่มต้น (Load Data)
+  //  1. โหลดข้อมูลเริ่มต้น (Load Data)
   // ==========================================
   useEffect(() => {
     const loadProfileData = async () => {
       /*
-      // 🚀 FUTURE API: ดึงข้อมูล Profile และ Saved Places จาก DB
+      //  FUTURE API: ดึงข้อมูล Profile และ Saved Places จาก DB
       // try {
       //   const profileRes = await axios.get(`/api/users/${user?.id}`);
       //   setUserName(profileRes.data.name);
@@ -91,7 +91,7 @@ export default function ProfilePage() {
   const closeModal = (key: keyof typeof modals) => setModals({ ...modals, [key]: false });
 
   // ==========================================
-  // 🔌 2. อัปโหลดรูปภาพ (Upload Avatar)
+  //  2. อัปโหลดรูปภาพ (Upload Avatar)
   // ==========================================
   const handlePickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -112,7 +112,7 @@ export default function ProfilePage() {
       await AsyncStorage.setItem('@user_avatar', result.assets[0].uri);
       
       /*
-      // 🚀 FUTURE API: อัปโหลดรูปภาพลง Storage/DB
+      //  FUTURE API: อัปโหลดรูปภาพลง Storage/DB
       // const formData = new FormData();
       // formData.append('avatar', { uri: result.assets[0].uri, name: 'avatar.jpg', type: 'image/jpeg' });
       // await axios.post(`/api/users/${user?.id}/avatar`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
@@ -121,12 +121,12 @@ export default function ProfilePage() {
   };
 
   // ==========================================
-  // 🔌 3. อัปเดตโปรไฟล์ (Update Profile)
+  //  3. อัปเดตโปรไฟล์ (Update Profile)
   // ==========================================
   const handleSaveProfile = async () => {
     try {
       /*
-      // 🚀 FUTURE API: อัปเดตข้อมูล User ลง DB (ตาราง User)
+      //  FUTURE API: อัปเดตข้อมูล User ลง DB (ตาราง User)
       // await axios.put(`/api/users/${user?.id}`, { 
       //   name: userName, 
       //   email: userEmail 
@@ -141,7 +141,7 @@ export default function ProfilePage() {
   };
 
   // ==========================================
-  // 🔌 4. เพิ่ม/ลบ ร้านโปรด (Toggle Bookmark)
+  //  4. เพิ่ม/ลบ ร้านโปรด (Toggle Bookmark)
   // ==========================================
   const toggleSavePlace = async (id: string) => {
     let newUnsaved = [...unsavedIds];
@@ -156,7 +156,7 @@ export default function ProfilePage() {
     await AsyncStorage.setItem('@saved_places', JSON.stringify(actualSaved));
 
     /*
-    // 🚀 FUTURE API: เพิ่ม/ลบ Saved Place ใน DB
+    //  FUTURE API: เพิ่ม/ลบ Saved Place ใน DB
     // if(newUnsaved.includes(id)) {
     //   await axios.delete(`/api/users/${user?.id}/bookmarks/${id}`); // ลบออก
     // } else {
@@ -166,7 +166,7 @@ export default function ProfilePage() {
   };
 
   // ==========================================
-  // 🔌 5. ออกจากระบบ (Logout)
+  //  5. ออกจากระบบ (Logout)
   // ==========================================
   const handleLogout = async () => {
     Alert.alert('ยืนยันออกจากระบบ', 'คุณต้องการออกจากระบบใช่หรือไม่?', [
@@ -175,7 +175,7 @@ export default function ProfilePage() {
         text: 'ออกจากระบบ', 
         style: 'destructive', 
         onPress: async () => {
-          // 🚨 แก้บั๊กตรงนี้: ใช้ฟังก์ชัน logout จาก Context เพื่อเคลียร์ Global State 
+          //แก้บั๊กตรงนี้: ใช้ฟังก์ชัน logout จาก Context เพื่อเคลียร์ Global State 
           await logout(); 
           router.replace('/pages/Login' as any);
         }

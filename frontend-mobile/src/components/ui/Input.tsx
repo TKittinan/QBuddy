@@ -53,7 +53,7 @@ export const Input: React.FC<InputProps> = ({
 // สไตล์พื้นฐาน (Base Styles)
 const styles = StyleSheet.create({
   container: { width: '100%' },
-  labelContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }, // 👈 เพิ่ม Flex แนวนอน
+  labelContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }, // เพิ่ม Flex แนวนอน
   label: { fontSize: 13, fontWeight: '700', color: '#4A5568' },
   inputContainer: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#CBD5E0', borderRadius: 8, backgroundColor: '#FFFFFF' },
   input: { flex: 1, paddingHorizontal: 16, paddingVertical: 14, fontSize: 14, color: '#2D3748' },

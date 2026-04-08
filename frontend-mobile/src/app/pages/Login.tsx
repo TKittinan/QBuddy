@@ -12,7 +12,7 @@ import { useAuth } from '../../context/auth/use.Auth';
 const mockLoginAPI = async (loginData: any) => {
   /*
   // ==============================================================
-  // 🚀 FUTURE API: ระบบ Login ตรวจสอบกับตาราง User
+  //  FUTURE API: ระบบ Login ตรวจสอบกับตาราง User
   // ==============================================================
   // try {
   //   const loginRes = await axios.post('/api/auth/login', {

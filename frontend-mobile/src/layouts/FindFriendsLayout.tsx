@@ -10,7 +10,7 @@ interface FindFriendsLayoutProps {
   subtitle?: string;
 }
 
-// 🚨 เปลี่ยนชื่อ Component ตรงนี้ให้ตรงกับที่ import
+// เปลี่ยนชื่อ Component ตรงนี้ให้ตรงกับที่ import
 export const FindFriendsLayout = ({ children, title, subtitle }: FindFriendsLayoutProps) => {
   const router = useRouter();
 
