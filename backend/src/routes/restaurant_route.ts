@@ -10,6 +10,7 @@ import {
 
 import { authMiddleware } from "../middlewares/auth_middleware";
 import { adminMiddleware } from "../middlewares/admin_middleware";
+import { staffMiddleware } from "../middlewares/staff_middleware";
 
 const router = Router();
 
@@ -21,6 +22,7 @@ router.post(
   "/",
   authMiddleware,
   adminMiddleware,
+  staffMiddleware,
   createRestaurant
 );
 

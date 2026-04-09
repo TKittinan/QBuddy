@@ -2,7 +2,7 @@ import { Response, NextFunction } from "express";
 import { AuthRequest } from "./auth_middleware";
 import { prisma } from "../lib/prisma";
 
-export const adminMiddleware = async (
+export const staffMiddleware = async (
   req: AuthRequest,
   res: Response,
   next: NextFunction
@@ -19,13 +19,13 @@ export const adminMiddleware = async (
     });
 
     if (!admin) {
-  return res.status(403).json("No permission");
-  }
+      return res.status(403).json("No permission");
+    }
 
-  // เช็ค role
-  if (admin.role !== "admin" && admin.role !== "staff") {
-    return res.status(403).json("Not allowed");
-  }
+    // อนุญาตทั้ง staff และ admin
+    if (admin.role !== "admin" && admin.role !== "staff") {
+      return res.status(403).json("Not allowed");
+    }
 
     next();
   } catch (err) {
