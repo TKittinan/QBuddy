@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useOutletContext } from "react-router-dom";
 import { 
   Plus, ChevronDown, Clock, CheckCircle2, XCircle, 
-  BarChart2, Hourglass, Timer, MoreHorizontal, Edit, Trash2, User, Mail, MapPin, CalendarDays
+  BarChart2, Hourglass, Timer, MoreHorizontal, Edit, Trash2, User, Mail, MapPin, CalendarDays, RefreshCcw
 } from "lucide-react";
 import { Table } from "../components/ui/Table/Table";
 import { Button } from "../components/ui/Button";
@@ -11,7 +11,7 @@ import { Input } from "../components/ui/Input";
 import { Pagination } from "../components/ui/Pagination";
 import { SidePanelEdit } from "../components/ui/Tabbar/SidePanelEdit";
 import { SearchSelect, type SearchOption } from "../components/ui/SearchSelect";
-import { Status } from "../components/ui/Status"; // นำเข้า Component StatusBadge ตรงนี้
+import { Status } from "../components/ui/Status";
 import type { Column } from "../types";
 
 type BookingStatus = "Waiting" | "Completed" | "Cancelled";
@@ -28,14 +28,12 @@ type Booking = {
   createdAt: string;
 };
 
-// ฟังก์ชันช่วยจัดรูปแบบวันที่และเวลาให้ดูสวยงาม
 const formatDateTime = (dateString: string) => {
   if (!dateString) return "-";
   const d = new Date(dateString);
   return d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
 };
 
-// ฟังก์ชันหาเวลาปัจจุบันในรูปแบบที่ input type="datetime-local" ต้องการ (YYYY-MM-DDTHH:mm)
 const getCurrentDateTimeLocal = () => {
   const d = new Date();
   const year = d.getFullYear();
@@ -50,36 +48,79 @@ export default function BookingManagement() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [shops, setShops] = useState<any[]>([]); 
 
-  // Pagination & Filter
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
   const [statusFilter, setStatusFilter] = useState<string>("All");
+  
+  // State for Refresh
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const context = useOutletContext<{ searchQuery: string }>();
   const searchQuery = context?.searchQuery || "";
 
-  // Add Panel States
   const [isAddPanelOpen, setIsAddPanelOpen] = useState(false);
   const [addName, setAddName] = useState("");
   const [addEmail, setAddEmail] = useState("");
   const [addDateTime, setAddDateTime] = useState("");
   const [selectedShopOption, setSelectedShopOption] = useState<SearchOption | null>(null);
 
-  // Edit Panel States
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [editDateTime, setEditDateTime] = useState("");
 
-  // ==========================================
-  // 1. โหลดข้อมูลตอนเปิดหน้าแรก
-  // ==========================================
+  const autoCancelBookings = (currentBookings: Booking[]) => {
+    const settings = JSON.parse(localStorage.getItem("system_settings") || "{}");
+    const autoCancelMins = parseInt(settings.autoCancelMins || "15", 10);
+    const now = Date.now();
+    let hasChanges = false;
+
+    const updated = currentBookings.map(b => {
+      if (b.status === "Waiting") {
+        const bookingTime = new Date(b.dateTime).getTime();
+        const cancelTime = bookingTime + (autoCancelMins * 60 * 1000);
+        if (now > cancelTime) {
+          hasChanges = true;
+          return { ...b, status: "Cancelled" as BookingStatus };
+        }
+      }
+      return b;
+    });
+
+    if (hasChanges) {
+      localStorage.setItem("booking_db", JSON.stringify(updated));
+      return updated;
+    }
+    return currentBookings;
+  };
+
+  // Function to load and refresh data
+  const loadData = () => {
+    setIsRefreshing(true);
+    try {
+      const savedBookings = localStorage.getItem("booking_db");
+      if (savedBookings) {
+        const parsed = JSON.parse(savedBookings);
+        setBookings(autoCancelBookings(parsed));
+      }
+    } catch (error) {
+      console.error("Error loading data:", error);
+    } finally {
+      setTimeout(() => setIsRefreshing(false), 500); 
+    }
+  };
+
   useEffect(() => {
-    const savedBookings = localStorage.getItem("booking_db");
-    if (savedBookings) setBookings(JSON.parse(savedBookings));
+    loadData();
   }, []);
 
-  // โหลดร้านค้าเฉพาะตอนเปิดแผงจอง (เอาเฉพาะ Active)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setBookings(prev => autoCancelBookings(prev));
+    }, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
   useEffect(() => {
     if (isAddPanelOpen) {
       const savedShops = localStorage.getItem("local_shops_db");
@@ -105,16 +146,12 @@ export default function BookingManagement() {
     }));
   }, [shops]);
 
-  // ==========================================
-  // 2. ฟังก์ชันเพิ่มการจอง (Add Booking)
-  // ==========================================
   const handleConfirmAdd = () => {
     if (!addName || !addEmail || !addDateTime || !selectedShopOption) {
       alert("กรุณากรอกข้อมูลให้ครบถ้วน");
       return;
     }
 
-    // เช็คว่าเวลาที่เลือกน้อยกว่าเวลาปัจจุบันหรือไม่ (กันเคสพิมพ์ใส่คีย์บอร์ด)
     const selectedDate = new Date(addDateTime);
     const currentDate = new Date();
     if (selectedDate < currentDate) {
@@ -125,7 +162,6 @@ export default function BookingManagement() {
     const shopData = selectedShopOption.originalData;
     const shopId = shopData.id;
 
-    // หารันนิ่งนัมเบอร์ของร้านค้านี้
     const samePlaceBookings = bookings.filter(b => b.placeId === shopId);
     const maxQueue = samePlaceBookings.reduce((max, b) => {
       const num = parseInt(b.queueNo.replace(/\D/g, '')) || 0; 
@@ -158,9 +194,6 @@ export default function BookingManagement() {
     setIsAddPanelOpen(false);
   };
 
-  // ==========================================
-  // 3. ฟังก์ชันอัปเดตและแก้ไขข้อมูล
-  // ==========================================
   const updateStatus = (id: string, newStatus: BookingStatus) => {
     const updated = bookings.map(b => b.id === id ? { ...b, status: newStatus } : b);
     saveBookingsToLocal(updated);
@@ -176,7 +209,6 @@ export default function BookingManagement() {
   const handleConfirmEdit = () => {
     if (!editingBooking) return;
 
-    // เช็คเวลาย้อนหลังสำหรับตอนแก้ไขเช่นกัน
     const selectedDate = new Date(editDateTime);
     const currentDate = new Date();
     if (selectedDate < currentDate) {
@@ -200,9 +232,6 @@ export default function BookingManagement() {
     }
   };
 
-  // ==========================================
-  // 4. การกรอง การค้นหา และแบ่งหน้า
-  // ==========================================
   const filteredData = useMemo(() => {
     let result = [...bookings];
 
@@ -238,14 +267,16 @@ export default function BookingManagement() {
     };
   }, [bookings]);
 
-  // ==========================================
-  // 5. โครงสร้างคอลัมน์ตาราง
-  // ==========================================
   const columns: Column<Booking>[] = [
-    { header: "BOOKING ID", key: "bookingId", className: "font-bold text-slate-500 text-xs uppercase" },
+    { 
+      header: "BOOKING ID", 
+      key: "bookingId", 
+      className: "w-[15%] text-left font-bold text-slate-500 text-xs uppercase" 
+    },
     { 
       header: "USER", 
       key: "user",
+      className: "w-[20%] text-left",
       render: (item) => (
         <div>
           <p className="font-bold text-slate-800 text-sm">{item.user.name}</p>
@@ -253,14 +284,23 @@ export default function BookingManagement() {
         </div>
       )
     },
-    { header: "PLACE NAME", key: "placeName", className: "text-slate-700 font-medium text-sm" },
-    { header: "QUEUE NO.", key: "queueNo", className: "font-bold text-[#5AB2A8] text-sm" },
+    { 
+      header: "PLACE NAME", 
+      key: "placeName", 
+      className: "w-[15%] text-left text-slate-700 font-medium text-sm" 
+    },
+    { 
+      header: "QUEUE NO.", 
+      key: "queueNo", 
+      className: "w-[10%] text-center font-bold text-[#5AB2A8] text-sm" 
+    },
     { 
       header: "DATE / TIME", 
       key: "dateTime",
+      className: "w-[15%] text-left",
       render: (item) => (
         <div className="flex items-center gap-2 text-slate-500 font-medium">
-          <Clock size={14} className="text-slate-400" />
+          <Clock size={14} className="text-slate-400 shrink-0" />
           <span className="text-xs">{formatDateTime(item.dateTime)}</span>
         </div>
       )
@@ -268,13 +308,17 @@ export default function BookingManagement() {
     {
       header: "STATUS",
       key: "status",
-      // เปลี่ยนมาใช้งาน Component กลางแทนการเขียนโค้ดยาวๆ
-      render: (item) => <Status status={item.status} />
+      className: "w-[15%] text-center",
+      render: (item) => (
+        <div className="flex justify-center">
+          <Status status={item.status} />
+        </div>
+      )
     },
     {
       header: "ACTIONS",
       key: "id",
-      className: "text-right",
+      className: "w-[10%] text-right",
       render: (item) => (
         <Dropdown 
           align="right"
@@ -293,34 +337,42 @@ export default function BookingManagement() {
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
 
-      {/* Filters & Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <Dropdown 
-            align="left"
-            trigger={
-              <Button variant="outline" className="bg-white shadow-sm flex items-center justify-between min-w-[140px] whitespace-nowrap">
-                <span>Status: {statusFilter}</span> <ChevronDown size={14} className="ml-2 text-slate-400 shrink-0"/>
-              </Button>
-            }
-            items={[
-              {label: "All Status", onClick: () => setStatusFilter("All")},
-              {label: "Waiting", onClick: () => setStatusFilter("Waiting")},
-              {label: "Completed", onClick: () => setStatusFilter("Completed")},
-              {label: "Cancelled", onClick: () => setStatusFilter("Cancelled")}
-            ]}
-          />
-        </div>
+        <Dropdown 
+          align="left"
+          trigger={
+            <Button variant="outline" className="bg-white shadow-sm flex items-center justify-between min-w-[140px] whitespace-nowrap">
+              <span>Status: {statusFilter}</span> <ChevronDown size={14} className="ml-2 text-slate-400 shrink-0"/>
+            </Button>
+          }
+          items={[
+            {label: "All Status", onClick: () => setStatusFilter("All")},
+            {label: "Waiting", onClick: () => setStatusFilter("Waiting")},
+            {label: "Completed", onClick: () => setStatusFilter("Completed")},
+            {label: "Cancelled", onClick: () => setStatusFilter("Cancelled")}
+          ]}
+        />
 
-        <Button 
-          className="bg-[#5AB2A8] hover:bg-[#4a968d] text-white shadow-lg flex items-center justify-center gap-2 px-6"
-          onClick={() => setIsAddPanelOpen(true)}
-        >
-          <Plus size={18} /> New Booking
-        </Button>
+        <div className="flex flex-row items-center gap-3">
+          <Button 
+            variant="outline" 
+            className="flex flex-row items-center justify-center bg-white shadow-sm border-slate-200 hover:bg-slate-50" 
+            onClick={loadData}
+            disabled={isRefreshing}
+          >
+            <RefreshCcw size={16} className={`mr-2 ${isRefreshing ? "animate-spin text-teal-500" : "text-slate-600"}`} /> 
+            <span className="text-slate-700 font-medium">{isRefreshing ? "Refreshing..." : "Refresh Data"}</span>
+          </Button>
+
+          <Button 
+            className="bg-[#5AB2A8] hover:bg-[#4a968d] text-white shadow-lg flex items-center justify-center gap-2 px-6"
+            onClick={() => setIsAddPanelOpen(true)}
+          >
+            <Plus size={18} /> New Booking
+          </Button>
+        </div>
       </div>
 
-      {/* Table Section */}
       <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
         <Table data={paginatedData} columns={columns} />
         
@@ -333,7 +385,6 @@ export default function BookingManagement() {
         />
       </div>
 
-      {/* Bottom Stats Section */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
           <div>
@@ -366,9 +417,6 @@ export default function BookingManagement() {
         </div>
       </div>
 
-      {/* ======================================= */}
-      {/* Panel สร้างการจอง (Add Booking) */}
-      {/* ======================================= */}
       <SidePanelEdit
         isOpen={isAddPanelOpen}
         onClose={() => setIsAddPanelOpen(false)}
@@ -416,7 +464,7 @@ export default function BookingManagement() {
                 <input
                   type="datetime-local"
                   value={addDateTime}
-                  min={getCurrentDateTimeLocal()} // ชั้นที่ 1 บังคับหน้า UI ไม่ให้เลือกอดีต
+                  min={getCurrentDateTimeLocal()}
                   onChange={(e) => setAddDateTime(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-[#5AB2A8] outline-none"
                 />
@@ -426,9 +474,6 @@ export default function BookingManagement() {
         </div>
       </SidePanelEdit>
 
-      {/* ======================================= */}
-      {/* Panel แก้ไขการจอง (Edit Booking) */}
-      {/* ======================================= */}
       <SidePanelEdit
         isOpen={!!editingBooking}
         onClose={() => setEditingBooking(null)}
@@ -476,7 +521,7 @@ export default function BookingManagement() {
                   <input
                     type="datetime-local"
                     value={editDateTime}
-                    min={getCurrentDateTimeLocal()} // กันในตอนแก้ไขด้วยเช่นกัน
+                    min={getCurrentDateTimeLocal()}
                     onChange={(e) => setEditDateTime(e.target.value)}
                     className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-[#5AB2A8] outline-none"
                   />

@@ -12,14 +12,14 @@ import { SidePanelEdit } from "../components/ui/Tabbar/SidePanelEdit";
 import { Pagination } from "../components/ui/Pagination";
 import { Status } from "../components/ui/Status"; 
 import type { User, Column } from "../types";
-// import axios from "axios"; //  [อนาคต] เอาคอมเมนต์ออกเมื่อติดตั้ง axios แล้ว
+import { useAuth } from "../context/auth/use.Auth"; // นำเข้า useAuth
 
 const initialStaffs: User[] = [
   { 
     id: "admin_1", 
     name: "admin1", 
     email: "admin1@qbuddy.com", 
-    password: "admin123", // เอาไว้ให้ระบบ Login จำลองเช็ค
+    password: "admin123",
     role: "ADMIN", 
     status: "OFFLINE", 
     createdAt: "Oct 01, 2023" 
@@ -28,7 +28,7 @@ const initialStaffs: User[] = [
     id: "staff_1", 
     name: "staff1", 
     email: "staff1@qbuddy.com", 
-    password: "staff123", // เอาไว้ให้ระบบ Login จำลองเช็ค
+    password: "staff123",
     role: "STAFF", 
     status: "ONLINE", 
     createdAt: "Sep 20, 2023" 
@@ -38,6 +38,7 @@ const initialStaffs: User[] = [
 export default function StaffManagement() {
   const [staffs, setStaffs] = useState<User[]>([]);
   const { searchQuery } = useOutletContext<{ searchQuery: string }>();
+  const { user: currentUser, login, token } = useAuth(); // ดึงข้อมูลคนล็อกอินและฟังก์ชันอัปเดต
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
@@ -56,26 +57,8 @@ export default function StaffManagement() {
   const [addEmailError, setAddEmailError] = useState("");
   const [addPasswordError, setAddPasswordError] = useState(""); 
 
-  // ==========================================
-  //  1. ดึงข้อมูลพนักงาน (GET)
-  // ==========================================
   useEffect(() => {
     const loadData = async () => {
-      /*
-      //  [REAL DATABASE - อนาคต]
-      try {
-        // ต้องส่ง Token ไปยืนยันตัวตนด้วยถึงจะดึงรายชื่อพนักงานได้
-        const token = localStorage.getItem("access_token"); 
-        const response = await axios.get("http://localhost:5000/api/users", {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setStaffs(response.data);
-      } catch (error) {
-        console.error("Fetch Error:", error);
-      }
-      */
-
-      // [LOCAL MOCK - ปัจจุบัน]
       const savedStaffs = localStorage.getItem("system_staffs");
       if (savedStaffs && savedStaffs !== "[]") {
         setStaffs(JSON.parse(savedStaffs));
@@ -111,9 +94,6 @@ export default function StaffManagement() {
   const paginatedData = filteredStaffs.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
   useEffect(() => { setCurrentPage(1); }, [searchQuery, staffs.length]);
 
-  // ==========================================
-  //  2. เพิ่มพนักงานใหม่ (POST / Register)
-  // ==========================================
   const handleConfirmAdd = async () => {
     setAddEmailError("");
     setAddPasswordError("");
@@ -133,34 +113,12 @@ export default function StaffManagement() {
       return;
     }
 
-    /*
-    //  [REAL DATABASE - อนาคต เชื่อม Auth Controller]
-    try {
-      const response = await axios.post("http://localhost:5000/api/auth/register", {
-        name: addName,
-        email: addEmail,
-        password: addPassword, // ส่งให้ Backend เอาไป Hashing (bcrypt)
-        role: addRole
-      });
-      
-      const newStaffFromDB = response.data;
-      setStaffs([...staffs, newStaffFromDB]);
-      
-      // ล้างข้อมูลและปิดฟอร์ม
-      setAddName(""); setAddEmail(""); setAddPassword(""); setAddRole("STAFF"); setIsAddPanelOpen(false);
-    } catch (error) {
-      console.error("Register Error:", error);
-      alert("อีเมลนี้อาจมีในระบบแล้ว หรือระบบขัดข้อง");
-    }
-    */
-
-    // [LOCAL MOCK - ปัจจุบัน]
     const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     const newStaff: User = {
       id: `staff_${Date.now()}`,
       name: addName,
       email: addEmail,
-      password: addPassword, // ซ่อนไว้ ไม่โชว์บนจอ เอาไว้จำลอง Login
+      password: addPassword,
       role: addRole, 
       status: "UNVERIFIED", 
       createdAt: today, 
@@ -170,9 +128,6 @@ export default function StaffManagement() {
     setAddName(""); setAddEmail(""); setAddPassword(""); setAddRole("STAFF"); setIsAddPanelOpen(false);
   };
 
-  // ==========================================
-  //  3. แก้ไขข้อมูลพนักงาน (PUT / Update)
-  // ==========================================
   const handleEditClick = (user: User) => {
     setEditingUser(user);
     setEditName(user.name);
@@ -186,47 +141,27 @@ export default function StaffManagement() {
     if (!editEmail.trim()) { setEmailError("กรุณากรอกอีเมล"); return; }
     if (!validateEmail(editEmail)) { setEmailError("รูปแบบอีเมลไม่ถูกต้อง"); return; }
 
-    /*
-    //  [REAL DATABASE - อนาคต]
-    try {
-      const response = await axios.put(`http://localhost:5000/api/users/${editingUser.id}`, {
-        name: editName,
-        email: editEmail,
-        role: editRole
-      });
-      
-      const updatedStaffs = staffs.map(u => u.id === editingUser.id ? response.data : u);
-      setStaffs(updatedStaffs);
-      setEditingUser(null);
-    } catch (error) {
-      console.error("Update Error:", error);
-    }
-    */
-
-    // [LOCAL MOCK - ปัจจุบัน]
     const updatedStaffs = staffs.map((u) => 
       u.id === editingUser.id ? { ...u, name: editName, email: editEmail, role: editRole } : u
     );
+    
     saveStaffsToLocal(updatedStaffs); 
+
+    // เช็คว่าคนที่ถูกแก้ คือคนที่กำลังล็อคอินอยู่หรือไม่ ถ้าใช่ ให้อัปเดต Context ด้วย
+    if (currentUser && currentUser.id === editingUser.id) {
+        login({
+            id: currentUser.id,
+            name: editName,
+            email: editEmail,
+            role: editRole,
+        }, token || "");
+    }
+
     setEditingUser(null);
   };
 
-  // ==========================================
-  //  4. ลบพนักงาน (DELETE)
-  // ==========================================
   const handleDeleteUser = async (id: string) => {
     if (confirm("Are you sure you want to delete this staff member?")) {
-      /*
-      //  [REAL DATABASE - อนาคต]
-      try {
-        await axios.delete(`http://localhost:5000/api/users/${id}`);
-        setStaffs(staffs.filter((u) => u.id !== id));
-      } catch (error) {
-        console.error("Delete Error:", error);
-      }
-      */
-
-      // [LOCAL MOCK - ปัจจุบัน]
       saveStaffsToLocal(staffs.filter((u) => u.id !== id));
     }
   };
@@ -310,9 +245,6 @@ export default function StaffManagement() {
         <Pagination currentPage={currentPage} totalPages={totalPages} totalItems={filteredStaffs.length} itemsPerPage={itemsPerPage} onChange={setCurrentPage} />
       </div>
 
-      {/* ========================================== */}
-      {/*  Add New Staff Panel */}
-      {/* ========================================== */}
       <SidePanelEdit isOpen={isAddPanelOpen} onClose={() => setIsAddPanelOpen(false)} title="Add New Staff"
         footer={
           <button onClick={handleConfirmAdd} className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-[#5AB2A8] rounded-2xl text-sm font-bold text-white hover:bg-[#4a968d] transition-all shadow-lg shadow-teal-100 active:scale-[0.98]">
@@ -375,9 +307,6 @@ export default function StaffManagement() {
         </div>
       </SidePanelEdit>
 
-      {/* ========================================== */}
-      {/*  Edit Staff Panel */}
-      {/* ========================================== */}
       <SidePanelEdit isOpen={!!editingUser} onClose={() => setEditingUser(null)} title="Edit Staff"
         footer={
           <button onClick={handleConfirmEdit} className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-[#5AB2A8] rounded-2xl text-sm font-bold text-white hover:bg-[#4a968d] transition-all shadow-lg shadow-teal-100 active:scale-[0.98]">

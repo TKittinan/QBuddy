@@ -46,15 +46,10 @@ export default function Dashboard() {
   };
 
   /*
-  // ==========================================
-  // ส่วนดึงข้อมูลจาก Database จริงในอนาคต
-  // ==========================================
   const fetchDashboardDataFromDB = async (startTimeStamp: number) => {
     try {
       const response = await fetch(`/api/dashboard/summary?startDate=${startTimeStamp}`);
       const data = await response.json();
-      // setActivities(data.recentActivities);
-      // setStatsData(data.statistics);
     } catch (error) {
       console.error("Failed to fetch database:", error);
     }
@@ -158,14 +153,23 @@ export default function Dashboard() {
   }, [range]);
 
   const columns: Column<ActivityItem>[] = [
-    { header: "USER", key: "user", className: "font-medium text-slate-700" },
-    { header: "ACTION", key: "action", className: "text-slate-500" },
+    { 
+      header: "USER", 
+      key: "user", 
+      className: "w-[30%] text-left font-medium text-slate-700" 
+    },
+    { 
+      header: "ACTION", 
+      key: "action", 
+      className: "w-[30%] text-left text-slate-500" 
+    },
     { 
       header: "TIME", 
       key: "time", 
+      className: "w-[25%] text-left",
       render: (row) => (
         <div className="flex items-center gap-2 text-slate-500 font-medium">
-          <Clock size={14} className="text-slate-400" />
+          <Clock size={14} className="text-slate-400 shrink-0" />
           <span className="text-xs">{row.time}</span>
         </div>
       )
@@ -173,8 +177,12 @@ export default function Dashboard() {
     { 
       header: "STATUS", 
       key: "status",
-      // เปลี่ยนมาเรียกใช้ Component กลาง
-      render: (row) => <Status status={row.status} />
+      className: "w-[15%] text-center",
+      render: (row) => (
+        <div className="flex justify-center">
+          <Status status={row.status} />
+        </div>
+      )
     },
   ];
 

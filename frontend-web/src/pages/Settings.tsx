@@ -5,12 +5,12 @@ import {
 } from "lucide-react";
 import { Input } from "../components/ui/Input";
 import { Button } from "../components/ui/Button";
-import { useAuth } from "../context/auth/use.Auth"; //  ดึง useAuth มาใช้
+import { useAuth } from "../context/auth/use.Auth"; 
 
 type Tab = "general" | "queue" | "security";
 
 export default function Settings() {
-  const { user } = useAuth(); // ดึงข้อมูลคนล็อกอิน
+  const { user } = useAuth(); 
   const [activeTab, setActiveTab] = useState<Tab>("general");
 
   const [formData, setFormData] = useState({
@@ -21,7 +21,6 @@ export default function Settings() {
     autoCancelMins: "15",
   });
 
-  //  State สำหรับเปลี่ยนรหัสผ่าน
   const [passwords, setPasswords] = useState({
     current: "",
     newPass: "",
@@ -42,7 +41,7 @@ export default function Settings() {
 
   const handleSave = () => {
     if (activeTab === "security") {
-      //  ลอจิกเปลี่ยนรหัสผ่าน
+      // ตรวจสอบความถูกต้องของรหัสผ่าน
       if (!passwords.current || !passwords.newPass || !passwords.confirm) {
         setPassError("Please fill in all password fields.");
         return;
@@ -56,24 +55,24 @@ export default function Settings() {
         return;
       }
 
-      // ดึงข้อมูล Staff ออกมาเช็ค
+      // ดึงข้อมูลพนักงานจาก Local Storage
       const savedStaffs = JSON.parse(localStorage.getItem("system_staffs") || "[]");
       const currentUserData = savedStaffs.find((s: any) => s.email === user?.email);
 
       if (currentUserData && currentUserData.password === passwords.current) {
-        // รหัสเดิมถูกต้อง -> อัปเดตรหัสใหม่
         const updatedStaffs = savedStaffs.map((s: any) => 
           s.email === user?.email ? { ...s, password: passwords.newPass } : s
         );
         localStorage.setItem("system_staffs", JSON.stringify(updatedStaffs));
         
         setPassSuccess("Password updated successfully!");
-        setPasswords({ current: "", newPass: "", confirm: "" }); // ล้างฟอร์ม
+        setPasswords({ current: "", newPass: "", confirm: "" }); 
       } else {
         setPassError("Incorrect current password.");
       }
     } else {
-      //  บันทึก Tab อื่นๆ (สมมติ)
+      // บันทึกการตั้งค่าระบบลงใน Local Storage
+      localStorage.setItem("system_settings", JSON.stringify(formData));
       alert("Settings saved successfully!");
     }
   };
@@ -102,7 +101,6 @@ export default function Settings() {
 
         <div className="flex-1 bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-100">
           
-          {/* --- Tab: General Info --- */}
           {activeTab === "general" && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
               <h3 className="text-lg font-bold text-slate-800 border-b pb-4">General Information</h3>
@@ -116,7 +114,6 @@ export default function Settings() {
             </div>
           )}
 
-          {/* --- Tab: Queue Rules --- */}
           {activeTab === "queue" && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
               <h3 className="text-lg font-bold text-slate-800 border-b pb-4">Queue & Booking Rules</h3>
@@ -128,12 +125,10 @@ export default function Settings() {
             </div>
           )}
 
-          {/* --- Tab: Security --- */}
           {activeTab === "security" && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
               <h3 className="text-lg font-bold text-slate-800 border-b pb-4">Change Password</h3>
               
-              {/* แจ้งเตือนสถานะการเปลี่ยนรหัสผ่าน */}
               {passError && <div className="p-3 bg-red-50 text-red-600 border border-red-100 rounded-xl text-sm font-medium">{passError}</div>}
               {passSuccess && <div className="p-3 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-xl text-sm font-medium">{passSuccess}</div>}
 
@@ -156,7 +151,6 @@ export default function Settings() {
             </div>
           )}
 
-          {/* ปุ่ม Save Changes */}
           <div className="mt-10 pt-6 border-t flex justify-end">
             <Button 
               onClick={handleSave}

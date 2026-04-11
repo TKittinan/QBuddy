@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
-import { RefreshCcw, Plus, Clock, PlayCircle, CheckCircle2, MoreHorizontal, User, ChevronDown } from "lucide-react";
+import { RefreshCcw, Plus, Clock, PlayCircle, CheckCircle2, MoreHorizontal, User, ChevronDown, SkipForward, XCircle } from "lucide-react";
 import { Table } from "../components/ui/Table/Table";
 import { Dropdown } from "../components/ui/Dropdown";
 import { Button } from "../components/ui/Button";
@@ -9,7 +9,7 @@ import { SearchSelect, type SearchOption } from "../components/ui/SearchSelect";
 import { Status } from "../components/ui/Status";
 import { Pagination } from "../components/ui/Pagination"; 
 
-type TicketStatus = "Waiting" | "Serving" | "Completed";
+type TicketStatus = "Waiting" | "Serving" | "Completed" | "Skipped" | "Cancelled";
 
 type Ticket = {
   id: string;
@@ -24,13 +24,11 @@ type Ticket = {
 export default function LiveQueue() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [shops, setShops] = useState<any[]>([]);
-  
   const [filter, setFilter] = useState<string>("All");
-
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
-  
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [maxQueue, setMaxQueue] = useState<number>(Infinity);
 
   const context = useOutletContext<{ searchQuery: string }>();
   const searchQuery = context?.searchQuery || "";
@@ -54,8 +52,16 @@ export default function LiveQueue() {
         const activeShops = parsedShops.filter((s: any) => s.status === "Active");
         setShops(activeShops);
       }
+
+      const settings = localStorage.getItem("system_settings");
+      if (settings) {
+        const parsedSettings = JSON.parse(settings);
+        if (parsedSettings.maxQueuePerDay) {
+          setMaxQueue(parseInt(parsedSettings.maxQueuePerDay, 10));
+        }
+      }
     } catch (error) {
-      console.error("Error loading data:", error);
+      console.error(error);
     } finally {
       setTimeout(() => setIsRefreshing(false), 500); 
     }
@@ -79,9 +85,18 @@ export default function LiveQueue() {
     }));
   }, [shops]);
 
+  const todayStr = new Date().toDateString();
+  const ticketsToday = tickets.filter(t => new Date(t.createdAt).toDateString() === todayStr).length;
+  const isQueueFull = ticketsToday >= maxQueue;
+
   const handleCreateTicket = () => {
     if (!customerName || !selectedShopOption) {
       alert("กรุณากรอกชื่อลูกค้าและเลือกร้านค้าให้ครบถ้วน");
+      return;
+    }
+
+    if (isQueueFull) {
+      alert("ไม่สามารถเพิ่มคิวได้เนื่องจากคิวเต็มตามจำนวนที่กำหนดไว้ในวันนี้แล้ว");
       return;
     }
 
@@ -212,6 +227,8 @@ export default function LiveQueue() {
             items={[
               { label: "Start Serving", icon: <PlayCircle size={16} />, className: "text-blue-600", onClick: () => updateStatus(item.id, "Serving") },
               { label: "Mark Completed", icon: <CheckCircle2 size={16} />, className: "text-emerald-600", onClick: () => updateStatus(item.id, "Completed") },
+              { label: "Skip", icon: <SkipForward size={16} />, className: "text-amber-500", divider: true, onClick: () => updateStatus(item.id, "Skipped") },
+              { label: "Cancel", icon: <XCircle size={16} />, className: "text-rose-600", onClick: () => updateStatus(item.id, "Cancelled") },
             ]}
           />
         </div>
@@ -235,6 +252,8 @@ export default function LiveQueue() {
             { label: "Waiting", onClick: () => setFilter("Waiting") },
             { label: "Serving", onClick: () => setFilter("Serving") },
             { label: "Completed", onClick: () => setFilter("Completed") },
+            { label: "Skipped", onClick: () => setFilter("Skipped") },
+            { label: "Cancelled", onClick: () => setFilter("Cancelled") },
           ]}
         />
 
@@ -251,14 +270,21 @@ export default function LiveQueue() {
 
           <Button 
             variant="primary" 
-            className="flex flex-row items-center justify-center bg-[#0d9488] hover:bg-[#0f766e] text-white border-none shadow-sm font-medium px-4"
-            onClick={() => setIsPanelOpen(true)}
+            className={`flex flex-row items-center justify-center text-white border-none shadow-sm font-medium px-4 ${isQueueFull ? "bg-slate-400 cursor-not-allowed" : "bg-[#0d9488] hover:bg-[#0f766e]"}`}
+            onClick={() => { if(!isQueueFull) setIsPanelOpen(true); }}
+            disabled={isQueueFull}
           >
             <Plus size={18} className="mr-1.5" /> 
-            <span>New Ticket</span>
+            <span>{isQueueFull ? "Queue Full" : "New Ticket"}</span>
           </Button>
         </div>
       </div>
+
+      {isQueueFull && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-700 px-4 py-3 rounded-xl text-sm font-medium">
+          ระบบคิวปิดรับแล้วเนื่องจากคิวถึงยอดสูงสุดที่กำหนด ({maxQueue} คิว)
+        </div>
+      )}
 
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
         <Table data={paginatedData} columns={queueColumns} />
