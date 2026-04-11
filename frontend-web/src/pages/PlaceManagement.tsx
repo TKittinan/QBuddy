@@ -10,7 +10,7 @@ import { Dropdown } from "../components/ui/Dropdown";
 import { Pagination } from "../components/ui/Pagination";
 import { SidePanelEdit } from "../components/ui/Tabbar/SidePanelEdit";
 import { Input } from "../components/ui/Input"; 
-import { Status } from "../components/ui/Status"; // นำเข้า Component Status
+import { Status } from "../components/ui/Status";
 import type { Column } from "../types";
 
 import { generateShopId } from "../utils/generateShopId";
@@ -22,46 +22,42 @@ export type Place = {
   address: string;
   status: "Active" | "Disabled";
   queueCount: number; 
-  imageUrl: string;
   serviceType: string; 
   avgServiceTime: number; 
   createdAt: string;
 };
 
-// ข้อมูลตั้งต้นสำหรับใช้ทดสอบ (มี Active 2 ร้าน, Disabled 1 ร้าน)
+// Mock Data
 const defaultPlaces: Place[] = [
   { 
-    id: generateShopId("Seoul Chon", 1), 
-    placeId: "#SEO-001", 
+    id: "SC1", 
+    placeId: "#SC-001", 
     name: "Seoul Chon", 
     address: "1st Floor, Mega Bangna", 
     status: "Active", 
     queueCount: 5, 
-    imageUrl: "🍗", 
     serviceType: "Table Service", 
     avgServiceTime: 15, 
     createdAt: new Date().toISOString() 
   },
   { 
-    id: generateShopId("Nude Steak", 1), 
-    placeId: "#NUD-001", 
+    id: "NS1", 
+    placeId: "#NS-001", 
     name: "Nude Steak", 
     address: "2nd Floor, Central World", 
     status: "Active", 
     queueCount: 12, 
-    imageUrl: "🥩", 
     serviceType: "Table Service", 
     avgServiceTime: 20, 
     createdAt: new Date(Date.now() - 1000).toISOString()
   },
   { 
-    id: generateShopId("Fast Cafe", 1), 
-    placeId: "#FAS-001", 
+    id: "FC1", 
+    placeId: "#FC-001", 
     name: "Fast Cafe", 
     address: "BTS Asok Station", 
     status: "Disabled", 
     queueCount: 0, 
-    imageUrl: "☕", 
     serviceType: "Counter Service", 
     avgServiceTime: 5, 
     createdAt: new Date(Date.now() - 2000).toISOString() 
@@ -81,9 +77,11 @@ export default function PlaceManagement() {
   const [editingPlace, setEditingPlace] = useState<Place | null>(null);
   const [editName, setEditName] = useState("");
   const [editAddress, setEditAddress] = useState("");
+  const [editStatus, setEditStatus] = useState<"Active" | "Disabled">("Active");
 
   const [isAddPanelOpen, setIsAddPanelOpen] = useState(false);
   const [addName, setAddName] = useState("");
+  const [addBranch, setAddBranch] = useState(""); 
   const [addAddress, setAddAddress] = useState("");
 
   useEffect(() => {
@@ -103,26 +101,19 @@ export default function PlaceManagement() {
 
   const handleConfirmAdd = () => {
     if (!addName.trim() || !addAddress.trim()) {
-      alert("กรุณากรอกชื่อและที่อยู่ให้ครบถ้วน");
+      alert("กรุณากรอกชื่อร้านและที่อยู่ให้ครบถ้วน");
       return;
     }
 
-    const baseId = generateShopId(addName, 1).replace(/[0-9]/g, ''); 
-    
-    const sameNamePlaces = places.filter(p => p.name.toLowerCase() === addName.toLowerCase());
-    const branchNumber = sameNamePlaces.length + 1;
-    
-    const internalId = `${baseId}${branchNumber}`;
-    const displayId = `#${baseId}-${String(branchNumber).padStart(3, '0')}`;
+    const generatedData = generateShopId(addName, addBranch, places);
 
     const newPlace: Place = {
-      id: internalId,
-      placeId: displayId,
-      name: addName,
-      address: addAddress,
+      id: generatedData.internalId,
+      placeId: generatedData.displayId,
+      name: generatedData.fullName, // ดึงชื่อเต็มมาจาก generateShopId เลย
+      address: addAddress.trim(),
       status: "Disabled", 
       queueCount: 0,
-      imageUrl: "🏪", 
       serviceType: "Table Service", 
       avgServiceTime: 15,
       createdAt: new Date().toISOString(),
@@ -132,6 +123,7 @@ export default function PlaceManagement() {
     savePlacesToLocal(updatedPlaces);
 
     setAddName("");
+    setAddBranch("");
     setAddAddress("");
     setIsAddPanelOpen(false);
   };
@@ -140,6 +132,7 @@ export default function PlaceManagement() {
     setEditingPlace(place);
     setEditName(place.name);
     setEditAddress(place.address);
+    setEditStatus(place.status);
   };
 
   const handleConfirmEdit = () => {
@@ -149,19 +142,15 @@ export default function PlaceManagement() {
     let newDisplayId = editingPlace.placeId;
 
     if (editName.trim().toLowerCase() !== editingPlace.name.toLowerCase()) {
-      const baseId = generateShopId(editName, 1).replace(/[0-9]/g, ''); 
-      const sameNamePlaces = places.filter(
-        p => p.name.toLowerCase() === editName.trim().toLowerCase() && p.id !== editingPlace.id
-      );
-      const branchNumber = sameNamePlaces.length + 1;
-      
-      newInternalId = `${baseId}${branchNumber}`;
-      newDisplayId = `#${baseId}-${String(branchNumber).padStart(3, '0')}`;
+      const otherPlaces = places.filter(p => p.id !== editingPlace.id);
+      const generated = generateShopId(editName, "", otherPlaces);
+      newInternalId = generated.internalId;
+      newDisplayId = generated.displayId;
     }
 
     const updated = places.map((p) => 
       p.id === editingPlace.id 
-        ? { ...p, name: editName, address: editAddress, id: newInternalId, placeId: newDisplayId } 
+        ? { ...p, name: editName.trim(), address: editAddress.trim(), status: editStatus, id: newInternalId, placeId: newDisplayId } 
         : p
     );
     savePlacesToLocal(updated);
@@ -202,19 +191,11 @@ export default function PlaceManagement() {
 
   const columns: Column<Place>[] = [
     { 
-      header: "IMAGE", 
-      key: "imageUrl",
-      render: (item) => (
-        <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-xl shadow-sm border border-slate-200">
-          {item.imageUrl}
-        </div>
-      )
-    },
-    { 
       header: "NAME", 
       key: "name",
+      className: "text-left",
       render: (item) => (
-        <div>
+        <div className="text-left">
           <p className="font-bold text-slate-800 text-sm">{item.name}</p>
           <p className="text-[10px] font-medium text-slate-400">ID: {item.placeId}</p>
         </div>
@@ -223,8 +204,9 @@ export default function PlaceManagement() {
     { 
       header: "ADDRESS", 
       key: "address",
+      className: "text-left",
       render: (item) => (
-        <div className="flex items-center gap-2 text-slate-500 max-w-[200px] lg:max-w-xs">
+        <div className="flex items-center justify-start gap-2 text-slate-500 max-w-[200px] lg:max-w-xs">
           <MapPin size={14} className="shrink-0" />
           <span className="text-xs truncate">{item.address}</span>
         </div>
@@ -233,17 +215,23 @@ export default function PlaceManagement() {
     {
       header: "STATUS",
       key: "status",
-      // เรียกใช้ Component Status
-      render: (item) => <Status status={item.status} />,
+      className: "text-left",
+      render: (item) => (
+        <div className="flex justify-start">
+          <Status status={item.status} />
+        </div>
+      )
     },
     { 
       header: "QUEUE COUNT", 
       key: "queueCount",
       className: "text-center",
       render: (item) => (
-        <span className="inline-block px-3 py-1 bg-slate-50 border border-slate-100 rounded-lg font-bold text-slate-700 text-xs min-w-[32px]">
-          {item.queueCount}
-        </span>
+        <div className="flex justify-center">
+          <span className="inline-block px-3 py-1 bg-slate-50 border border-slate-100 rounded-lg font-bold text-slate-700 text-xs min-w-[32px] text-center">
+            {item.queueCount}
+          </span>
+        </div>
       )
     },
     {
@@ -251,14 +239,16 @@ export default function PlaceManagement() {
       key: "id",
       className: "text-right",
       render: (item) => (
-        <Dropdown 
-          align="right" 
-          trigger={<button className="p-2 hover:bg-slate-100 rounded-full text-slate-400"><MoreHorizontal size={18} /></button>}
-          items={[
-            { label: "Edit Place", icon: <Edit size={16} />, onClick: () => handleEditClick(item) },
-            { label: "Delete", icon: <Trash2 size={16} />, className: "text-red-600", divider: true, onClick: () => handleDeletePlace(item.id) }
-          ]}
-        />
+        <div className="flex justify-end">
+          <Dropdown 
+            align="right" 
+            trigger={<button className="p-2 hover:bg-slate-100 rounded-full text-slate-400"><MoreHorizontal size={18} /></button>}
+            items={[
+              { label: "Edit Place", icon: <Edit size={16} />, onClick: () => handleEditClick(item) },
+              { label: "Delete", icon: <Trash2 size={16} />, className: "text-red-600", divider: true, onClick: () => handleDeletePlace(item.id) }
+            ]}
+          />
+        </div>
       ),
     },
   ];
@@ -268,7 +258,6 @@ export default function PlaceManagement() {
       
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          {/* 1. ตั้ง align="left" และ 2. ปรับ Button ให้เป็น flex แนวนอน ห้ามขึ้นบรรทัดใหม่ */}
           <Dropdown 
             align="left" 
             trigger={
@@ -289,7 +278,7 @@ export default function PlaceManagement() {
           className="bg-[#5AB2A8] hover:bg-[#4a968d] text-white shadow-lg flex items-center justify-center gap-2 px-6"
           onClick={() => setIsAddPanelOpen(true)}
         >
-          <Plus size={18} /> Add New Place
+          <Plus size={18} /> New Place
         </Button>
       </div>
 
@@ -321,15 +310,34 @@ export default function PlaceManagement() {
         <div className="space-y-6">
           <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Place Details</h4>
           <div className="space-y-4">
-            <Input 
-              label="Place Name"
-              icon={<Building2 size={16} />}
-              type="text" 
-              value={addName}
-              onChange={(e) => setAddName(e.target.value)}
-              placeholder="e.g. Newyork Kown"
-              className="bg-slate-50 border-slate-200 py-2.5"
-            />
+            <div>
+              <Input 
+                label="Place Name"
+                icon={<Building2 size={16} />}
+                type="text" 
+                value={addName}
+                onChange={(e) => setAddName(e.target.value)}
+                placeholder="e.g. Amazon Cafe Sweet"
+                className="bg-slate-50 border-slate-200 py-2.5"
+                maxLength={30} 
+              />
+              <p className="text-xs text-slate-400 mt-1 ml-1">ชื่อร้านใส่ได้ไม่เกิน 30 ตัวอักษร</p>
+            </div>
+            
+            <div>
+              <Input 
+                label="Branch Name (Optional)"
+                icon={<MapPin size={16} />}
+                type="text" 
+                value={addBranch}
+                onChange={(e) => setAddBranch(e.target.value)}
+                placeholder="e.g. Mega Bangna"
+                className="bg-slate-50 border-slate-200 py-2.5"
+                maxLength={30} 
+              />
+              <p className="text-xs text-slate-400 mt-1 ml-1">ถ้ามีแนะนำให้ใส่</p>
+            </div>
+
             <Input 
               label="Full Address"
               icon={<MapPin size={16} />}
@@ -363,24 +371,26 @@ export default function PlaceManagement() {
         {editingPlace && (
           <>
             <div className="flex flex-col items-center text-center mb-10">
-              <div className="w-24 h-24 rounded-3xl bg-slate-100 flex items-center justify-center text-4xl shadow-sm border border-slate-200 mb-4">
-                {editingPlace.imageUrl}
-              </div>
-              <h3 className="text-2xl font-bold text-slate-800">{editingPlace.name}</h3>
+              <h3 className="text-2xl font-bold text-slate-800 mt-4">{editingPlace.name}</h3>
               <p className="text-slate-500 text-sm mt-1 font-medium">{editingPlace.placeId}</p>
             </div>
             
             <div className="space-y-6">
               <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Place Information</h4>
               <div className="space-y-4">
-                <Input 
-                  label="Place Name"
-                  icon={<Building2 size={16} />}
-                  type="text" 
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  className="bg-slate-50 border-slate-200 py-2.5"
-                />
+                <div>
+                  <Input 
+                    label="Place Name"
+                    icon={<Building2 size={16} />}
+                    type="text" 
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="bg-slate-50 border-slate-200 py-2.5"
+                    maxLength={30} 
+                  />
+                  <p className="text-xs text-slate-400 mt-1 ml-1">ชื่อร้านใส่ได้ไม่เกิน 30 ตัวอักษร</p>
+                </div>
+
                 <Input 
                   label="Full Address"
                   icon={<MapPin size={16} />}
@@ -389,6 +399,22 @@ export default function PlaceManagement() {
                   onChange={(e) => setEditAddress(e.target.value)}
                   className="bg-slate-50 border-slate-200 py-2.5"
                 />
+
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Status</label>
+                  <div className="relative">
+                    <select 
+                      value={editStatus}
+                      onChange={(e) => setEditStatus(e.target.value as "Active" | "Disabled")}
+                      className="w-full pl-4 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-[#5AB2A8] focus:border-transparent outline-none appearance-none font-medium text-slate-700"
+                    >
+                      <option value="Active">Active</option>
+                      <option value="Disabled">Disabled</option>
+                    </select>
+                    <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  </div>
+                </div>
+
               </div>
             </div>
           </>

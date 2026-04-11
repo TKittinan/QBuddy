@@ -1,15 +1,12 @@
 import { useState, useMemo, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
-import { RefreshCcw, Plus, Clock, PlayCircle, CheckCircle2, MoreHorizontal, User } from "lucide-react";
-import StatCard from "../components/ui/StatCard";
+import { RefreshCcw, Plus, Clock, PlayCircle, CheckCircle2, MoreHorizontal, User, ChevronDown } from "lucide-react";
 import { Table } from "../components/ui/Table/Table";
 import { Dropdown } from "../components/ui/Dropdown";
 import { Button } from "../components/ui/Button";
 import { SidePanelEdit } from "../components/ui/Tabbar/SidePanelEdit";
 import { SearchSelect, type SearchOption } from "../components/ui/SearchSelect";
-import { Status } from "../components/ui/Status"; // แก้เป็น Status ตามชื่อไฟล์จริง
-
-// Import Pagination Component
+import { Status } from "../components/ui/Status";
 import { Pagination } from "../components/ui/Pagination"; 
 
 type TicketStatus = "Waiting" | "Serving" | "Completed";
@@ -26,14 +23,14 @@ type Ticket = {
 
 export default function LiveQueue() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
-  // เพิ่ม State สำหรับเก็บข้อมูลร้านค้าที่ดึงมาจาก Place Management
   const [shops, setShops] = useState<any[]>([]);
   
   const [filter, setFilter] = useState<string>("All");
 
-  // State สำหรับ Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
+  
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const context = useOutletContext<{ searchQuery: string }>();
   const searchQuery = context?.searchQuery || "";
@@ -42,24 +39,30 @@ export default function LiveQueue() {
   const [customerName, setCustomerName] = useState("");
   const [selectedShopOption, setSelectedShopOption] = useState<SearchOption | null>(null);
 
-  // ==========================================
-  // 1. โหลดข้อมูลตอนเปิดหน้า (Local Storage)
-  // ==========================================
-  useEffect(() => {
-    // 1. โหลดข้อมูลตั๋วคิว
-    const savedTickets = localStorage.getItem("live_queue_tickets");
-    if (savedTickets) {
-      setTickets(JSON.parse(savedTickets));
-    }
+  const loadData = () => {
+    setIsRefreshing(true);
+    
+    try {
+      const savedTickets = localStorage.getItem("live_queue_tickets");
+      if (savedTickets) {
+        setTickets(JSON.parse(savedTickets));
+      }
 
-    // 2. โหลดข้อมูลร้านค้ามาจาก Place Management (Single Source of Truth)
-    const savedShops = localStorage.getItem("local_shops_db");
-    if (savedShops) {
-      const parsedShops = JSON.parse(savedShops);
-      // เอาเฉพาะร้านที่สถานะ "Active" เท่านั้นมาแสดงใน Dropdown ให้เลือกรับคิว
-      const activeShops = parsedShops.filter((s: any) => s.status === "Active");
-      setShops(activeShops);
+      const savedShops = localStorage.getItem("local_shops_db");
+      if (savedShops) {
+        const parsedShops = JSON.parse(savedShops);
+        const activeShops = parsedShops.filter((s: any) => s.status === "Active");
+        setShops(activeShops);
+      }
+    } catch (error) {
+      console.error("Error loading data:", error);
+    } finally {
+      setTimeout(() => setIsRefreshing(false), 500); 
     }
+  };
+
+  useEffect(() => {
+    loadData();
   }, []);
 
   const saveTicketsToLocal = (newTickets: Ticket[]) => {
@@ -67,31 +70,14 @@ export default function LiveQueue() {
     localStorage.setItem("live_queue_tickets", JSON.stringify(newTickets));
   };
 
-  // แปลงข้อมูลร้านค้าที่ดึงมา ให้เข้ากับรูปแบบของ SearchSelect Component
   const shopOptions: SearchOption[] = useMemo(() => {
     return shops.map(shop => ({
       id: shop.id,
       label: shop.name,
-      subLabel: `${shop.serviceType} (${shop.placeId})`, // โชว์รูปแบบสวยๆ เช่น Table Service (#NYK-001)
+      subLabel: `${shop.serviceType} (${shop.placeId})`,
       originalData: shop
     }));
   }, [shops]);
-
-  const stats = useMemo(() => {
-    const waiting = tickets.filter(t => t.status === "Waiting").length;
-    const serving = tickets.filter(t => t.status === "Serving").length;
-    const completed = tickets.filter(t => t.status === "Completed").length;
-    const avgWait = tickets.length > 0 
-      ? Math.round(tickets.reduce((acc, curr) => acc + curr.waitTime, 0) / tickets.length)
-      : 0;
-
-    return [
-      { title: "Total Waiting", value: waiting},
-      { title: "Currently Serving", value: serving },
-      { title: "Avg. Wait Time", value: `${avgWait}m` },
-      { title: "Completed Today", value: completed },
-    ];
-  }, [tickets]);
 
   const handleCreateTicket = () => {
     if (!customerName || !selectedShopOption) {
@@ -118,7 +104,7 @@ export default function LiveQueue() {
     const newTicketId = `${shopId}-ctm${nextQueueNum}`;
 
     const peopleAhead = shopTickets.filter(t => t.status === "Waiting").length;
-    const calculatedWait = peopleAhead * (shopData.avgServiceTime || 15); // เผื่อเคสร้านไม่มีค่า avgTime
+    const calculatedWait = peopleAhead * (shopData.avgServiceTime || 15);
 
     const newTicket: Ticket = {
       id: newTicketId,
@@ -145,7 +131,6 @@ export default function LiveQueue() {
     saveTicketsToLocal(updatedTickets);
   };
 
-  // Filter & Sort: กรองข้อมูลและเรียงให้ของใหม่สุดอยู่บนสุด
   const filteredData = useMemo(() => {
     let result = [...tickets];
 
@@ -161,33 +146,43 @@ export default function LiveQueue() {
       );
     }
 
-    // เรียงจากใหม่ไปเก่า (ใบใหม่สุดจะอยู่หน้าแรก แถวบนสุด)
     result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     return result;
   }, [tickets, filter, searchQuery]);
 
-  // หั่นข้อมูลตามหน้า
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
   const paginatedData = filteredData.slice(
     (currentPage - 1) * itemsPerPage, 
     currentPage * itemsPerPage
   );
 
-  // รีเซ็ตกลับไปหน้า 1 เสมอเวลาเปลี่ยน Tab, ค้นหา หรือ มีคิวใหม่เพิ่มเข้ามา
   useEffect(() => {
     setCurrentPage(1);
   }, [filter, searchQuery, tickets.length]);
 
   const queueColumns = [
-    { header: "TICKET", key: "id", className: "font-bold text-indigo-600 uppercase" },
-    { header: "CUSTOMER NAME", key: "name", className: "font-medium text-slate-700" },
-    { header: "SERVICE TYPE", key: "service" },
+    { 
+      header: "TICKET", 
+      key: "id", 
+      className: "text-left font-bold text-indigo-600 uppercase" 
+    },
+    { 
+      header: "CUSTOMER NAME", 
+      key: "name", 
+      className: "text-left font-medium text-slate-700" 
+    },
+    { 
+      header: "SERVICE TYPE", 
+      key: "service", 
+      className: "text-left" 
+    },
     { 
       header: "WAIT TIME", 
       key: "waitTime",
+      className: "text-left",
       render: (item: Ticket) => (
-        <div className="flex items-center gap-2 text-slate-500">
+        <div className="flex items-center justify-start gap-2 text-slate-500">
           <Clock size={14} /> {item.waitTime}m
         </div>
       )
@@ -195,65 +190,77 @@ export default function LiveQueue() {
     {
       header: "STATUS",
       key: "status",
-      // เรียกใช้ Status Component 
-      render: (item: Ticket) => <Status status={item.status} />
+      className: "text-left",
+      render: (item: Ticket) => (
+        <div className="flex justify-start">
+          <Status status={item.status} />
+        </div>
+      )
     },
     {
       header: "ACTIONS",
       key: "id",
       className: "text-right",
       render: (item: Ticket) => (
-        <Dropdown 
-          trigger={
-            <button className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors">
-              <MoreHorizontal size={18} />
-            </button>
-          }
-          items={[
-            { label: "Start Serving", icon: <PlayCircle size={16} />, className: "text-blue-600", onClick: () => updateStatus(item.id, "Serving") },
-            { label: "Mark Completed", icon: <CheckCircle2 size={16} />, className: "text-emerald-600", onClick: () => updateStatus(item.id, "Completed") },
-          ]}
-        />
+        <div className="flex justify-end">
+          <Dropdown 
+            trigger={
+              <button className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors">
+                <MoreHorizontal size={18} />
+              </button>
+            }
+            items={[
+              { label: "Start Serving", icon: <PlayCircle size={16} />, className: "text-blue-600", onClick: () => updateStatus(item.id, "Serving") },
+              { label: "Mark Completed", icon: <CheckCircle2 size={16} />, className: "text-emerald-600", onClick: () => updateStatus(item.id, "Completed") },
+            ]}
+          />
+        </div>
       ),
     },
   ];
 
   return (
-    <div className="space-y-8">
-      <div className="flex justify-end gap-3">
-        <Button variant="outline" onClick={() => window.location.reload()}>
-          <RefreshCcw size={16} className="mr-2" /> Refresh Data
-        </Button>
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <Dropdown
+          align="left"
+          trigger={
+            <Button variant="outline" className="flex items-center gap-2 bg-white min-w-[140px] justify-between border-slate-200 shadow-sm hover:bg-slate-50">
+              <span className="text-slate-700 font-medium">Status: {filter === "All" ? "All" : filter}</span>
+              <ChevronDown size={16} className="text-slate-400" />
+            </Button>
+          }
+          items={[
+            { label: "All Status", onClick: () => setFilter("All") },
+            { label: "Waiting", onClick: () => setFilter("Waiting") },
+            { label: "Serving", onClick: () => setFilter("Serving") },
+            { label: "Completed", onClick: () => setFilter("Completed") },
+          ]}
+        />
 
-        <Button 
-          variant="primary" 
-          className="bg-[#1E1E2D] hover:bg-slate-800"
-          onClick={() => setIsPanelOpen(true)}
-        >
-          <Plus size={16} className="mr-2" /> New Ticket
-        </Button>
-      </div>
+        <div className="flex flex-row items-center gap-3">
+          <Button 
+            variant="outline" 
+            className="flex flex-row items-center justify-center bg-white shadow-sm border-slate-200 hover:bg-slate-50" 
+            onClick={loadData}
+            disabled={isRefreshing}
+          >
+            <RefreshCcw size={16} className={`mr-2 ${isRefreshing ? "animate-spin text-teal-500" : "text-slate-600"}`} /> 
+            <span className="text-slate-700 font-medium">{isRefreshing ? "Refreshing..." : "Refresh Data"}</span>
+          </Button>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
-        {stats.map((stat, i) => <StatCard key={i} {...stat} />)}
-      </div>
-
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex flex-wrap gap-2">
-            {["All", "Waiting", "Serving", "Completed"].map((tab) => (
-              <Button 
-                key={tab} 
-                variant={filter === tab ? "primary" : "ghost"}
-                className={filter === tab ? "bg-teal-600 text-white hover:bg-teal-700" : ""}
-                onClick={() => setFilter(tab)}
-              >
-                {tab}
-              </Button>
-            ))}
-          </div>
+          <Button 
+            variant="primary" 
+            className="flex flex-row items-center justify-center bg-[#0d9488] hover:bg-[#0f766e] text-white border-none shadow-sm font-medium px-4"
+            onClick={() => setIsPanelOpen(true)}
+          >
+            <Plus size={18} className="mr-1.5" /> 
+            <span>New Ticket</span>
+          </Button>
         </div>
+      </div>
 
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
         <Table data={paginatedData} columns={queueColumns} />
 
         <Pagination 
@@ -273,7 +280,7 @@ export default function LiveQueue() {
           <button 
             type="button"
             onClick={handleCreateTicket}
-            className="w-full bg-[#5E5CE6] hover:bg-indigo-700 text-white font-semibold py-3 rounded-xl transition-colors"
+            className="w-full bg-[#0d9488] hover:bg-[#0f766e] text-white font-semibold py-3 rounded-xl transition-colors shadow-sm"
           >
             Confirm Ticket
           </button>
@@ -293,7 +300,7 @@ export default function LiveQueue() {
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}
                 placeholder="Enter customer name..."
-                className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none transition-all"
+                className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-[#0d9488] focus:border-transparent outline-none transition-all shadow-sm"
               />
             </div>
           </div>
