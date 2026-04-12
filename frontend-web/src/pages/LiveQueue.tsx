@@ -1,5 +1,8 @@
 import { useState, useMemo, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+import type { RootState } from "../redux/Reduxindex";
+import { addQueue, updateQueueStatus, type TicketStatus, type Ticket } from "../redux/queueSlice";
 import { RefreshCcw, Plus, Clock, PlayCircle, CheckCircle2, MoreHorizontal, User, ChevronDown, SkipForward, XCircle } from "lucide-react";
 import { Table } from "../components/ui/Table/Table";
 import { Dropdown } from "../components/ui/Dropdown";
@@ -9,26 +12,18 @@ import { SearchSelect, type SearchOption } from "../components/ui/SearchSelect";
 import { Status } from "../components/ui/Status";
 import { Pagination } from "../components/ui/Pagination"; 
 
-type TicketStatus = "Waiting" | "Serving" | "Completed" | "Skipped" | "Cancelled";
-
-type Ticket = {
-  id: string;
-  name: string;
-  service: string;
-  shopId: string;
-  waitTime: number;
-  status: TicketStatus;
-  createdAt: Date | string;
-};
-
 export default function LiveQueue() {
-  const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [shops, setShops] = useState<any[]>([]);
+  const dispatch = useDispatch();
+  
+  // ดึงข้อมูลจาก Redux แทน LocalStorage
+  const tickets = useSelector((state: RootState) => state.queue.tickets);
+  const shops = useSelector((state: RootState) => state.places.places.filter(s => s.status === "Active"));
+  const maxQueue = useSelector((state: RootState) => parseInt(state.settings.maxQueuePerDay, 10) || Infinity);
+
   const [filter, setFilter] = useState<string>("All");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [maxQueue, setMaxQueue] = useState<number>(Infinity);
 
   const context = useOutletContext<{ searchQuery: string }>();
   const searchQuery = context?.searchQuery || "";
@@ -39,48 +34,14 @@ export default function LiveQueue() {
 
   const loadData = () => {
     setIsRefreshing(true);
-    
-    try {
-      const savedTickets = localStorage.getItem("live_queue_tickets");
-      if (savedTickets) {
-        setTickets(JSON.parse(savedTickets));
-      }
-
-      const savedShops = localStorage.getItem("local_shops_db");
-      if (savedShops) {
-        const parsedShops = JSON.parse(savedShops);
-        const activeShops = parsedShops.filter((s: any) => s.status === "Active");
-        setShops(activeShops);
-      }
-
-      const settings = localStorage.getItem("system_settings");
-      if (settings) {
-        const parsedSettings = JSON.parse(settings);
-        if (parsedSettings.maxQueuePerDay) {
-          setMaxQueue(parseInt(parsedSettings.maxQueuePerDay, 10));
-        }
-      }
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setTimeout(() => setIsRefreshing(false), 500); 
-    }
-  };
-
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const saveTicketsToLocal = (newTickets: Ticket[]) => {
-    setTickets(newTickets);
-    localStorage.setItem("live_queue_tickets", JSON.stringify(newTickets));
+    setTimeout(() => setIsRefreshing(false), 500); 
   };
 
   const shopOptions: SearchOption[] = useMemo(() => {
     return shops.map(shop => ({
       id: shop.id,
       label: shop.name,
-      subLabel: `${shop.serviceType} (${shop.placeId})`,
+      subLabel: `(${shop.placeId})`,
       originalData: shop
     }));
   }, [shops]);
@@ -94,7 +55,6 @@ export default function LiveQueue() {
       alert("กรุณากรอกชื่อลูกค้าและเลือกร้านค้าให้ครบถ้วน");
       return;
     }
-
     if (isQueueFull) {
       alert("ไม่สามารถเพิ่มคิวได้เนื่องจากคิวเต็มตามจำนวนที่กำหนดไว้ในวันนี้แล้ว");
       return;
@@ -109,9 +69,7 @@ export default function LiveQueue() {
       const parts = t.id.split('-ctm'); 
       if (parts.length === 2) {
         const num = parseInt(parts[1], 10);
-        if (!isNaN(num) && num > maxQueueNum) {
-          maxQueueNum = num;
-        }
+        if (!isNaN(num) && num > maxQueueNum) { maxQueueNum = num; }
       }
     });
 
@@ -124,15 +82,14 @@ export default function LiveQueue() {
     const newTicket: Ticket = {
       id: newTicketId,
       name: customerName,
-      service: shopData.serviceType || "Unknown Service",
+      service: shopData.categories?.[0] || "Unknown Service",
       shopId: shopId,
       waitTime: calculatedWait,
       status: "Waiting",
       createdAt: new Date().toISOString(),
     };
 
-    const updatedTickets = [...tickets, newTicket];
-    saveTicketsToLocal(updatedTickets);
+    dispatch(addQueue(newTicket)); // สั่งอัปเดต Redux
     
     setCustomerName("");
     setSelectedShopOption(null);
@@ -140,90 +97,43 @@ export default function LiveQueue() {
   };
 
   const updateStatus = (id: string, newStatus: TicketStatus) => {
-    const updatedTickets = tickets.map(t => 
-      t.id === id ? { ...t, status: newStatus } : t
-    );
-    saveTicketsToLocal(updatedTickets);
+    dispatch(updateQueueStatus({ id, status: newStatus })); // สั่งอัปเดต Redux
   };
 
   const filteredData = useMemo(() => {
     let result = [...tickets];
-
-    if (filter !== "All") {
-      result = result.filter(t => t.status === filter);
-    }
-
+    if (filter !== "All") result = result.filter(t => t.status === filter);
     if (searchQuery) {
       const lowerQuery = searchQuery.toLowerCase();
       result = result.filter(t => 
-        t.id.toLowerCase().includes(lowerQuery) || 
-        t.name.toLowerCase().includes(lowerQuery)
+        t.id.toLowerCase().includes(lowerQuery) || t.name.toLowerCase().includes(lowerQuery)
       );
     }
-
     result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
     return result;
   }, [tickets, filter, searchQuery]);
 
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
-  const paginatedData = filteredData.slice(
-    (currentPage - 1) * itemsPerPage, 
-    currentPage * itemsPerPage
-  );
+  const paginatedData = filteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [filter, searchQuery, tickets.length]);
+  useEffect(() => { setCurrentPage(1); }, [filter, searchQuery, tickets.length]);
 
   const queueColumns = [
-    { 
-      header: "TICKET", 
-      key: "id", 
-      className: "text-left font-bold text-indigo-600 uppercase" 
-    },
-    { 
-      header: "CUSTOMER NAME", 
-      key: "name", 
-      className: "text-left font-medium text-slate-700" 
-    },
-    { 
-      header: "SERVICE TYPE", 
-      key: "service", 
-      className: "text-left" 
-    },
-    { 
-      header: "WAIT TIME", 
-      key: "waitTime",
-      className: "text-left",
-      render: (item: Ticket) => (
-        <div className="flex items-center justify-start gap-2 text-slate-500">
-          <Clock size={14} /> {item.waitTime}m
-        </div>
+    { header: "TICKET", key: "id", className: "text-left font-bold text-indigo-600 uppercase" },
+    { header: "CUSTOMER NAME", key: "name", className: "text-left font-medium text-slate-700" },
+    { header: "SERVICE TYPE", key: "service", className: "text-left" },
+    { header: "WAIT TIME", key: "waitTime", className: "text-left", render: (item: Ticket) => (
+        <div className="flex items-center justify-start gap-2 text-slate-500"><Clock size={14} /> {item.waitTime}m</div>
       )
     },
-    {
-      header: "STATUS",
-      key: "status",
-      className: "text-left",
-      render: (item: Ticket) => (
-        <div className="flex justify-start">
-          <Status status={item.status} />
-        </div>
+    { header: "STATUS", key: "status", className: "text-left", render: (item: Ticket) => (
+        <div className="flex justify-start"><Status status={item.status} /></div>
       )
     },
-    {
-      header: "ACTIONS",
-      key: "id",
-      className: "text-right",
-      render: (item: Ticket) => (
+    { header: "ACTIONS", key: "id", className: "text-right", render: (item: Ticket) => (
         <div className="flex justify-end">
           <Dropdown 
-            trigger={
-              <button className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors">
-                <MoreHorizontal size={18} />
-              </button>
-            }
+            trigger={<button className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors"><MoreHorizontal size={18} /></button>}
             items={[
               { label: "Start Serving", icon: <PlayCircle size={16} />, className: "text-blue-600", onClick: () => updateStatus(item.id, "Serving") },
               { label: "Mark Completed", icon: <CheckCircle2 size={16} />, className: "text-emerald-600", onClick: () => updateStatus(item.id, "Completed") },
@@ -232,15 +142,13 @@ export default function LiveQueue() {
             ]}
           />
         </div>
-      ),
-    },
+      )},
   ];
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <Dropdown
-          align="left"
+        <Dropdown align="left"
           trigger={
             <Button variant="outline" className="flex items-center gap-2 bg-white min-w-[140px] justify-between border-slate-200 shadow-sm hover:bg-slate-50">
               <span className="text-slate-700 font-medium">Status: {filter === "All" ? "All" : filter}</span>
@@ -258,22 +166,12 @@ export default function LiveQueue() {
         />
 
         <div className="flex flex-row items-center gap-3">
-          <Button 
-            variant="outline" 
-            className="flex flex-row items-center justify-center bg-white shadow-sm border-slate-200 hover:bg-slate-50" 
-            onClick={loadData}
-            disabled={isRefreshing}
-          >
+          <Button variant="outline" className="flex flex-row items-center justify-center bg-white shadow-sm border-slate-200 hover:bg-slate-50" onClick={loadData} disabled={isRefreshing}>
             <RefreshCcw size={16} className={`mr-2 ${isRefreshing ? "animate-spin text-teal-500" : "text-slate-600"}`} /> 
             <span className="text-slate-700 font-medium">{isRefreshing ? "Refreshing..." : "Refresh Data"}</span>
           </Button>
 
-          <Button 
-            variant="primary" 
-            className={`flex flex-row items-center justify-center text-white border-none shadow-sm font-medium px-4 ${isQueueFull ? "bg-slate-400 cursor-not-allowed" : "bg-[#0d9488] hover:bg-[#0f766e]"}`}
-            onClick={() => { if(!isQueueFull) setIsPanelOpen(true); }}
-            disabled={isQueueFull}
-          >
+          <Button variant="primary" className={`flex flex-row items-center justify-center text-white border-none shadow-sm font-medium px-4 ${isQueueFull ? "bg-slate-400 cursor-not-allowed" : "bg-[#0d9488] hover:bg-[#0f766e]"}`} onClick={() => { if(!isQueueFull) setIsPanelOpen(true); }} disabled={isQueueFull}>
             <Plus size={18} className="mr-1.5" /> 
             <span>{isQueueFull ? "Queue Full" : "New Ticket"}</span>
           </Button>
@@ -288,56 +186,25 @@ export default function LiveQueue() {
 
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
         <Table data={paginatedData} columns={queueColumns} />
-
-        <Pagination 
-          currentPage={currentPage}
-          totalPages={totalPages}
-          totalItems={filteredData.length}
-          itemsPerPage={itemsPerPage}
-          onChange={setCurrentPage}
-        />
+        <Pagination currentPage={currentPage} totalPages={totalPages} totalItems={filteredData.length} itemsPerPage={itemsPerPage} onChange={setCurrentPage} />
       </div>
 
-      <SidePanelEdit
-        isOpen={isPanelOpen}
-        onClose={() => setIsPanelOpen(false)}
-        title="New Ticket"
+      <SidePanelEdit isOpen={isPanelOpen} onClose={() => setIsPanelOpen(false)} title="New Ticket"
         footer={
-          <button 
-            type="button"
-            onClick={handleCreateTicket}
-            className="w-full bg-[#0d9488] hover:bg-[#0f766e] text-white font-semibold py-3 rounded-xl transition-colors shadow-sm"
-          >
+          <button type="button" onClick={handleCreateTicket} className="w-full bg-[#0d9488] hover:bg-[#0f766e] text-white font-semibold py-3 rounded-xl transition-colors shadow-sm">
             Confirm Ticket
           </button>
         }
       >
         <div className="space-y-8">
           <div className="space-y-3">
-            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Customer Name
-            </label>
+            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Customer Name</label>
             <div className="relative">
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                <User size={18} />
-              </div>
-              <input
-                type="text"
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-                placeholder="Enter customer name..."
-                className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-[#0d9488] focus:border-transparent outline-none transition-all shadow-sm"
-              />
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><User size={18} /></div>
+              <input type="text" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Enter customer name..." className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-[#0d9488] focus:border-transparent outline-none transition-all shadow-sm" />
             </div>
           </div>
-
-          <SearchSelect
-            label="Select Shop"
-            placeholder={shops.length === 0 ? "No active shops available" : "Search for a shop..."}
-            options={shopOptions}
-            value={selectedShopOption}
-            onChange={setSelectedShopOption}
-          />
+          <SearchSelect label="Select Shop" placeholder={shops.length === 0 ? "No active shops available" : "Search for a shop..."} options={shopOptions} value={selectedShopOption} onChange={setSelectedShopOption} />
         </div>
       </SidePanelEdit>
     </div>

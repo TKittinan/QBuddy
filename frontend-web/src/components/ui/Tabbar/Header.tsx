@@ -1,16 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   MagnifyingGlassIcon, 
   EnvelopeClosedIcon, 
   HamburgerMenuIcon,
   GearIcon,
-  BellIcon,
-  ExitIcon,      //  Import icon สำหรับ Logout
-  Cross2Icon     //  Import icon สำหรับปุ่มกากบาทปิดช่องค้นหา
+  ExitIcon,
+  Cross2Icon
 } from "@radix-ui/react-icons";
 import { useAuth } from "../../../context/auth/use.Auth";
 import { Dropdown } from "../Dropdown";
-import { useNavigate } from "react-router-dom"; 
+import { useNavigate, Link } from "react-router-dom"; 
 
 interface HeaderProps {
   title: string;
@@ -20,21 +19,32 @@ interface HeaderProps {
 }
 
 export default function Header({ title, onMenuClick, searchQuery, setSearchQuery }: HeaderProps) {
-  const { user, logout } = useAuth(); //  ดึง logout ออกมาจาก useAuth
+  const { user, logout } = useAuth();
   const navigate = useNavigate(); 
-
-  //  State สำหรับคุมการเปิด/ปิดช่องค้นหาบนมือถือ
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
+  
+  const [hasPendingTickets, setHasPendingTickets] = useState(false);
 
-  //  ฟังก์ชันจัดการการ Logout
+  const checkPendingTickets = () => {
+    const savedTickets = localStorage.getItem("support_tickets");
+    if (savedTickets) {
+      const parsedTickets = JSON.parse(savedTickets);
+      const isPending = parsedTickets.some((t: any) => t.status === "Pending");
+      setHasPendingTickets(isPending);
+    }
+  };
+
+  useEffect(() => {
+    checkPendingTickets();
+    window.addEventListener("storage", checkPendingTickets);
+    return () => window.removeEventListener("storage", checkPendingTickets);
+  }, []);
+
   const handleLogout = () => {
     logout();
     navigate("/login");
   };
 
-  // ==========================================
-  // โหมด Mobile Search (เมื่อกดปุ่ม Search ใน Dropdown)
-  // ==========================================
   if (isMobileSearchOpen) {
     return (
       <header className="bg-white border-b border-slate-200 px-4 py-3 lg:hidden flex items-center justify-between z-40 sticky top-0 shadow-sm gap-3 animate-in fade-in slide-in-from-top-2">
@@ -50,7 +60,7 @@ export default function Header({ title, onMenuClick, searchQuery, setSearchQuery
         <button 
           onClick={() => {
             setIsMobileSearchOpen(false);
-            if (setSearchQuery) setSearchQuery(""); // ล้างค่าค้นหาตอนกดปิด
+            if (setSearchQuery) setSearchQuery(""); 
           }} 
           className="p-2 bg-slate-100 hover:bg-slate-200 rounded-full text-slate-600 transition-colors shrink-0"
         >
@@ -60,9 +70,6 @@ export default function Header({ title, onMenuClick, searchQuery, setSearchQuery
     );
   }
 
-  // ==========================================
-  // 💻 โหมด Header ปกติ
-  // ==========================================
   const profileButtonUI = (
     <button className="flex items-center gap-3 hover:bg-slate-50 p-1 pr-2 rounded-xl transition-all cursor-pointer">
       <div className="w-9 h-9 lg:w-10 lg:h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-bold shadow-lg uppercase">
@@ -85,14 +92,12 @@ export default function Header({ title, onMenuClick, searchQuery, setSearchQuery
         >
           <HamburgerMenuIcon width={22} height={22} />
         </button>
-
         <h1 className="text-lg lg:text-xl font-bold text-slate-800 tracking-tight truncate max-w-[140px] lg:max-w-none">
           {title}
         </h1>
       </div>
 
       <div className="flex items-center gap-4">
-        {/* Desktop View (จอ >= 1024px) */}
         <div className="hidden lg:flex items-center gap-6">
           <div className="relative group">
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -105,26 +110,22 @@ export default function Header({ title, onMenuClick, searchQuery, setSearchQuery
             />
           </div>
           <div className="flex items-center gap-3 border-r border-slate-100 pr-6">
-            <button className="relative p-2.5 text-slate-500 hover:bg-slate-50 rounded-xl">
-              <BellIcon width={19} height={19} />
-              <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-rose-500 border-2 border-white rounded-full"></span>
-            </button>
-            <button className="p-2.5 text-slate-500 hover:bg-slate-50 rounded-xl">
+            <Link to="/inbox" className="relative p-2.5 text-slate-500 hover:bg-slate-50 hover:text-[#5AB2A8] rounded-xl transition-colors">
               <EnvelopeClosedIcon width={19} height={19} />
-            </button>
+              {hasPendingTickets && (
+                <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-rose-500 border-2 border-white rounded-full"></span>
+              )}
+            </Link>
           </div>
         </div>
 
-        {/*ส่วนจัดการ Profile Menu */}
         <div className="lg:hidden">
           <Dropdown 
             trigger={profileButtonUI}
             items={[
-              //เมื่อกดปุ่ม Search ให้เปลี่ยน Header เป็นช่องค้นหา
               { label: "Search", icon: <MagnifyingGlassIcon />, onClick: () => setIsMobileSearchOpen(true) },
-              { label: "Messages", icon: <EnvelopeClosedIcon />, onClick: () => {} },
+              { label: "Messages", icon: <EnvelopeClosedIcon />, onClick: () => navigate("/inbox") },
               { label: "Settings", icon: <GearIcon />, divider: true, onClick: () => navigate("/settings") },
-              // ปุ่ม Sign Out ใช้งานได้จริง
               { label: "Sign Out", icon: <ExitIcon />, className: "text-red-600 font-bold", onClick: handleLogout },
             ]}
           />
@@ -133,7 +134,6 @@ export default function Header({ title, onMenuClick, searchQuery, setSearchQuery
         <div className="hidden lg:block">
           {profileButtonUI}
         </div>
-
       </div>
     </header>
   );

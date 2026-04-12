@@ -13,7 +13,7 @@ export function AuthProvider({ children }: Props) {
     return storedUser ? JSON.parse(storedUser) : null;
   });
 
-  // 🌟 เพิ่ม State สำหรับเก็บ Token (JWT)
+  // เพิ่ม State สำหรับเก็บ Token (JWT)
   const [token, setToken] = useState<string | null>(() => {
     return localStorage.getItem("access_token") || null;
   });

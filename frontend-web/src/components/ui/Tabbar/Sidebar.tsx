@@ -5,6 +5,7 @@ import {
   BarChartIcon,
   ExitIcon,
   GearIcon,
+  EnvelopeClosedIcon
 } from "@radix-ui/react-icons";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../../../context/auth/use.Auth";
@@ -47,7 +48,6 @@ const Sidebar = () => {
         <SidebarItem to="/placemanagement" icon={<CalendarIcon />} label="PlaceManagement" />
         <SidebarItem to="/bookingManagement" icon={<BarChartIcon />} label="BookingManagement" />
         
-        {/* แสดงเฉพาะ ADMIN */}
         {isAdmin && (
           <>
             <div className="border-t border-white/10 my-4 mx-2" />
@@ -56,8 +56,8 @@ const Sidebar = () => {
           </>
         )}
 
-        {/*  ดึง Settings กลับมาและแสดงให้ทุกคนเห็น (ต่อตูดด้านล่าง) */}
         <div className="border-t border-white/10 my-4 mx-2" />
+        <SidebarItem to="/inbox" icon={<EnvelopeClosedIcon />} label="Support / Inbox" />
         <SidebarItem to="/settings" icon={<GearIcon />} label="Settings" />
 
       </nav>
