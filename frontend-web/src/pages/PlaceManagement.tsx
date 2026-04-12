@@ -3,7 +3,7 @@ import { useOutletContext } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import type { RootState } from "../redux/Reduxindex";
 import { addPlace, updatePlace, deletePlace, type Place } from "../redux/placeSlice";
-import { Plus, MapPin, MoreHorizontal, ChevronDown, Building2, CheckCircle2, Trash2, Edit, Phone, Map, Clock } from "lucide-react";
+import { Plus, MapPin, MoreHorizontal, ChevronDown, Building2, CheckCircle2, Trash2, Edit, Phone, Map, Clock, Image as ImageIcon, Upload } from "lucide-react";
 import { Table } from "../components/ui/Table/Table";
 import { Button } from "../components/ui/Button";
 import { Dropdown } from "../components/ui/Dropdown";
@@ -39,6 +39,8 @@ export default function PlaceManagement() {
   const [editLng, setEditLng] = useState("");
   const [editOpenTime, setEditOpenTime] = useState("");
   const [editCloseTime, setEditCloseTime] = useState("");
+  const [editLogoUrl, setEditLogoUrl] = useState(""); 
+  const [editCoverUrl, setEditCoverUrl] = useState(""); 
 
   const [isAddPanelOpen, setIsAddPanelOpen] = useState(false);
   const [addName, setAddName] = useState("");
@@ -51,6 +53,30 @@ export default function PlaceManagement() {
   const [addLng, setAddLng] = useState("");
   const [addOpenTime, setAddOpenTime] = useState("09:00");
   const [addCloseTime, setAddCloseTime] = useState("20:00");
+  const [addLogoUrl, setAddLogoUrl] = useState(""); 
+  const [addCoverUrl, setAddCoverUrl] = useState(""); 
+
+  // =====================================================================
+  // 🌟 ฟังก์ชันจำลองการอัปโหลดรูปภาพ (รอเชื่อม Supabase)
+  // =====================================================================
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, setUrlState: React.Dispatch<React.SetStateAction<string>>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // -------------------------------------------------------------------
+    // [TODO: CONNECT SUPABASE]
+    // 1. นำไฟล์ขึ้น Supabase Storage
+    // const { data, error } = await supabase.storage.from('places').upload(`img_${Date.now()}`, file);
+    // 2. ดึง Public URL กลับมา
+    // const { data: publicUrlData } = supabase.storage.from('places').getPublicUrl(data.path);
+    // 3. เซ็ต State เป็น URL จริง
+    // setUrlState(publicUrlData.publicUrl);
+    // -------------------------------------------------------------------
+
+    // 🌟 (Mock) สร้าง URL จำลองชั่วคราวเพื่อให้โชว์รูปในหน้าเว็บได้ทันที
+    const tempLocalUrl = URL.createObjectURL(file);
+    setUrlState(tempLocalUrl);
+  };
 
   const handleConfirmAdd = () => {
     if (!addName.trim() || !addAddress.trim() || !addDescription.trim() || !addPhone.trim() || !addLat.trim() || !addLng.trim() || !addOpenTime.trim() || !addCloseTime.trim()) {
@@ -78,12 +104,15 @@ export default function PlaceManagement() {
       closeTime: addCloseTime,
       avgServiceTime: 15,
       createdAt: new Date().toISOString(),
+      logoUrl: addLogoUrl.trim(), 
+      coverUrl: addCoverUrl.trim() 
     };
 
     dispatch(addPlace(newPlace));
     
     setAddName(""); setAddBranch(""); setAddAddress(""); setAddCategories([]); setAddDescription("");
     setAddPhone(""); setAddLat(""); setAddLng(""); setAddOpenTime("09:00"); setAddCloseTime("20:00");
+    setAddLogoUrl(""); setAddCoverUrl("");
     setIsAddPanelOpen(false);
   };
 
@@ -100,6 +129,8 @@ export default function PlaceManagement() {
     setEditLng(place.longitude || "");
     setEditOpenTime(place.openTime || "09:00");
     setEditCloseTime(place.closeTime || "20:00");
+    setEditLogoUrl(place.logoUrl || ""); 
+    setEditCoverUrl(place.coverUrl || ""); 
   };
 
   const handleConfirmEdit = () => {
@@ -126,7 +157,9 @@ export default function PlaceManagement() {
       ...editingPlace, name: newFullName, branch: editBranch.trim(), address: editAddress.trim(), status: editStatus, 
       id: newInternalId, placeId: newDisplayId, categories: editCategories,
       description: editDescription.trim(), phone: editPhone.trim(), latitude: editLat.trim(), 
-      longitude: editLng.trim(), openTime: editOpenTime, closeTime: editCloseTime
+      longitude: editLng.trim(), openTime: editOpenTime, closeTime: editCloseTime,
+      logoUrl: editLogoUrl.trim(), 
+      coverUrl: editCoverUrl.trim() 
     }));
 
     setEditingPlace(null);
@@ -157,7 +190,12 @@ export default function PlaceManagement() {
 
   const columns: Column<Place>[] = [
     { header: "PLACE NAME", key: "name", className: "text-left w-[25%]", render: (item) => (
-        <div className="text-left"><p className="font-bold text-slate-800 text-sm">{item.name}</p><p className="text-[10px] font-medium text-slate-400">ID: {item.placeId}</p></div>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center border border-slate-200 overflow-hidden shrink-0">
+            {item.logoUrl ? <img src={item.logoUrl} alt={item.name} className="w-full h-full object-cover" /> : <Building2 size={18} className="text-slate-400" />}
+          </div>
+          <div className="text-left"><p className="font-bold text-slate-800 text-sm">{item.name}</p><p className="text-[10px] font-medium text-slate-400">ID: {item.placeId}</p></div>
+        </div>
       )
     },
     { header: "CATEGORY", key: "categories", className: "text-left w-[20%]", render: (item) => (
@@ -222,6 +260,47 @@ export default function PlaceManagement() {
             <div className="space-y-2 pt-1"><label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Categories <span className="text-[10px] font-normal text-slate-400 normal-case ml-1">(Select multiple)</span></label><CategorySelect selectedCategories={addCategories} onChange={setAddCategories} /></div>
             <div className="space-y-2 pt-1"><label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Description</label><textarea value={addDescription} onChange={(e) => setAddDescription(e.target.value)} placeholder="รายละเอียดสถานที่เบื้องต้น..." className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-[#5AB2A8] outline-none min-h-[80px]" /></div>
           </div>
+          
+          <div className="h-px w-full bg-slate-100 my-6"></div>
+          
+          {/* 🌟 ส่วน Media & Images สำหรับการอัปโหลด */}
+          <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Media & Images</h4>
+          <div className="space-y-5">
+            {/* อัปโหลด Logo */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Logo Image</label>
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center shrink-0">
+                  {addLogoUrl ? <img src={addLogoUrl} alt="Logo" className="w-full h-full object-cover" /> : <ImageIcon className="text-slate-400" size={24} />}
+                </div>
+                <div className="flex-1">
+                  <input type="file" id="addLogo" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, setAddLogoUrl)} />
+                  <label htmlFor="addLogo" className="inline-flex items-center justify-center px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-50 cursor-pointer transition-colors shadow-sm">
+                    <Upload size={16} className="mr-2 text-slate-400" /> Upload Logo
+                  </label>
+                  <p className="text-[10px] text-slate-400 mt-1.5">* Max 2MB. Recommended 1:1 ratio.</p>
+                </div>
+              </div>
+            </div>
+
+            {/* อัปโหลด Cover */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Cover Image (Poster)</label>
+              <div className="flex flex-col gap-3">
+                <div className="w-full h-32 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center shrink-0">
+                  {addCoverUrl ? <img src={addCoverUrl} alt="Cover" className="w-full h-full object-cover" /> : <ImageIcon className="text-slate-400" size={32} />}
+                </div>
+                <div>
+                  <input type="file" id="addCover" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, setAddCoverUrl)} />
+                  <label htmlFor="addCover" className="inline-flex items-center justify-center px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-50 cursor-pointer transition-colors shadow-sm">
+                    <Upload size={16} className="mr-2 text-slate-400" /> Upload Cover Photo
+                  </label>
+                  <p className="text-[10px] text-slate-400 mt-1.5">* Max 5MB. Recommended 16:9 ratio.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div className="h-px w-full bg-slate-100 my-6"></div>
           <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Contact & Location</h4>
           <div className="space-y-4">
@@ -247,7 +326,16 @@ export default function PlaceManagement() {
         {editingPlace && (
           <>
             <div className="flex flex-col items-center text-center mb-8">
-              <h3 className="text-2xl font-bold text-slate-800 mt-4">{editingPlace.name}</h3><p className="text-slate-500 text-sm mt-1 font-medium">{editingPlace.placeId}</p>
+              <div className="w-20 h-20 rounded-xl bg-slate-100 flex items-center justify-center border border-slate-200 overflow-hidden mb-3 shadow-sm relative group">
+                {editLogoUrl ? <img src={editLogoUrl} alt="Logo" className="w-full h-full object-cover" /> : <Building2 size={32} className="text-slate-300" />}
+                
+                {/* 🌟 ปุ่มแก้ไขรูปร้านแบบเร็ว (โฮเวอร์แล้วขึ้น) */}
+                <label htmlFor="fastEditLogo" className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity">
+                  <Edit size={20} className="text-white" />
+                </label>
+                <input type="file" id="fastEditLogo" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, setEditLogoUrl)} />
+              </div>
+              <h3 className="text-2xl font-bold text-slate-800">{editingPlace.name}</h3><p className="text-slate-500 text-sm mt-1 font-medium">{editingPlace.placeId}</p>
             </div>
             <div className="space-y-6 pb-6">
               <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Basic Information</h4>
@@ -257,6 +345,45 @@ export default function PlaceManagement() {
                 <div className="space-y-2 pt-1"><label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Categories <span className="text-[10px] font-normal text-slate-400 normal-case ml-1">(Select multiple)</span></label><CategorySelect selectedCategories={editCategories} onChange={setEditCategories} /></div>
                 <div className="space-y-2 pt-1"><label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Description</label><textarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-[#5AB2A8] outline-none min-h-[80px]" /></div>
               </div>
+              
+              <div className="h-px w-full bg-slate-100 my-6"></div>
+              
+              {/* 🌟 ส่วน Media & Images สำหรับแก้ไข */}
+              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Media & Images</h4>
+              <div className="space-y-5">
+                {/* เปลี่ยน Logo */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Logo Image</label>
+                  <div className="flex items-center gap-4">
+                    <div className="w-16 h-16 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center shrink-0">
+                      {editLogoUrl ? <img src={editLogoUrl} alt="Logo" className="w-full h-full object-cover" /> : <ImageIcon className="text-slate-400" size={24} />}
+                    </div>
+                    <div className="flex-1">
+                      <input type="file" id="editLogo" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, setEditLogoUrl)} />
+                      <label htmlFor="editLogo" className="inline-flex items-center justify-center px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-50 cursor-pointer transition-colors shadow-sm">
+                        <Upload size={16} className="mr-2 text-slate-400" /> Change Logo
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                {/* เปลี่ยน Cover */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Cover Image (Poster)</label>
+                  <div className="flex flex-col gap-3">
+                    <div className="w-full h-32 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center shrink-0 relative group">
+                      {editCoverUrl ? <img src={editCoverUrl} alt="Cover" className="w-full h-full object-cover" /> : <ImageIcon className="text-slate-400" size={32} />}
+                    </div>
+                    <div>
+                      <input type="file" id="editCover" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, setEditCoverUrl)} />
+                      <label htmlFor="editCover" className="inline-flex items-center justify-center px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-50 cursor-pointer transition-colors shadow-sm">
+                        <Upload size={16} className="mr-2 text-slate-400" /> Change Cover Photo
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div className="h-px w-full bg-slate-100 my-6"></div>
               <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Contact & Location</h4>
               <div className="space-y-4">

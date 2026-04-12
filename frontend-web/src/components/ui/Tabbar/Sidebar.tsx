@@ -9,12 +9,11 @@ import {
 } from "@radix-ui/react-icons";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../../../context/auth/use.Auth";
-import { GroupIcon } from "lucide-react";
+import { GroupIcon, MessageSquare } from "lucide-react";
 
 const Sidebar = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-
   const isAdmin = user?.role === "ADMIN";
 
   const handleLogout = () => {
@@ -31,7 +30,6 @@ const Sidebar = () => {
 
   return (
     <div className="w-64 min-h-screen bg-[#2F3655] text-slate-200 flex flex-col shadow-2xl lg:shadow-none">
-
       <div className="px-6 py-6 flex items-center gap-3">
         <div className="w-10 h-10 bg-emerald-400/20 rounded-xl flex items-center justify-center">
           <DashboardIcon className="text-emerald-400" width={20} height={20} />
@@ -44,10 +42,11 @@ const Sidebar = () => {
 
       <nav className="flex-1 px-4 space-y-2 overflow-y-auto">
         <SidebarItem to="/dashboard" icon={<DashboardIcon />} label="Dashboard" />
-        <SidebarItem to="/livequeue" icon={<PersonIcon />} label="QueueManagement" />
+        <SidebarItem to="/livequeue" icon={<BarChartIcon />} label="LiveQueue" />
         <SidebarItem to="/placemanagement" icon={<CalendarIcon />} label="PlaceManagement" />
         <SidebarItem to="/bookingManagement" icon={<BarChartIcon />} label="BookingManagement" />
-        
+        <SidebarItem to="/postmanagement" icon={<MessageSquare size={18} />} label="PostManagement" />
+
         {isAdmin && (
           <>
             <div className="border-t border-white/10 my-4 mx-2" />
@@ -59,7 +58,6 @@ const Sidebar = () => {
         <div className="border-t border-white/10 my-4 mx-2" />
         <SidebarItem to="/inbox" icon={<EnvelopeClosedIcon />} label="Support / Inbox" />
         <SidebarItem to="/settings" icon={<GearIcon />} label="Settings" />
-
       </nav>
 
       <div className="px-4 pb-6 hidden lg:block">
@@ -75,15 +73,7 @@ const Sidebar = () => {
   );
 };
 
-export default Sidebar;
-
-interface ItemProps {
-  to: string;
-  icon: React.ReactNode;
-  label: string;
-}
-
-const SidebarItem = ({ to, icon, label }: ItemProps) => {
+const SidebarItem = ({ to, icon, label }: { to: string; icon: React.ReactNode; label: string }) => {
   return (
     <NavLink
       to={to}
@@ -98,3 +88,5 @@ const SidebarItem = ({ to, icon, label }: ItemProps) => {
     </NavLink>
   );
 };
+
+export default Sidebar;

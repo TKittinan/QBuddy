@@ -17,6 +17,8 @@ export type Place = {
   avgServiceTime: number;
   createdAt: string;
   branch?: string;
+  logoUrl?: string;
+  coverUrl?: string;
 };
 
 const initialState: { places: Place[] } = {
