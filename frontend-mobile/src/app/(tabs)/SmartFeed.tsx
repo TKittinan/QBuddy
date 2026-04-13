@@ -1,13 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Image, ScrollView, Alert, SafeAreaView, Platform } from 'react-native';
-import { Sparkles, Map, Star, Clock, CheckCircle2, Bookmark, ArrowLeft, LucideIcon } from 'lucide-react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, Image, ScrollView, Alert, SafeAreaView, Platform, StatusBar } from 'react-native';
+import { Sparkles, Map, Star, ArrowLeft, LucideIcon } from 'lucide-react-native';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 
 interface MockPlace { id: string; name: string; category: string; type: string; rating: number; waitTime: string; status: 'busy' | 'available'; image: string; lat: number; lng: number; }
 const MOCK_PLACES: MockPlace[] = [ { id: '1', name: 'ชาบูชิ', category: 'บุฟเฟต์', type: 'buffet', rating: 4.5, waitTime: 'รอคิว 15 นาที', status: 'busy', image: 'https://images.unsplash.com/photo-1526462153549-36224314cfa8?w=200', lat: 13.75, lng: 100.51 } ];
-const MOCK_USER_HISTORY: string[] = ['buffet', 'buffet', 'cafe'];
 
 export default function SmartFeedPage() {
   const router = useRouter();
@@ -29,7 +27,10 @@ export default function SmartFeedPage() {
 
   return (
     <SafeAreaView className="flex-1 bg-[#F7FAFC]">
-      <View className={`px-5 py-4 flex-row items-center justify-between bg-white shadow-sm z-10 ${Platform.OS === 'android' ? 'pt-10' : ''}`}>
+      <View 
+        className="px-5 pb-4 flex-row items-center justify-between bg-white shadow-sm z-10"
+        style={{ paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 16 : 16 }}
+      >
         <TouchableOpacity onPress={() => router.back()}><ArrowLeft size={24} color="#1F2937" /></TouchableOpacity>
         <Text className="text-lg font-bold text-gray-800">Smart Feed</Text>
         <Sparkles size={24} color="#374151" />

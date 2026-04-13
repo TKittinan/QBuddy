@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Image, ScrollView, Modal, TextInput, Alert, Switch, SafeAreaView, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, Image, ScrollView, Modal, TextInput, Alert, Switch, SafeAreaView, Platform, StatusBar } from 'react-native';
 import { Camera, Brain, Shield, Bookmark, Settings, Clock, LogOut, ChevronRight, X, ArrowLeft, LucideIcon } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -7,30 +7,17 @@ import * as ImagePicker from 'expo-image-picker';
 
 import { Button } from '../../components/ui/Button';
 import { Pagination } from '../../components/ui/Pagination'; 
-
 import { useAppDispatch, useAppSelector } from '../../hooks/useRedux';
 import { logout } from '../../redux/slices/authSlice';
 
-interface SavedPlace {
-  id: string;
-  name: string;
-  category: string;
-  rating: number;
-  image: string;
-  distance: string;
-}
+interface SavedPlace { id: string; name: string; category: string; rating: number; image: string; distance: string; }
 
 const MOCK_SAVED_PLACES: SavedPlace[] = [
   { id: '1', name: 'ชาบูชิ (Shabushi)', category: 'บุฟเฟต์', rating: 4.5, image: 'https://images.unsplash.com/photo-1526462153549-36224314cfa8?w=200', distance: '1.2 กม.' },
   { id: '2', name: 'เอ็มเค สุกี้ (MK)', category: 'สุกี้', rating: 4.8, image: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=200', distance: '2.0 กม.' },
 ];
 
-interface MenuItemProps {
-  icon: LucideIcon;
-  title: string;
-  subtitle: string;
-  onPress: () => void;
-}
+interface MenuItemProps { icon: LucideIcon; title: string; subtitle: string; onPress: () => void; }
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -77,10 +64,18 @@ export default function ProfilePage() {
   const handlePickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') return Alert.alert('ขออภัย', 'แอปจำเป็นต้องเข้าถึงคลังรูปภาพเพื่อเปลี่ยนรูปโปรไฟล์');
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1, 1], quality: 0.8 });
+    
+    const result = await ImagePicker.launchImageLibraryAsync({ 
+      mediaTypes: ImagePicker.MediaTypeOptions.Images, 
+      allowsEditing: true, 
+      aspect: [1, 1], 
+      quality: 0.8 
+    });
+
     if (!result.canceled) {
-      setAvatarUri(result.assets[0].uri);
-      await AsyncStorage.setItem('@user_avatar', result.assets[0].uri);
+      const newImageUri = result.assets[0].uri;
+      setAvatarUri(newImageUri);
+      await AsyncStorage.setItem('@user_avatar', newImageUri);
     }
   };
 
@@ -114,7 +109,10 @@ export default function ProfilePage() {
 
   return (
     <SafeAreaView className="flex-1 bg-[#F7FAFC]">
-      <View className={`px-5 py-4 flex-row items-center justify-between bg-white shadow-sm z-10 ${Platform.OS === 'android' ? 'pt-10' : ''}`}>
+      <View 
+        className="px-5 pb-4 flex-row items-center justify-between bg-white shadow-sm z-10"
+        style={{ paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 16 : 16 }}
+      >
         <TouchableOpacity onPress={() => router.back()}><ArrowLeft size={24} color="#1F2937" /></TouchableOpacity>
         <Text className="text-lg font-bold text-gray-800">Profile & Settings</Text>
         <TouchableOpacity onPress={() => openModal('edit')}><Text className="text-base font-bold text-[#6FA4A1]">Edit</Text></TouchableOpacity>
@@ -144,7 +142,7 @@ export default function ProfilePage() {
         </View>
       </ScrollView>
 
-      {/* Modals omitted for brevity - same exact code logic just inside strict mode boundaries */}
+      {/* Modals */}
       <Modal visible={modals.edit} animationType="slide" transparent={true}>
         <View className="flex-1 justify-end bg-black/50">
           <View className="bg-white rounded-t-3xl p-6 pb-10">

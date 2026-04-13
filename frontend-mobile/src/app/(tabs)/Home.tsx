@@ -1,7 +1,8 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Image } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Image, Platform, StatusBar } from 'react-native';
 import { Utensils, Calendar, Coffee, TreePine, Sparkles, Users, Mic } from 'lucide-react-native';
-import { useRouter, Href } from 'expo-router';
+import { useRouter, Href, useFocusEffect } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { AIChat } from '../../components/ui/AIChat';
 import { CategoryItem } from '../../components/ui/CategoryItem';
@@ -11,6 +12,44 @@ import { useAppSelector } from '../../hooks/useRedux';
 export default function HomePage() {
   const router = useRouter();
   const user = useAppSelector((state) => state.auth.user);
+  
+  const [avatarUri, setAvatarUri] = useState<string | null>(null);
+
+  // 🌟 โหลดรูปโปรไฟล์ทุกครั้งที่สลับมาหน้า Home
+  useFocusEffect(
+    useCallback(() => {
+      const fetchUserProfile = async () => {
+        try {
+          // ==========================================
+          // 🗄️ [Supabase] โค้ดสำหรับดึงรูปจาก DB 
+          // ==========================================
+          /*
+          if (user?.id) {
+            const { data, error } = await supabase
+              .from('users')
+              .select('avatar_url')
+              .eq('id', user.id)
+              .single();
+            if (data?.avatar_url) setAvatarUri(data.avatar_url);
+          }
+          */
+
+          // ==========================================
+          // 📱 [Local] ตอนนี้ให้ดึงจาก AsyncStorage ไปก่อน
+          // ==========================================
+          const storedAvatar = await AsyncStorage.getItem('@user_avatar');
+          if (storedAvatar) {
+            setAvatarUri(storedAvatar);
+          }
+
+        } catch (error) {
+          console.error("Failed to load avatar", error);
+        }
+      };
+
+      fetchUserProfile();
+    }, [user?.id])
+  );
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -21,7 +60,11 @@ export default function HomePage() {
             <Text style={styles.userName}>สวัสดี คุณ {user?.name || 'User'}</Text>
           </View>
           <View style={styles.profileWrapper}>
-            <Image source={{ uri: 'https://i.pravatar.cc/100' }} style={styles.profileImg} />
+            {/* 🌟 แสดงรูปภาพ */}
+            <Image 
+              source={{ uri: avatarUri || 'https://i.pravatar.cc/150?u=a042581f4e29026024d' }} 
+              style={styles.profileImg} 
+            />
             <View style={styles.onlineStatus} />
           </View>
         </View>
@@ -49,7 +92,6 @@ export default function HomePage() {
             <CategoryItem label="คาเฟ่" icon={<Coffee size={20} color="#D69E2E" />} />
             <CategoryItem label="อุทยาน" icon={<TreePine size={20} color="#38A169" />} />
             
-            {/* 🌟 กดจากตรงนี้เพื่อเข้าหน้า FindFriends */}
             <CategoryItem 
               label="หาเพื่อน" 
               icon={<Users size={20} color="#38B2AC" />} 
@@ -64,7 +106,14 @@ export default function HomePage() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#FFFFFF' },
-  headerContainer: { backgroundColor: '#2D3748', paddingTop: 20, paddingBottom: 30, paddingHorizontal: 20, borderBottomLeftRadius: 30, borderBottomRightRadius: 30 },
+  headerContainer: { 
+    backgroundColor: '#2D3748', 
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 15 : 20, 
+    paddingBottom: 30, 
+    paddingHorizontal: 20, 
+    borderBottomLeftRadius: 30, 
+    borderBottomRightRadius: 30 
+  },
   userInfoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   greetText: { fontSize: 13, color: '#CBD5E0', fontWeight: '500' },
   userName: { fontSize: 24, fontWeight: '800', color: '#FFFFFF' },

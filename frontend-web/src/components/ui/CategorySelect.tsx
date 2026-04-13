@@ -1,6 +1,5 @@
 export const CATEGORY_LIST = [
-  "ร้านอาหาร", "คาเฟ่", "ร้านทำผม", "โรงพยาบาล", 
-  "อีเวนท์", "อุทยาน", "เสริมสวยอื่นๆ", "ร้านนวด"
+  "ร้านอาหาร", "คาเฟ่", "เสริมสวยอื่นๆ"
 ];
 
 interface CategorySelectProps {
@@ -9,7 +8,6 @@ interface CategorySelectProps {
 }
 
 export function CategorySelect({ selectedCategories, onChange }: CategorySelectProps) {
-  // ฟังก์ชันสลับสถานะการเลือก
   const toggleCategory = (category: string) => {
     if (selectedCategories.includes(category)) {
       onChange(selectedCategories.filter(c => c !== category));

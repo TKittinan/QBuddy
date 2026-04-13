@@ -1,6 +1,9 @@
 import { Stack, useRouter, useSegments, Href, useRootNavigationState } from "expo-router";
 import { useEffect } from "react";
 import { Provider } from "react-redux";
+import * as Location from 'expo-location';
+import * as ImagePicker from 'expo-image-picker';
+
 import { store } from "../redux";
 import { useAppSelector } from "../hooks/useRedux";
 import "./global.css";
@@ -10,6 +13,20 @@ const RootNavigation = () => {
   const segments = useSegments();
   const router = useRouter();
   const navigationState = useRootNavigationState();
+
+  useEffect(() => {
+    const requestAppPermissions = async () => {
+      try {
+        await Location.requestForegroundPermissionsAsync();
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+        await ImagePicker.requestCameraPermissionsAsync();
+      } catch (error) {
+        console.error("Permission request error at app launch:", error);
+      }
+    };
+
+    requestAppPermissions();
+  }, []);
 
   useEffect(() => {
     if (!navigationState?.key) return;
