@@ -63,6 +63,7 @@ model Restaurant {
   average_rating Float?
   created_at     DateTime @default(now())
   status         String
+  image_url      String?
 
   categories   Restaurant_Category[]
   promotions   Promotion[]

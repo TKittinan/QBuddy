@@ -42,6 +42,7 @@ export const addCategoryToRestaurant = async (req: Request, res: Response) => {
       data: {
         restaurant_id,
         category_id,
+        image_url: req.body.image_url, // URL จาก supabase
       },
     });
 

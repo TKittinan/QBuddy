@@ -26,6 +26,9 @@ import aiChatRoute from "./routes/ai_chat_route";
 
 import locationRoute from "./routes/location_route";
 
+// import upload route for handling image uploads to Supabase
+import uploadRoute from "./routes/upload_route";
+
 dotenv.config();
 
 const app = express();
@@ -56,6 +59,9 @@ app.use("/ai", aiRoute);
 app.use("/ai-chat", aiChatRoute);
 
 app.use("/location", locationRoute);
+
+// use upload route for uploading images to Supabase
+app.use("/upload", uploadRoute);
 
 app.listen(3000, () => {
   console.log("Server running on 3000");
