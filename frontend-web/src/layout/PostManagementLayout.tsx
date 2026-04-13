@@ -1,18 +1,14 @@
 import { useState } from "react";
 import { Outlet } from "react-router-dom";
-import Sidebar from "../components/ui/Tabbar/Sidebar"; 
+import Sidebar from "../components/ui/Tabbar/Sidebar";
 import Header from "../components/ui/Tabbar/Header";
 
-export default function BookingManagementLayout() {
+export default function PostManagementLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  
-  //  เพิ่ม State สำหรับค้นหา
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(""); // สร้าง State ค้นหา
 
   return (
-    <div className="h-screen flex bg-slate-50 overflow-hidden relative font-sans">
-      
-      {/* 1. Sidebar Container */}
+    <div className="h-screen flex bg-slate-50 overflow-hidden relative">
       <aside className={`
         fixed inset-y-0 left-0 z-[100] transform transition-transform duration-300 ease-out 
         lg:relative lg:translate-x-0
@@ -21,20 +17,17 @@ export default function BookingManagementLayout() {
         <Sidebar />
       </aside>
 
-      {/* 2. Overlay */}
       {isSidebarOpen && (
         <div 
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[90] lg:hidden animate-in fade-in duration-300"
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[90] lg:hidden animate-in fade-in"
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
 
-      {/* 3. Main Content Area */}
       <div className="flex-1 flex flex-col h-full overflow-hidden">
-        
-        {/*  ส่ง searchQuery ให้ Header เพื่อใช้งานช่องค้นหา */}
+        {/* ส่ง searchQuery ให้ Header เพื่อไปโชว์ในช่องค้นหา */}
         <Header 
-          title="Booking Management" 
+          title="Post Management" 
           onMenuClick={() => setIsSidebarOpen(true)} 
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
@@ -42,11 +35,10 @@ export default function BookingManagementLayout() {
 
         <main className="flex-1 p-4 lg:p-8 overflow-y-auto bg-slate-50">
           <div className="max-w-[1400px] mx-auto">
-            {/*  ส่งคำค้นหาลงหน้าลูก */}
+            {/* 🌟 ส่งคำค้นหาลงไปให้หน้าลูก (Page) ดึงไปใช้ */}
             <Outlet context={{ searchQuery }} />
           </div>
         </main>
-        
       </div>
     </div>
   );
