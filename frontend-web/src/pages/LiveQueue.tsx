@@ -12,10 +12,26 @@ import { SearchSelect, type SearchOption } from "../components/ui/SearchSelect";
 import { Status } from "../components/ui/Status";
 import { Pagination } from "../components/ui/Pagination"; 
 
+// 🌟 1. นำเข้า Hook Form และ Zod
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+
+const ticketSchema = z.object({
+  customerName: z.string().min(1, "กรุณากรอกชื่อลูกค้า"),
+  selectedShopOption: z.object({
+    id: z.string(),
+    label: z.string(),
+    subLabel: z.string().optional(),
+    originalData: z.any()
+  }, { message: "กรุณาเลือกร้านค้า" })
+});
+
+type TicketFormData = z.infer<typeof ticketSchema>;
+
 export default function LiveQueue() {
   const dispatch = useDispatch();
   
-  // ดึงข้อมูลจาก Redux แทน LocalStorage
   const tickets = useSelector((state: RootState) => state.queue.tickets);
   const shops = useSelector((state: RootState) => state.places.places.filter(s => s.status === "Active"));
   const maxQueue = useSelector((state: RootState) => parseInt(state.settings.maxQueuePerDay, 10) || Infinity);
@@ -29,8 +45,21 @@ export default function LiveQueue() {
   const searchQuery = context?.searchQuery || "";
 
   const [isPanelOpen, setIsPanelOpen] = useState(false);
-  const [customerName, setCustomerName] = useState("");
-  const [selectedShopOption, setSelectedShopOption] = useState<SearchOption | null>(null);
+
+  // 🌟 3. ติดตั้ง useForm 
+  const {
+    control,
+    handleSubmit,
+    reset,
+    formState: { errors }
+  } = useForm<TicketFormData>({
+    resolver: zodResolver(ticketSchema),
+    defaultValues: {
+      customerName: "",
+      selectedShopOption: undefined
+    },
+    mode: "onChange"
+  });
 
   const loadData = () => {
     setIsRefreshing(true);
@@ -50,23 +79,38 @@ export default function LiveQueue() {
   const ticketsToday = tickets.filter(t => new Date(t.createdAt).toDateString() === todayStr).length;
   const isQueueFull = ticketsToday >= maxQueue;
 
-  const handleCreateTicket = () => {
-    if (!customerName || !selectedShopOption) {
-      alert("กรุณากรอกชื่อลูกค้าและเลือกร้านค้าให้ครบถ้วน");
-      return;
-    }
+  // 🌟 4. ฟังก์ชันจัดการ Submit 
+  const onSubmitTicket = (data: TicketFormData) => {
     if (isQueueFull) {
       alert("ไม่สามารถเพิ่มคิวได้เนื่องจากคิวเต็มตามจำนวนที่กำหนดไว้ในวันนี้แล้ว");
       return;
     }
 
-    const shopData = selectedShopOption.originalData;
-    const shopId = shopData.id;
+    const shopData = data.selectedShopOption.originalData;
+    const shopId = shopData.id; // ใช้ Sys ID ในการค้นหาความสัมพันธ์ใน DB
     const shopTickets = tickets.filter(t => t.shopId === shopId);
 
+    // =======================================================
+    // 🌟 ลอจิกแปลงรหัส Place ID ให้เป็น Ticket Prefix สวยๆ
+    // =======================================================
+    const rawPlaceId = shopData.placeId.replace('#', ''); // ตัด # ออก เช่น "AT-RC-003"
+    const idParts = rawPlaceId.split('-'); 
+    let displayPrefix = rawPlaceId;
+    
+    if (idParts.length >= 3) {
+      const namePart = idParts[0]; // "AT"
+      const catPart = idParts[1]; // "RC"
+      const seqPart = parseInt(idParts[2], 10); // "003" -> 3
+      displayPrefix = `${namePart}${catPart}${seqPart}`; // นำมาต่อกันเป็น "ATRC3"
+    } else {
+      displayPrefix = rawPlaceId.replace(/-/g, ''); // สำรองเผื่อรหัสไม่ได้มาในรูปแบบปกติ
+    }
+
+    // หาหมายเลขคิวล่าสุดของร้านนี้
     let maxQueueNum = 0;
     shopTickets.forEach(t => {
-      const parts = t.id.split('-ctm'); 
+      // ตัดคำด้วย -CTM (แปลงเป็น UpperCase ป้องกันปัญหาพิมพ์เล็ก/ใหญ่)
+      const parts = t.id.toUpperCase().split('-CTM'); 
       if (parts.length === 2) {
         const num = parseInt(parts[1], 10);
         if (!isNaN(num) && num > maxQueueNum) { maxQueueNum = num; }
@@ -74,16 +118,18 @@ export default function LiveQueue() {
     });
 
     const nextQueueNum = maxQueueNum + 1;
-    const newTicketId = `${shopId}-ctm${nextQueueNum}`;
+    
+    // 🌟 ประกอบร่าง Ticket ID เช่น ATRC3-CTM1
+    const newTicketId = `${displayPrefix}-CTM${nextQueueNum}`;
 
     const peopleAhead = shopTickets.filter(t => t.status === "Waiting").length;
     const calculatedWait = peopleAhead * (shopData.avgServiceTime || 15);
 
     const newTicket: Ticket = {
-      id: newTicketId,
-      name: customerName,
+      id: newTicketId, // 🌟 ใช้ ID สวยๆ นี้แสดงผลให้ User เห็น
+      name: data.customerName,
       service: shopData.categories?.[0] || "Unknown Service",
-      shopId: shopId,
+      shopId: shopId, // 🌟 ส่วนการเชื่อมข้อมูลร้านค้า ยังคงใช้รหัสระบบ เพื่อไม่ให้ Database สับสน
       waitTime: calculatedWait,
       status: "Waiting",
       createdAt: new Date().toISOString(),
@@ -91,10 +137,14 @@ export default function LiveQueue() {
 
     dispatch(addQueue(newTicket)); 
     
-    setCustomerName("");
-    setSelectedShopOption(null);
+    reset();
     setIsPanelOpen(false);
   };
+
+  const handleClosePanel = () => {
+    reset();
+    setIsPanelOpen(false);
+  }
 
   const updateStatus = (id: string, newStatus: TicketStatus) => {
     dispatch(updateQueueStatus({ id, status: newStatus })); 
@@ -121,8 +171,6 @@ export default function LiveQueue() {
   const queueColumns = [
     { header: "TICKET", key: "id", className: "text-left font-bold text-indigo-600 uppercase" },
     { header: "CUSTOMER NAME", key: "name", className: "text-left font-medium text-slate-700" },
-    
-    // 🌟 ส่วนที่แก้ไข: แปลงข้อความ Service Type ธรรมดา ให้กลายเป็น Tag สีเขียว
     { 
       header: "SERVICE TYPE", 
       key: "service", 
@@ -135,7 +183,6 @@ export default function LiveQueue() {
         </div>
       )
     },
-
     { header: "WAIT TIME", key: "waitTime", className: "text-left", render: (item: Ticket) => (
         <div className="flex items-center justify-start gap-2 text-slate-500"><Clock size={14} /> {item.waitTime}m</div>
       )
@@ -203,22 +250,55 @@ export default function LiveQueue() {
         <Pagination currentPage={currentPage} totalPages={totalPages} totalItems={filteredData.length} itemsPerPage={itemsPerPage} onChange={setCurrentPage} />
       </div>
 
-      <SidePanelEdit isOpen={isPanelOpen} onClose={() => setIsPanelOpen(false)} title="New Ticket"
+      <SidePanelEdit isOpen={isPanelOpen} onClose={handleClosePanel} title="New Ticket"
         footer={
-          <button type="button" onClick={handleCreateTicket} className="w-full bg-[#0d9488] hover:bg-[#0f766e] text-white font-semibold py-3 rounded-xl transition-colors shadow-sm">
+          <button type="button" onClick={handleSubmit(onSubmitTicket)} className="w-full bg-[#0d9488] hover:bg-[#0f766e] text-white font-semibold py-3 rounded-xl transition-colors shadow-sm">
             Confirm Ticket
           </button>
         }
       >
         <div className="space-y-8">
+          
           <div className="space-y-3">
             <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Customer Name</label>
             <div className="relative">
               <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><User size={18} /></div>
-              <input type="text" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Enter customer name..." className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-[#0d9488] focus:border-transparent outline-none transition-all shadow-sm" />
+              
+              <Controller
+                control={control}
+                name="customerName"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <input 
+                    type="text" 
+                    value={value} 
+                    onChange={onChange} 
+                    onBlur={onBlur}
+                    placeholder="Enter customer name..." 
+                    className={`w-full pl-10 pr-4 py-3 bg-white border ${errors.customerName ? "border-rose-400 focus:ring-rose-400" : "border-slate-200 focus:ring-[#0d9488]"} rounded-xl text-sm focus:ring-2 focus:border-transparent outline-none transition-all shadow-sm`} 
+                  />
+                )}
+              />
             </div>
+            {errors.customerName && <p className="text-xs text-rose-500 font-medium">{errors.customerName.message}</p>}
           </div>
-          <SearchSelect label="Select Shop" placeholder={shops.length === 0 ? "No active shops available" : "Search for a shop..."} options={shopOptions} value={selectedShopOption} onChange={setSelectedShopOption} />
+
+          <div className="space-y-3">
+            <Controller 
+              control={control}
+              name="selectedShopOption"
+              render={({ field: { onChange, value } }) => (
+                <SearchSelect 
+                  label="Select Shop" 
+                  placeholder={shops.length === 0 ? "No active shops available" : "Search for a shop..."} 
+                  options={shopOptions} 
+                  value={value} 
+                  onChange={onChange} 
+                />
+              )}
+            />
+             {errors.selectedShopOption && <p className="text-xs text-rose-500 font-medium">{errors.selectedShopOption.message}</p>}
+          </div>
+
         </div>
       </SidePanelEdit>
     </div>

@@ -8,6 +8,27 @@ import { Input } from "../components/ui/Input";
 import { Button } from "../components/ui/Button";
 import { useAuth } from "../context/auth/use.Auth"; 
 
+// 🌟 นำเข้า useForm และ Zod
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+
+// 🌟 Schema สำหรับเช็คการเปลี่ยนรหัสผ่านโดยเฉพาะ (ตรวจ 2 ช่องให้ตรงกัน)
+const securitySchema = z.object({
+  current: z.string().min(1, "กรุณากรอกรหัสผ่านปัจจุบัน"),
+  newPass: z.string().min(6, "รหัสผ่านใหม่ต้องมีอย่างน้อย 6 ตัวอักษร"),
+  confirm: z.string().min(1, "กรุณายืนยันรหัสผ่านใหม่")
+}).superRefine((data, ctx) => {
+  if (data.newPass !== data.confirm) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "รหัสผ่านไม่ตรงกัน",
+      path: ["confirm"]
+    });
+  }
+});
+
+type SecurityFormData = z.infer<typeof securitySchema>;
 type Tab = "general" | "queue" | "security";
 
 export default function Settings() {
@@ -19,42 +40,39 @@ export default function Settings() {
   const [activeTab, setActiveTab] = useState<Tab>("general");
   const [formData, setFormData] = useState(settings);
 
+  // 🌟 ติดตั้ง Form สำหรับ Security
+  const secForm = useForm<SecurityFormData>({
+    resolver: zodResolver(securitySchema),
+    defaultValues: { current: "", newPass: "", confirm: "" },
+    mode: "onChange"
+  });
+
+  const [passError, setPassError] = useState("");
+  const [passSuccess, setPassSuccess] = useState("");
+
   useEffect(() => {
     setFormData(settings);
   }, [settings]);
-
-  const [passwords, setPasswords] = useState({ current: "", newPass: "", confirm: "" });
-  const [passError, setPassError] = useState("");
-  const [passSuccess, setPassSuccess] = useState("");
 
   const handleChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handlePassChange = (field: string, value: string) => {
-    setPasswords(prev => ({ ...prev, [field]: value }));
-    setPassError("");
-    setPassSuccess("");
+  const handleSaveGeneral = () => {
+    dispatch(updateSettings(formData));
+    alert("Settings saved successfully!");
   };
 
-  const handleSave = () => {
-    if (activeTab === "security") {
-      if (!passwords.current || !passwords.newPass || !passwords.confirm) { setPassError("Please fill in all password fields."); return; }
-      if (passwords.newPass !== passwords.confirm) { setPassError("New passwords do not match."); return; }
-      if (passwords.newPass.length < 6) { setPassError("New password must be at least 6 characters."); return; }
+  const handleSaveSecurity = (data: SecurityFormData) => {
+    setPassError(""); setPassSuccess("");
+    const currentUserData = staffs.find((s: any) => s.email === user?.email);
 
-      const currentUserData = staffs.find((s: any) => s.email === user?.email);
-
-      if (currentUserData && currentUserData.password === passwords.current) {
-        dispatch(updateStaff({ ...currentUserData, password: passwords.newPass }));
-        setPassSuccess("Password updated successfully!");
-        setPasswords({ current: "", newPass: "", confirm: "" }); 
-      } else {
-        setPassError("Incorrect current password.");
-      }
+    if (currentUserData && currentUserData.password === data.current) {
+      dispatch(updateStaff({ ...currentUserData, password: data.newPass }));
+      setPassSuccess("Password updated successfully!");
+      secForm.reset(); 
     } else {
-      dispatch(updateSettings(formData));
-      alert("Settings saved successfully!");
+      setPassError("Incorrect current password.");
     }
   };
 
@@ -73,6 +91,7 @@ export default function Settings() {
         </div>
 
         <div className="flex-1 bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-100">
+          
           {activeTab === "general" && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
               <h3 className="text-lg font-bold text-slate-800 border-b pb-4">General Information</h3>
@@ -100,16 +119,30 @@ export default function Settings() {
               <h3 className="text-lg font-bold text-slate-800 border-b pb-4">Change Password</h3>
               {passError && <div className="p-3 bg-red-50 text-red-600 border border-red-100 rounded-xl text-sm font-medium">{passError}</div>}
               {passSuccess && <div className="p-3 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-xl text-sm font-medium">{passSuccess}</div>}
+              
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="md:col-span-2"><Input label="Current Password" icon={<Lock size={16} />} type="password" placeholder="Enter current password" value={passwords.current} onChange={(e) => handlePassChange("current", e.target.value)} className="bg-slate-50" /></div>
-                <Input label="New Password" icon={<Lock size={16} />} type="password" placeholder="Enter new password" value={passwords.newPass} onChange={(e) => handlePassChange("newPass", e.target.value)} className="bg-slate-50" />
-                <Input label="Confirm New Password" icon={<Lock size={16} />} type="password" placeholder="Confirm new password" value={passwords.confirm} onChange={(e) => handlePassChange("confirm", e.target.value)} className="bg-slate-50" />
+                <div className="md:col-span-2">
+                  <Controller control={secForm.control} name="current" render={({ field: { onChange, value } }) => (
+                    <div><Input label="Current Password" icon={<Lock size={16} />} type="password" placeholder="Enter current password" value={value} onChange={onChange} className={`bg-slate-50 ${secForm.formState.errors.current ? 'border-red-400' : ''}`} />
+                    {secForm.formState.errors.current && <p className="text-xs text-red-500 mt-1">{secForm.formState.errors.current.message}</p>}</div>
+                  )}/>
+                </div>
+                <Controller control={secForm.control} name="newPass" render={({ field: { onChange, value } }) => (
+                  <div><Input label="New Password" icon={<Lock size={16} />} type="password" placeholder="Enter new password" value={value} onChange={onChange} className={`bg-slate-50 ${secForm.formState.errors.newPass ? 'border-red-400' : ''}`} />
+                  {secForm.formState.errors.newPass && <p className="text-xs text-red-500 mt-1">{secForm.formState.errors.newPass.message}</p>}</div>
+                )}/>
+                <Controller control={secForm.control} name="confirm" render={({ field: { onChange, value } }) => (
+                  <div><Input label="Confirm New Password" icon={<Lock size={16} />} type="password" placeholder="Confirm new password" value={value} onChange={onChange} className={`bg-slate-50 ${secForm.formState.errors.confirm ? 'border-red-400' : ''}`} />
+                  {secForm.formState.errors.confirm && <p className="text-xs text-red-500 mt-1">{secForm.formState.errors.confirm.message}</p>}</div>
+                )}/>
               </div>
             </div>
           )}
 
           <div className="mt-10 pt-6 border-t flex justify-end">
-            <Button onClick={handleSave} className="bg-[#5AB2A8] hover:bg-[#4a968d] text-white px-8 py-2.5 flex items-center gap-2 shadow-lg shadow-teal-100"><Save size={18} /> Save Changes</Button>
+            <Button onClick={activeTab === "security" ? secForm.handleSubmit(handleSaveSecurity) : handleSaveGeneral} className="bg-[#5AB2A8] hover:bg-[#4a968d] text-white px-8 py-2.5 flex items-center gap-2 shadow-lg shadow-teal-100">
+              <Save size={18} /> {activeTab === "security" ? "Update Password" : "Save Changes"}
+            </Button>
           </div>
         </div>
       </div>

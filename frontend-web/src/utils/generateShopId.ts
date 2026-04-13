@@ -1,48 +1,61 @@
-// src/utils/generateShopId.ts
+export function generateShopId(name: string, branch: string, categories: string[], existingPlaces: any[]) {
+  const cleanName = name.trim();
+  const cleanBranch = branch.trim();
+  const fullName = cleanBranch ? `${cleanName} (${cleanBranch})` : cleanName;
 
-export const generateShopId = (
-  shopName: string, 
-  branchName: string, 
-  existingPlaces: { name: string, placeId: string }[]
-) => {
-  // 1. นำชื่อร้าน (ไม่รวมสาขา) มาแยกคำเพื่อทำตัวย่อ
-  const words = shopName.trim().split(/[\s\-_]+/);
-  
-  // 2. สร้างตัวย่อ (Initials) จากตัวอักษรแรกของแต่ละคำในชื่อร้าน
-  let initials = words
-    .filter(word => word.length > 0)
-    .map(word => word.replace(/[^a-zA-Zก-ฮ0-9]/g, '').charAt(0).toUpperCase())
-    .join("");
-    
-  if (!initials) {
-    initials = "SHP";
-  }
-  
-  // ตัดให้เหลือความยาวสูงสุด 5 ตัวอักษร เพื่อไม่ให้ ID ยาวเกินไป
-  if (initials.length > 5) {
-    initials = initials.substring(0, 5);
-  }
+  const firstCharName = cleanName.charAt(0).toUpperCase() || 'X';
+  const firstCharBranch = cleanBranch.charAt(0).toUpperCase() || '';
+  const namePrefix = `${firstCharName}${firstCharBranch}`.toUpperCase();
 
-  // 3. ใช้ชื่อร้านทั้งหมด (shopName) เป็น Brand Key เพื่อใช้นับสาขา
-  // เพื่อให้มั่นใจว่าการนับสาขาจะไม่ไปซ้ำกับแบรนด์อื่นที่บังเอิญขึ้นต้นเหมือนกัน
-  const brandKey = shopName.trim();
-
-  // 4. นับจำนวนร้านที่มีชื่อร้านตรงกัน
-  const brandBranches = existingPlaces.filter(p => 
-    p.name.toLowerCase().startsWith(brandKey.toLowerCase())
-  );
-
-  const branchNumber = brandBranches.length + 1;
-
-  // 5. ประกอบร่างชื่อเต็มสำหรับแสดงผล (ถ้ามีสาขาให้ใส่วงเล็บ)
-  const displayFullName = branchName.trim() 
-    ? `${shopName.trim()} (${branchName.trim()})`
-    : shopName.trim();
-
-  // 6. คืนค่ารูปแบบ ID และชื่อเต็มกลับไปให้ UI
-  return {
-    internalId: `${initials}${branchNumber}`,
-    displayId: `#${initials}-${String(branchNumber).padStart(3, '0')}`,
-    fullName: displayFullName
+  const categoryMap: Record<string, string> = {
+    "ร้านอาหาร": "R",
+    "คาเฟ่": "C",
+    "เสริมสวยอื่นๆ": "B",
   };
-};
+  const catCode = (categories || [])
+    .map(cat => categoryMap[cat] || "O")
+    .join(""); 
+
+  const prefix = `${namePrefix}-${catCode || 'X'}`;
+
+  // 3. จัดเตรียมชุดแท็กเป็น String เพื่อเอาไว้เช็คว่าต้องรันเลขคิวต่อกันไหม
+  // (ถ้าเลือกลำดับต่างกัน String นี้จะต่างกัน ถือว่าเป็นคนละประเภทธุรกิจทันที)
+  const categoriesStr = JSON.stringify(categories || []);
+
+  // 4. คำนวณหาเลข Sequence รันคิวสาขา (001, 002)
+  let maxSeq = 0;
+
+  existingPlaces.forEach(place => {
+    // ตัดเอาเฉพาะชื่อร้าน (ไม่เอาสาขา)
+    const placeName = place.name.split(' (')[0].trim().toLowerCase();
+    
+    // ดึงหมวดหมู่ของร้านเก่ามาเช็ค (ต้องเป๊ะทั้งข้อมูลและลำดับ)
+    const placeCategoriesStr = JSON.stringify(place.categories || []);
+
+    // กฎเหล็ก: "ชื่อร้านตรงกัน" และ "ลำดับแท็กตรงกัน 100%"
+    if (placeName === cleanName.toLowerCase() && placeCategoriesStr === categoriesStr) {
+       // ค้นหาเลข 3 หลักสุดท้ายจาก placeId (เช่น #AT-RC-002 จะดึง 002)
+       const match = place.placeId.match(/-(\d+)$/);
+       if (match) {
+         const seq = parseInt(match[1], 10);
+         if (seq > maxSeq) {
+           maxSeq = seq;
+         }
+       }
+    }
+  });
+
+  const nextSeq = maxSeq + 1;
+  
+  // 🌟 รวมร่าง ID เช่น #AA-RC-001
+  const displayId = `#${prefix}-${nextSeq.toString().padStart(3, '0')}`;
+
+  // รหัสภายในระบบที่รับประกันว่าไม่มีทางซ้ำ
+  const internalId = `sys_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+
+  return {
+    internalId,
+    displayId,
+    fullName
+  };
+}

@@ -13,9 +13,26 @@ import { SidePanelEdit } from "../components/ui/Tabbar/SidePanelEdit";
 import { SearchSelect, type SearchOption } from "../components/ui/SearchSelect";
 import { Status } from "../components/ui/Status";
 import type { Column } from "../types";
-
-// นำเข้า CATEGORY_LIST มาใช้ทำ Dropdown
 import { CATEGORY_LIST } from "../components/ui/CategorySelect"; 
+
+// 🌟 นำเข้า useForm และ Zod
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+
+// 🌟 Schema ของ Booking
+const bookingSchema = z.object({
+  name: z.string().min(1, "กรุณากรอกชื่อลูกค้า"),
+  email: z.string().email("รูปแบบอีเมลไม่ถูกต้อง"),
+  dateTime: z.string().min(1, "กรุณาเลือกวันและเวลา").refine(val => new Date(val) >= new Date(), "ไม่สามารถเลือกเวลาที่ผ่านมาแล้วได้"),
+  selectedShopOption: z.any().refine(val => val && val.id, "กรุณาเลือกสถานที่")
+});
+
+type BookingFormData = z.infer<typeof bookingSchema>;
+
+const defaultValues: BookingFormData = {
+  name: "", email: "", dateTime: "", selectedShopOption: null
+};
 
 const formatDateTime = (dateString: string) => {
   if (!dateString) return "-";
@@ -37,7 +54,6 @@ export default function BookingManagement() {
   const dispatch = useDispatch();
 
   const bookings = useSelector((state: RootState) => state.booking.bookings);
-  // ดึงข้อมูลร้านค้าทั้งหมดมาเพื่อใช้เช็ค Category
   const allShops = useSelector((state: RootState) => state.places.places);
   const shops = allShops.filter(s => s.status === "Active");
   const autoCancelMins = useSelector((state: RootState) => parseInt(state.settings.autoCancelMins, 10));
@@ -45,7 +61,6 @@ export default function BookingManagement() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
   const [statusFilter, setStatusFilter] = useState<string>("All");
-  // เพิ่ม State สำหรับ Category Filter
   const [categoryFilter, setCategoryFilter] = useState<string>("All"); 
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -53,16 +68,14 @@ export default function BookingManagement() {
   const searchQuery = context?.searchQuery || "";
 
   const [isAddPanelOpen, setIsAddPanelOpen] = useState(false);
-  const [addName, setAddName] = useState("");
-  const [addEmail, setAddEmail] = useState("");
-  const [addDateTime, setAddDateTime] = useState("");
-  const [selectedShopOption, setSelectedShopOption] = useState<SearchOption | null>(null);
-
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
-  const [editName, setEditName] = useState("");
-  const [editEmail, setEditEmail] = useState("");
-  const [editDateTime, setEditDateTime] = useState("");
-  const [editSelectedShopOption, setEditSelectedShopOption] = useState<SearchOption | null>(null);
+
+  // 🌟 ติดตั้ง useForm
+  const { control, handleSubmit, reset, formState: { errors } } = useForm<BookingFormData>({
+    resolver: zodResolver(bookingSchema),
+    defaultValues,
+    mode: "onChange"
+  });
 
   const loadData = () => {
     setIsRefreshing(true);
@@ -91,97 +104,91 @@ export default function BookingManagement() {
     }));
   }, [shops]);
 
-  const handleConfirmAdd = () => {
-    if (!addName || !addEmail || !addDateTime || !selectedShopOption) { alert("กรุณากรอกข้อมูลให้ครบถ้วน"); return; }
-    if (new Date(addDateTime) < new Date()) { alert("ไม่สามารถเลือกวันและเวลาที่ผ่านมาแล้วได้ กรุณาเลือกเวลาใหม่"); return; }
-
-    const shopData = selectedShopOption.originalData;
-    const shopId = shopData.id;
-    const samePlaceBookings = bookings.filter(b => b.placeId === shopId);
-    const maxQueue = samePlaceBookings.reduce((max, b) => {
-      const num = parseInt(b.queueNo.replace(/\D/g, '')) || 0; 
-      return num > max ? num : max;
-    }, 0);
-
-    const nextQ = maxQueue + 1;
-    const queueString = `Q-${String(nextQ).padStart(3, '0')}`;
-    const bookingString = `BK-${shopId}-${String(nextQ).padStart(3, '0')}`;
-
-    const newBooking: Booking = {
-      id: `bk_${Date.now()}`,
-      bookingId: bookingString,
-      user: { name: addName, email: addEmail },
-      placeId: shopId,
-      placeName: shopData.name,
-      queueNo: queueString,
-      dateTime: addDateTime,
-      status: "Waiting",
-      createdAt: new Date().toISOString(),
-    };
-
-    dispatch(addBooking(newBooking));
-    
-    setAddName(""); setAddEmail(""); setAddDateTime(""); setSelectedShopOption(null); setIsAddPanelOpen(false);
-  };
-
-  const updateStatus = (id: string, newStatus: BookingStatus) => {
-    dispatch(updateBookingStatus({ id, status: newStatus }));
+  const handleOpenAdd = () => {
+    reset(defaultValues);
+    setIsAddPanelOpen(true);
   };
 
   const handleEditClick = (item: Booking) => {
     setEditingBooking(item); 
-    setEditName(item.user.name); 
-    setEditEmail(item.user.email); 
-    setEditDateTime(item.dateTime);
-
     const shop = shops.find(s => s.id === item.placeId);
-    if (shop) {
-      setEditSelectedShopOption({
-        id: shop.id, label: shop.name, subLabel: `${shop.placeId}`, originalData: shop
-      });
-    } else {
-      setEditSelectedShopOption({
-        id: item.placeId, label: item.placeName, subLabel: "Inactive", originalData: { id: item.placeId, name: item.placeName }
-      });
-    }
+    reset({
+      name: item.user.name,
+      email: item.user.email,
+      dateTime: item.dateTime,
+      selectedShopOption: shop 
+        ? { id: shop.id, label: shop.name, subLabel: `${shop.placeId}`, originalData: shop }
+        : { id: item.placeId, label: item.placeName, subLabel: "Inactive", originalData: { id: item.placeId, name: item.placeName } }
+    });
   };
 
-  const handleConfirmEdit = () => {
-    if (!editingBooking) return;
-    if (!editSelectedShopOption) { alert("กรุณาเลือกสถานที่"); return; }
-    if (new Date(editDateTime) < new Date()) { alert("ไม่สามารถเลือกวันและเวลาที่ผ่านมาแล้วได้ กรุณาเลือกเวลาใหม่"); return; }
+  // 🌟 รวมฟังก์ชัน Save ทั้ง Add และ Edit ไว้ด้วยกัน
+  const onSubmit = (data: BookingFormData) => {
+    const shopData = data.selectedShopOption.originalData;
+    const shopId = shopData.id;
 
-    let newPlaceId = editingBooking.placeId;
-    let newPlaceName = editingBooking.placeName;
-    let newQueueNo = editingBooking.queueNo;
-    let newBookingId = editingBooking.bookingId;
-
-    if (editSelectedShopOption.id !== editingBooking.placeId) {
-      newPlaceId = editSelectedShopOption.id;
-      newPlaceName = editSelectedShopOption.label;
-
-      const samePlaceBookings = bookings.filter(b => b.placeId === newPlaceId);
+    if (isAddPanelOpen) {
+      const samePlaceBookings = bookings.filter(b => b.placeId === shopId);
       const maxQueue = samePlaceBookings.reduce((max, b) => {
-        const num = parseInt(b.queueNo.replace(/\D/g, '')) || 0;
+        const num = parseInt(b.queueNo.replace(/\D/g, '')) || 0; 
         return num > max ? num : max;
       }, 0);
 
       const nextQ = maxQueue + 1;
-      newQueueNo = `Q-${String(nextQ).padStart(3, '0')}`;
-      newBookingId = `BK-${newPlaceId}-${String(nextQ).padStart(3, '0')}`;
-    }
+      const queueString = `Q-${String(nextQ).padStart(3, '0')}`;
+      const bookingString = `BK-${shopId}-${String(nextQ).padStart(3, '0')}`;
 
-    dispatch(updateBookingDetails({ 
-      id: editingBooking.id, 
-      user: { name: editName, email: editEmail }, 
-      dateTime: editDateTime,
-      placeId: newPlaceId,
-      placeName: newPlaceName,
-      queueNo: newQueueNo,
-      bookingId: newBookingId
-    }));
-    
-    setEditingBooking(null);
+      const newBooking: Booking = {
+        id: `bk_${Date.now()}`,
+        bookingId: bookingString,
+        user: { name: data.name, email: data.email },
+        placeId: shopId,
+        placeName: shopData.name,
+        queueNo: queueString,
+        dateTime: data.dateTime,
+        status: "Waiting",
+        createdAt: new Date().toISOString(),
+      };
+
+      dispatch(addBooking(newBooking));
+      setIsAddPanelOpen(false);
+
+    } else if (editingBooking) {
+      let newPlaceId = editingBooking.placeId;
+      let newPlaceName = editingBooking.placeName;
+      let newQueueNo = editingBooking.queueNo;
+      let newBookingId = editingBooking.bookingId;
+
+      if (data.selectedShopOption.id !== editingBooking.placeId) {
+        newPlaceId = data.selectedShopOption.id;
+        newPlaceName = data.selectedShopOption.label;
+
+        const samePlaceBookings = bookings.filter(b => b.placeId === newPlaceId);
+        const maxQueue = samePlaceBookings.reduce((max, b) => {
+          const num = parseInt(b.queueNo.replace(/\D/g, '')) || 0;
+          return num > max ? num : max;
+        }, 0);
+
+        const nextQ = maxQueue + 1;
+        newQueueNo = `Q-${String(nextQ).padStart(3, '0')}`;
+        newBookingId = `BK-${newPlaceId}-${String(nextQ).padStart(3, '0')}`;
+      }
+
+      dispatch(updateBookingDetails({ 
+        id: editingBooking.id, 
+        user: { name: data.name, email: data.email }, 
+        dateTime: data.dateTime,
+        placeId: newPlaceId,
+        placeName: newPlaceName,
+        queueNo: newQueueNo,
+        bookingId: newBookingId
+      }));
+      setEditingBooking(null);
+    }
+  };
+
+  const updateStatus = (id: string, newStatus: BookingStatus) => {
+    dispatch(updateBookingStatus({ id, status: newStatus }));
   };
 
   const handleDelete = (id: string) => {
@@ -192,19 +199,13 @@ export default function BookingManagement() {
 
   const filteredData = useMemo(() => {
     let result = [...bookings];
-    
-    if (statusFilter !== "All") {
-      result = result.filter(b => b.status === statusFilter);
-    }
-    
-    // ลอจิกกรองด้วย Category โดยไปค้นหาจากข้อมูลร้านค้าทั้งหมด (allShops)
+    if (statusFilter !== "All") result = result.filter(b => b.status === statusFilter);
     if (categoryFilter !== "All") {
       result = result.filter(b => {
         const shop = allShops.find(s => s.id === b.placeId);
         return shop?.categories?.includes(categoryFilter);
       });
     }
-
     if (searchQuery) {
       const lowerQ = searchQuery.toLowerCase();
       result = result.filter(b => b.bookingId.toLowerCase().includes(lowerQ) || b.user.name.toLowerCase().includes(lowerQ) || b.user.email.toLowerCase().includes(lowerQ) || b.placeName.toLowerCase().includes(lowerQ));
@@ -216,7 +217,6 @@ export default function BookingManagement() {
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
   const paginatedData = filteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  // เพิ่ม categoryFilter เข้าไปใน useEffect Dependency
   useEffect(() => { setCurrentPage(1); }, [statusFilter, categoryFilter, searchQuery, bookings.length]);
 
   const stats = useMemo(() => {
@@ -252,8 +252,6 @@ export default function BookingManagement() {
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        
-        {/* ปรับตรงนี้ให้มี 2 Dropdowns ต่อกัน */}
         <div className="flex flex-wrap items-center gap-3">
           <Dropdown align="left" trigger={<Button variant="outline" className="bg-white shadow-sm flex items-center justify-between min-w-[140px] whitespace-nowrap"><span>Status: {statusFilter}</span> <ChevronDown size={14} className="ml-2 text-slate-400 shrink-0"/></Button>}
             items={[
@@ -276,7 +274,7 @@ export default function BookingManagement() {
             <RefreshCcw size={16} className={`mr-2 ${isRefreshing ? "animate-spin text-teal-500" : "text-slate-600"}`} /> 
             <span className="text-slate-700 font-medium">{isRefreshing ? "Refreshing..." : "Refresh Data"}</span>
           </Button>
-          <Button className="bg-[#5AB2A8] hover:bg-[#4a968d] text-white shadow-lg flex items-center justify-center gap-2 px-6" onClick={() => setIsAddPanelOpen(true)}>
+          <Button className="bg-[#5AB2A8] hover:bg-[#4a968d] text-white shadow-lg flex items-center justify-center gap-2 px-6" onClick={handleOpenAdd}>
             <Plus size={18} /> New Booking
           </Button>
         </div>
@@ -302,66 +300,52 @@ export default function BookingManagement() {
         </div>
       </div>
 
-      <SidePanelEdit isOpen={isAddPanelOpen} onClose={() => setIsAddPanelOpen(false)} title="New Booking"
-        footer={<button onClick={handleConfirmAdd} className="w-full flex items-center justify-center gap-2 py-4 bg-[#5AB2A8] rounded-2xl text-white font-bold hover:bg-[#4a968d] shadow-lg shadow-teal-100 transition-all active:scale-[0.98]"><Plus size={18} /> Confirm Booking</button>}
+      {/* 🌟 Panel (ใช้ร่วมกันทั้ง Add และ Edit) */}
+      <SidePanelEdit isOpen={isAddPanelOpen || !!editingBooking} onClose={() => { setIsAddPanelOpen(false); setEditingBooking(null); }} title={editingBooking ? "Edit Booking" : "New Booking"}
+        footer={<button onClick={handleSubmit(onSubmit)} className="w-full flex items-center justify-center gap-2 py-4 bg-[#5AB2A8] rounded-2xl text-white font-bold hover:bg-[#4a968d] shadow-lg shadow-teal-100 transition-all active:scale-[0.98]"><CheckCircle2 size={18} /> {editingBooking ? "Update Booking" : "Confirm Booking"}</button>}
       >
         <div className="space-y-6">
+          
+          {editingBooking && (
+            <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 mb-6">
+              <div className="flex items-center gap-2 text-slate-500 mb-1"><MapPin size={16} /> <span className="text-sm font-bold">{editingBooking.placeName}</span></div>
+              <p className="text-xs text-slate-400">Queue No: <span className="font-bold text-[#5AB2A8]">{editingBooking.queueNo}</span></p>
+            </div>
+          )}
+
           <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Customer Details</h4>
           <div className="space-y-4">
-            <Input label="Full Name" icon={<User size={16} />} type="text" value={addName} onChange={(e) => setAddName(e.target.value)} placeholder="Enter customer name..." className="bg-slate-50" />
-            <Input label="Email Address" icon={<Mail size={16} />} type="email" value={addEmail} onChange={(e) => setAddEmail(e.target.value)} placeholder="name@example.com" className="bg-slate-50" />
+            <Controller control={control} name="name" render={({ field: { onChange, value } }) => (
+              <div><Input label="Full Name" icon={<User size={16} />} type="text" value={value} onChange={onChange} placeholder="Enter customer name..." className={`bg-slate-50 ${errors.name ? 'border-red-400' : ''}`} />
+              {errors.name && <p className="text-xs text-red-500 mt-1">{errors.name.message}</p>}</div>
+            )}/>
+            <Controller control={control} name="email" render={({ field: { onChange, value } }) => (
+              <div><Input label="Email Address" icon={<Mail size={16} />} type="email" value={value} onChange={onChange} placeholder="name@example.com" className={`bg-slate-50 ${errors.email ? 'border-red-400' : ''}`} />
+              {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email.message}</p>}</div>
+            )}/>
           </div>
+
           <div className="h-px w-full bg-slate-100 my-6"></div>
+          
           <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Appointment Details</h4>
           <div className="space-y-4">
-            <SearchSelect label="Select Place" placeholder={shops.length === 0 ? "No active places available" : "Search for a place..."} options={shopOptions} value={selectedShopOption} onChange={setSelectedShopOption} />
-            <div className="space-y-2 pt-2"><label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Date & Time</label><div className="relative"><div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><CalendarDays size={18} /></div><input type="datetime-local" value={addDateTime} min={getCurrentDateTimeLocal()} onChange={(e) => setAddDateTime(e.target.value)} className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-[#5AB2A8] outline-none" /></div></div>
-          </div>
-        </div>
-      </SidePanelEdit>
-
-      <SidePanelEdit isOpen={!!editingBooking} onClose={() => setEditingBooking(null)} title="Edit Booking"
-        footer={<button onClick={handleConfirmEdit} className="w-full flex items-center justify-center gap-2 py-4 bg-[#5AB2A8] rounded-2xl text-white font-bold hover:bg-[#4a968d] shadow-lg shadow-teal-100 transition-all active:scale-[0.98]"><CheckCircle2 size={18} /> Update Booking</button>}
-      >
-        {editingBooking && (
-          <div className="space-y-6">
-            <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 mb-6">
-              <div className="flex items-center gap-2 text-slate-500 mb-1">
-                <MapPin size={16} /> <span className="text-sm font-bold">{editSelectedShopOption?.label || editingBooking.placeName}</span>
-              </div>
-              <p className="text-xs text-slate-400">Queue No: <span className="font-bold text-[#5AB2A8]">{editSelectedShopOption?.id !== editingBooking.placeId ? "New Queue (Auto Generate)" : editingBooking.queueNo}</span></p>
-            </div>
-            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Update Customer</h4>
-            <div className="space-y-4">
-              <Input label="Full Name" icon={<User size={16} />} type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className="bg-slate-50" />
-              <Input label="Email Address" icon={<Mail size={16} />} type="email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} className="bg-slate-50" />
-            </div>
-            <div className="h-px w-full bg-slate-100 my-6"></div>
-            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Update Appointment</h4>
-            <div className="space-y-4">
-              <SearchSelect
-                label="Select Place"
-                placeholder={shops.length === 0 ? "No active places available" : "Search for a place..."}
-                options={shopOptions}
-                value={editSelectedShopOption}
-                onChange={setEditSelectedShopOption}
-              />
+            <Controller control={control} name="selectedShopOption" render={({ field: { onChange, value } }) => (
+              <div><SearchSelect label="Select Place" placeholder={shops.length === 0 ? "No active places available" : "Search for a place..."} options={shopOptions} value={value} onChange={onChange} />
+              {errors.selectedShopOption && <p className="text-xs text-red-500 mt-1">{errors.selectedShopOption.message as string}</p>}</div>
+            )}/>
+            
+            <Controller control={control} name="dateTime" render={({ field: { onChange, value } }) => (
               <div className="space-y-2 pt-2">
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Date & Time</label>
                 <div className="relative">
                   <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><CalendarDays size={18} /></div>
-                  <input
-                    type="datetime-local"
-                    value={editDateTime}
-                    min={getCurrentDateTimeLocal()}
-                    onChange={(e) => setEditDateTime(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-[#5AB2A8] outline-none"
-                  />
+                  <input type="datetime-local" value={value} min={getCurrentDateTimeLocal()} onChange={onChange} className={`w-full pl-10 pr-4 py-3 bg-slate-50 border ${errors.dateTime ? 'border-red-400' : 'border-slate-200'} rounded-xl text-sm focus:ring-2 focus:ring-[#5AB2A8] outline-none`} />
                 </div>
+                {errors.dateTime && <p className="text-xs text-red-500 mt-1">{errors.dateTime.message}</p>}
               </div>
-            </div>
+            )}/>
           </div>
-        )}
+        </div>
       </SidePanelEdit>
     </div>
   );
