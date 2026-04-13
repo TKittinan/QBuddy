@@ -89,7 +89,7 @@ export default function LiveQueue() {
       createdAt: new Date().toISOString(),
     };
 
-    dispatch(addQueue(newTicket)); // สั่งอัปเดต Redux
+    dispatch(addQueue(newTicket)); 
     
     setCustomerName("");
     setSelectedShopOption(null);
@@ -97,7 +97,7 @@ export default function LiveQueue() {
   };
 
   const updateStatus = (id: string, newStatus: TicketStatus) => {
-    dispatch(updateQueueStatus({ id, status: newStatus })); // สั่งอัปเดต Redux
+    dispatch(updateQueueStatus({ id, status: newStatus })); 
   };
 
   const filteredData = useMemo(() => {
@@ -121,7 +121,21 @@ export default function LiveQueue() {
   const queueColumns = [
     { header: "TICKET", key: "id", className: "text-left font-bold text-indigo-600 uppercase" },
     { header: "CUSTOMER NAME", key: "name", className: "text-left font-medium text-slate-700" },
-    { header: "SERVICE TYPE", key: "service", className: "text-left" },
+    
+    // 🌟 ส่วนที่แก้ไข: แปลงข้อความ Service Type ธรรมดา ให้กลายเป็น Tag สีเขียว
+    { 
+      header: "SERVICE TYPE", 
+      key: "service", 
+      className: "text-left",
+      render: (item: Ticket) => (
+        <div className="flex justify-start">
+          <span className="px-3 py-1 bg-teal-50 border border-teal-200 text-teal-700 rounded-xl text-[10px] font-bold whitespace-nowrap">
+            {item.service}
+          </span>
+        </div>
+      )
+    },
+
     { header: "WAIT TIME", key: "waitTime", className: "text-left", render: (item: Ticket) => (
         <div className="flex items-center justify-start gap-2 text-slate-500"><Clock size={14} /> {item.waitTime}m</div>
       )
@@ -146,7 +160,7 @@ export default function LiveQueue() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <Dropdown align="left"
           trigger={
