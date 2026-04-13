@@ -1,49 +1,48 @@
-import { Stack, useRouter, useSegments } from "expo-router";
+import { Stack, useRouter, useSegments, Href, useRootNavigationState } from "expo-router";
 import { useEffect } from "react";
-import { AuthProvider } from "../context/auth/AuthProvider";
-import { useAuth } from "../context/auth/use.Auth";
+import { Provider } from "react-redux";
+import { store } from "../redux";
+import { useAppSelector } from "../hooks/useRedux";
 import "./global.css";
 
-// แยก Component เพื่อให้สามารถเรียกใช้ useAuth() และ Hook ของ Router ได้
 const RootNavigation = () => {
-  const { user, isLoading } = useAuth();
+  const { user } = useAppSelector((state) => state.auth);
   const segments = useSegments();
   const router = useRouter();
+  const navigationState = useRootNavigationState();
 
   useEffect(() => {
-    // ถ้าระบบกำลังดึงข้อมูลจาก AsyncStorage ให้รอไปก่อน
-    if (isLoading) return; 
+    if (!navigationState?.key) return;
 
-    // เช็คว่าตอนนี้ผู้ใช้อยู่ในกลุ่มหน้าจอ Auth หรือไม่ (Login หรือ Register)
-    const inAuthGroup = segments[0] === 'pages' && (segments[1] === 'Login' || segments[1] === 'Register');
+    const firstSegment = segments[0] as string | undefined;
+    const secondSegment = segments[1] as string | undefined;
+    const inAuthGroup = firstSegment === '(auth)';
 
-    if (!user && !inAuthGroup) {
-      // เงื่อนไข 1: ยังไม่ล็อกอิน -> บังคับดีดไปหน้า Login
-      router.replace('/pages/Login');
-    } else if (user && !user.ai_consented && segments[1] !== 'AIConsent') {
-      // เงื่อนไข 2: ล็อกอินแล้ว แต่ยังไม่กดยอมรับ AI -> บังคับดีดไปหน้า Consent
-      router.replace('/pages/AIConsent');
-    } else if (user && user.ai_consented && inAuthGroup) {
-      // เงื่อนไข 3: ล็อกอินและยอมรับ AI แล้ว แต่ดันกลับมาหน้า Login/Register -> ดีดไปหน้า Home
-      router.replace('/pages/Home');
-    }
-  }, [user, isLoading, segments]);
+    const routingTimer = setTimeout(() => {
+      if (!user && !inAuthGroup) {
+        router.replace('/(auth)/Login' as Href);
+      } else if (user && !user.ai_consented && secondSegment !== 'AIConsent') {
+        router.replace('/(auth)/AIConsent' as Href);
+      } else if (user && user.ai_consented && inAuthGroup) {
+        router.replace('/(tabs)/Home' as Href); 
+      }
+    }, 1);
+    return () => clearTimeout(routingTimer);
+
+  }, [user, segments, navigationState?.key]);
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="index" />
-      <Stack.Screen name="pages/Login" />
-      <Stack.Screen name="pages/Register" />
-      <Stack.Screen name="pages/AIConsent" />
-      <Stack.Screen name="pages/Home" />
+      <Stack.Screen name="(auth)" />
+      <Stack.Screen name="(tabs)" />
     </Stack>
   );
 };
 
 export default function RootLayout() {
   return (
-    <AuthProvider>
+    <Provider store={store}>
       <RootNavigation />
-    </AuthProvider>
+    </Provider>
   );
 }
