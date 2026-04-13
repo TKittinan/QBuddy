@@ -2,10 +2,10 @@ import { useState, useMemo, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import type { RootState } from "../redux/Reduxindex";
-import { deletePost, updatePostStatus, type Post } from "../redux/postSlice";
+import { deletePost, type Post } from "../redux/postSlice";
 import { 
   Search, MapPin, Clock, Users, Trash2, 
-  MoreHorizontal, Eye, XCircle, CheckCircle2, MessageSquare 
+  MoreHorizontal, Eye, MessageSquare 
 } from "lucide-react";
 import { Table } from "../components/ui/Table/Table";
 import { Button } from "../components/ui/Button";
@@ -19,30 +19,35 @@ export default function PostManagement() {
   const dispatch = useDispatch();
   const posts = useSelector((state: RootState) => state.post.posts);
   
-  // 🌟 [แก้บั๊กจอขาว] ดึง Search Query แบบมีตัวป้องกัน (Safe Fallback)
   const context = useOutletContext<{ searchQuery: string } | null>();
   const searchQuery = context?.searchQuery || "";
 
   /* // =========================================================================
   // 🗄️ [SUPABASE DB CONNECTION MOCKUP]
   // =========================================================================
-  // ตอนที่คุณพร้อมเชื่อม Supabase สามารถใช้ Logic นี้ได้เลย:
+  // เมื่อต่อ Database จริง:
+  // โพสต์อิงจากคิวที่จองไว้ การแก้ไขสถานะจะไปผูกกับทริกเกอร์ของตาราง Bookings/Queues 
+  // แอดมินมีหน้าที่แค่อ่าน (Read) และลบ (Delete) กรณีทำผิดกฎ
   //
   // const fetchPosts = async () => {
   //   const { data, error } = await supabase
   //     .from('posts')
   //     .select(`
   //       id, 
+  //       booking_id,                  <-- เชื่อมกับข้อมูลคิวที่ลูกค้าจอง
   //       meeting_time, 
   //       distance, 
-  //       status, 
   //       description, 
   //       created_at,
-  //       users ( name ),              <-- ดึงแค่ชื่อ (Host)
-  //       places ( name, categories )  <-- ดึงชื่อร้าน และ Tags (Category)
+  //       bookings!inner ( status ),   <-- ดึง status มาจากคิวโดยตรง (ไม่ต้องเก็บแยกที่โพสต์)
+  //       users ( name ),              <-- ดึงชื่อ Host
+  //       places ( name, categories )  <-- ดึงชื่อร้าน และ Tags มาโชว์
   //     `);
   //   
-  //   if (data) dispatch(setPosts(data));
+  //   if (data) {
+  //     // Format data เข้า Redux state
+  //     dispatch(setPosts(formattedData));
+  //   }
   // };
   // =========================================================================
   */
@@ -52,18 +57,12 @@ export default function PostManagement() {
   const [viewingPost, setViewingPost] = useState<Post | null>(null);
 
   const handleDeletePostAction = (id: string) => {
-    if (confirm("คุณแน่ใจหรือไม่ที่จะลบโพสต์หาเพื่อนนี้? (ลบถาวร)")) {
+    if (confirm("คุณแน่ใจหรือไม่ที่จะลบโพสต์นี้? (ลบถาวรในระบบ)")) {
       // 🗄️ DB MOCK: await supabase.from('posts').delete().eq('id', id);
       dispatch(deletePost(id)); 
       if (viewingPost?.id === id) setViewingPost(null);
     }
   };
-
-  const handleUpdateStatus = (id: string, newStatus: "Waiting" | "Completed" | "Cancelled") => {
-      // 🗄️ DB MOCK: await supabase.from('posts').update({ status: newStatus }).eq('id', id);
-      dispatch(updatePostStatus({ id, status: newStatus }));
-      if (viewingPost?.id === id) setViewingPost({ ...viewingPost, status: newStatus });
-  }
 
   const filteredData = useMemo(() => {
     let result = [...posts];
@@ -98,6 +97,7 @@ export default function PostManagement() {
         <div className="text-left">
           <p className="font-bold text-slate-700 text-sm mb-1.5">{item.placeName}</p>
           <div className="flex flex-wrap gap-1">
+            {/* 🌟 แสดง Tag แบบ Read-Only โดยดึงสไตล์มาจาก CategorySelect */}
             {item.tags.map((tag, idx) => (
               <span key={idx} className="px-3 py-1 bg-teal-50 border border-teal-200 text-teal-700 rounded-xl text-[10px] font-bold">
                 {tag}
@@ -137,8 +137,7 @@ export default function PostManagement() {
           <Dropdown align="right" trigger={<button className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors"><MoreHorizontal size={18} /></button>}
             items={[
               { label: "View Details", icon: <Eye size={16} />, onClick: () => setViewingPost(item) },
-              { label: "Mark Completed", icon: <CheckCircle2 size={16} />, className: "text-emerald-600", onClick: () => handleUpdateStatus(item.id, "Completed") },
-              { label: "Mark Cancelled", icon: <XCircle size={16} />, className: "text-amber-600", onClick: () => handleUpdateStatus(item.id, "Cancelled") },
+              // 🌟 ถอดปุ่มอัปเดตสถานะออกตาม Requirement
               { label: "Delete Post", icon: <Trash2 size={16} />, className: "text-rose-600", divider: true, onClick: () => handleDeletePostAction(item.id) }
             ]}
           />
@@ -156,11 +155,7 @@ export default function PostManagement() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <StatCard label="Active Posts (Waiting)" value={posts.filter((p: Post) => p.status === 'Waiting').length} icon={<Users size={24} />} color="amber" />
-        <StatCard label="Matched (Completed)" value={posts.filter((p: Post) => p.status === 'Completed').length} icon={<CheckCircle2 size={24} />} color="teal" />
-        <StatCard label="Cancelled" value={posts.filter((p: Post) => p.status === 'Cancelled').length} icon={<XCircle size={24} />} color="rose" />
-      </div>
+      {/* 🌟 ถอดกล่องสถิติ 3 กล่องออก เพื่อให้คลีนตามความต้องการ */}
 
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 overflow-hidden">
         {filteredData.length === 0 ? (
@@ -192,16 +187,6 @@ export default function PostManagement() {
 // ============================================================================
 // Sub Components
 // ============================================================================
-
-function StatCard({ label, value, icon, color }: any) {
-  const colors: any = { amber: "bg-amber-50 text-amber-500", teal: "bg-teal-50 text-[#5AB2A8]", rose: "bg-rose-50 text-rose-500" };
-  return (
-    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
-      <div><p className="text-sm font-medium text-slate-500 mb-1">{label}</p><h3 className="text-3xl font-bold text-slate-800">{value}</h3></div>
-      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${colors[color]}`}>{icon}</div>
-    </div>
-  );
-}
 
 function EmptyState() {
   return (
