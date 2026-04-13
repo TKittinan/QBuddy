@@ -14,6 +14,29 @@ import { Status } from "../components/ui/Status";
 import type { User, Column } from "../types";
 import { useAuth } from "../context/auth/use.Auth"; 
 
+// 🌟 นำเข้า useForm และ Zod
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+
+// 🌟 Schema สำหรับเพิ่มพนักงาน (บังคับรหัสผ่าน)
+const addStaffSchema = z.object({
+  name: z.string().min(1, "กรุณากรอกชื่อ"),
+  email: z.string().email("รูปแบบอีเมลไม่ถูกต้อง"),
+  password: z.string().min(6, "รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร"),
+  role: z.enum(["ADMIN", "STAFF"])
+});
+
+// 🌟 Schema สำหรับแก้ไข (ไม่มีรหัสผ่าน)
+const editStaffSchema = z.object({
+  name: z.string().min(1, "กรุณากรอกชื่อ"),
+  email: z.string().email("รูปแบบอีเมลไม่ถูกต้อง"),
+  role: z.enum(["ADMIN", "STAFF"])
+});
+
+type AddStaffFormData = z.infer<typeof addStaffSchema>;
+type EditStaffFormData = z.infer<typeof editStaffSchema>;
+
 export default function StaffManagement() {
   const dispatch = useDispatch();
   const staffs = useSelector((state: RootState) => state.staffs.staffs);
@@ -25,20 +48,21 @@ export default function StaffManagement() {
   const itemsPerPage = 6;
   
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [editName, setEditName] = useState("");
-  const [editEmail, setEditEmail] = useState("");
-  const [editRole, setEditRole] = useState<"ADMIN" | "STAFF">("STAFF");
-  const [emailError, setEmailError] = useState("");
-
   const [isAddPanelOpen, setIsAddPanelOpen] = useState(false);
-  const [addName, setAddName] = useState("");
-  const [addEmail, setAddEmail] = useState("");
-  const [addPassword, setAddPassword] = useState(""); 
-  const [addRole, setAddRole] = useState<"ADMIN" | "STAFF">("STAFF");
-  const [addEmailError, setAddEmailError] = useState("");
-  const [addPasswordError, setAddPasswordError] = useState(""); 
 
-  const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  // 🌟 Form สำหรับ Add
+  const addForm = useForm<AddStaffFormData>({
+    resolver: zodResolver(addStaffSchema),
+    defaultValues: { name: "", email: "", password: "", role: "STAFF" },
+    mode: "onChange"
+  });
+
+  // 🌟 Form สำหรับ Edit
+  const editForm = useForm<EditStaffFormData>({
+    resolver: zodResolver(editStaffSchema),
+    defaultValues: { name: "", email: "", role: "STAFF" },
+    mode: "onChange"
+  });
 
   const filteredStaffs = useMemo(() => {
     let result = [...staffs];
@@ -53,44 +77,39 @@ export default function StaffManagement() {
   const totalPages = Math.ceil(filteredStaffs.length / itemsPerPage);
   const paginatedData = filteredStaffs.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  const handleConfirmAdd = async () => {
-    setAddEmailError(""); setAddPasswordError("");
-    if (!addName.trim() || !addEmail.trim() || !addPassword.trim()) {
-      if (!addEmail.trim()) setAddEmailError("กรุณากรอกอีเมล");
-      if (!addPassword.trim()) setAddPasswordError("กรุณากรอกรหัสผ่าน");
-      alert("กรุณากรอกข้อมูลให้ครบถ้วน"); return;
-    }
-    if (!validateEmail(addEmail)) { setAddEmailError("รูปแบบอีเมลไม่ถูกต้อง"); return; }
-    if (addPassword.length < 6) { setAddPasswordError("รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร"); return; }
+  const handleOpenAdd = () => {
+    addForm.reset();
+    setIsAddPanelOpen(true);
+  };
 
+  const onAddSubmit = (data: AddStaffFormData) => {
     const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     const newStaff: User = {
       id: `staff_${Date.now()}`,
-      name: addName,
-      email: addEmail,
-      password: addPassword,
-      role: addRole, 
+      name: data.name,
+      email: data.email,
+      password: data.password,
+      role: data.role, 
       status: "UNVERIFIED", 
       createdAt: today, 
     };
 
     dispatch(addStaff(newStaff));
-    setAddName(""); setAddEmail(""); setAddPassword(""); setAddRole("STAFF"); setIsAddPanelOpen(false);
+    addForm.reset();
+    setIsAddPanelOpen(false);
   };
 
   const handleEditClick = (user: User) => {
-    setEditingUser(user); setEditName(user.name); setEditEmail(user.email); setEditRole(user.role as "ADMIN" | "STAFF"); setEmailError("");
+    setEditingUser(user); 
+    editForm.reset({ name: user.name, email: user.email, role: user.role as "ADMIN" | "STAFF" });
   };
 
-  const handleConfirmEdit = async () => {
+  const onEditSubmit = (data: EditStaffFormData) => {
     if (!editingUser) return;
-    if (!editEmail.trim()) { setEmailError("กรุณากรอกอีเมล"); return; }
-    if (!validateEmail(editEmail)) { setEmailError("รูปแบบอีเมลไม่ถูกต้อง"); return; }
-
-    dispatch(updateStaff({ ...editingUser, name: editName, email: editEmail, role: editRole }));
+    dispatch(updateStaff({ ...editingUser, name: data.name, email: data.email, role: data.role }));
 
     if (currentUser && currentUser.id === editingUser.id) {
-        login({ id: currentUser.id, name: editName, email: editEmail, role: editRole }, token || "");
+        login({ id: currentUser.id, name: data.name, email: data.email, role: data.role }, token || "");
     }
     setEditingUser(null);
   };
@@ -121,7 +140,7 @@ export default function StaffManagement() {
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-bold text-slate-800">System Staffs & Admins</h2>
-        <Button className="bg-[#5AB2A8] hover:bg-[#4a968d] text-white shadow-lg flex items-center gap-2" onClick={() => setIsAddPanelOpen(true)}><Plus size={18} /> Add New Staff</Button>
+        <Button className="bg-[#5AB2A8] hover:bg-[#4a968d] text-white shadow-lg flex items-center gap-2" onClick={handleOpenAdd}><Plus size={18} /> Add New Staff</Button>
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4">
@@ -130,30 +149,40 @@ export default function StaffManagement() {
       </div>
 
       <SidePanelEdit isOpen={isAddPanelOpen} onClose={() => setIsAddPanelOpen(false)} title="Add New Staff"
-        footer={<button onClick={handleConfirmAdd} className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-[#5AB2A8] rounded-2xl text-sm font-bold text-white hover:bg-[#4a968d] transition-all shadow-lg shadow-teal-100 active:scale-[0.98]"><Plus size={18} /> Create Account</button>}
+        footer={<button onClick={addForm.handleSubmit(onAddSubmit)} className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-[#5AB2A8] rounded-2xl text-sm font-bold text-white hover:bg-[#4a968d] transition-all shadow-lg shadow-teal-100 active:scale-[0.98]"><Plus size={18} /> Create Account</button>}
       >
         <div className="space-y-6">
           <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Account Details</h4>
           <div className="space-y-4">
-            <Input label="Full Name" icon={<UserIcon size={18} />} type="text" value={addName} onChange={(e) => setAddName(e.target.value)} placeholder="Enter full name" className="bg-slate-50 border-slate-200" />
-            <Input label="Email Address" icon={<Mail size={18} />} type="email" value={addEmail} onChange={(e) => { setAddEmail(e.target.value); if (addEmailError) setAddEmailError(""); }} placeholder="name@qbuddy.com" className="bg-slate-50 border-slate-200" error={addEmailError} />
-            <Input label="Password" icon={<Lock size={18} />} type="password" value={addPassword} onChange={(e) => { setAddPassword(e.target.value); if (addPasswordError) setAddPasswordError(""); }} placeholder="Min. 6 characters" className="bg-slate-50 border-slate-200" error={addPasswordError} />
+            <Controller control={addForm.control} name="name" render={({ field: { onChange, value } }) => (
+              <div><Input label="Full Name" icon={<UserIcon size={18} />} type="text" value={value} onChange={onChange} placeholder="Enter full name" className={`bg-slate-50 border-slate-200 ${addForm.formState.errors.name ? 'border-red-400' : ''}`} />
+              {addForm.formState.errors.name && <p className="text-xs text-red-500 mt-1">{addForm.formState.errors.name.message}</p>}</div>
+            )}/>
+            <Controller control={addForm.control} name="email" render={({ field: { onChange, value } }) => (
+              <div><Input label="Email Address" icon={<Mail size={18} />} type="email" value={value} onChange={onChange} placeholder="name@qbuddy.com" className={`bg-slate-50 border-slate-200 ${addForm.formState.errors.email ? 'border-red-400' : ''}`} />
+              {addForm.formState.errors.email && <p className="text-xs text-red-500 mt-1">{addForm.formState.errors.email.message}</p>}</div>
+            )}/>
+            <Controller control={addForm.control} name="password" render={({ field: { onChange, value } }) => (
+              <div><Input label="Password" icon={<Lock size={18} />} type="password" value={value} onChange={onChange} placeholder="Min. 6 characters" className={`bg-slate-50 border-slate-200 ${addForm.formState.errors.password ? 'border-red-400' : ''}`} />
+              {addForm.formState.errors.password && <p className="text-xs text-red-500 mt-1">{addForm.formState.errors.password.message}</p>}</div>
+            )}/>
 
             <div className="space-y-2 pt-2">
               <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Select Role</label>
-              <div className="flex gap-3">
-                <button type="button" onClick={() => setAddRole("STAFF")} className={`flex-1 flex flex-col items-center justify-center gap-1 py-3 px-4 rounded-xl border transition-all ${addRole === "STAFF" ? "border-indigo-500 bg-indigo-50 text-indigo-700 ring-2 ring-indigo-500/20" : "border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100"}`}><Shield size={20} className="mb-1" /><span className="text-xs font-bold">STAFF</span></button>
-                <button type="button" onClick={() => setAddRole("ADMIN")} className={`flex-1 flex flex-col items-center justify-center gap-1 py-3 px-4 rounded-xl border transition-all ${addRole === "ADMIN" ? "border-rose-500 bg-rose-50 text-rose-700 ring-2 ring-rose-500/20" : "border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100"}`}><Shield size={20} className="mb-1" /><span className="text-xs font-bold">ADMIN</span></button>
-              </div>
+              <Controller control={addForm.control} name="role" render={({ field: { onChange, value } }) => (
+                <div className="flex gap-3">
+                  <button type="button" onClick={() => onChange("STAFF")} className={`flex-1 flex flex-col items-center justify-center gap-1 py-3 px-4 rounded-xl border transition-all ${value === "STAFF" ? "border-indigo-500 bg-indigo-50 text-indigo-700 ring-2 ring-indigo-500/20" : "border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100"}`}><Shield size={20} className="mb-1" /><span className="text-xs font-bold">STAFF</span></button>
+                  <button type="button" onClick={() => onChange("ADMIN")} className={`flex-1 flex flex-col items-center justify-center gap-1 py-3 px-4 rounded-xl border transition-all ${value === "ADMIN" ? "border-rose-500 bg-rose-50 text-rose-700 ring-2 ring-rose-500/20" : "border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100"}`}><Shield size={20} className="mb-1" /><span className="text-xs font-bold">ADMIN</span></button>
+                </div>
+              )}/>
             </div>
-            
             <div className="pt-2"><DetailItem icon={<Shield size={18} />} label="Initial Status" value="UNVERIFIED (Awaiting First Login)" /></div>
           </div>
         </div>
       </SidePanelEdit>
 
       <SidePanelEdit isOpen={!!editingUser} onClose={() => setEditingUser(null)} title="Edit Staff"
-        footer={<button onClick={handleConfirmEdit} className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-[#5AB2A8] rounded-2xl text-sm font-bold text-white hover:bg-[#4a968d] transition-all shadow-lg shadow-teal-100 active:scale-[0.98]"><CheckCircle2 size={18} /> Update Details</button>}
+        footer={<button onClick={editForm.handleSubmit(onEditSubmit)} className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-[#5AB2A8] rounded-2xl text-sm font-bold text-white hover:bg-[#4a968d] transition-all shadow-lg shadow-teal-100 active:scale-[0.98]"><CheckCircle2 size={18} /> Update Details</button>}
       >
         {editingUser && (
           <>
@@ -167,15 +196,23 @@ export default function StaffManagement() {
             <div className="space-y-6">
               <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Update Information</h4>
               <div className="space-y-4">
-                <Input label="Full Name" icon={<UserIcon size={18} />} type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className="bg-slate-50 border-slate-200" />
-                <Input label="Email Address" icon={<Mail size={18} />} type="email" value={editEmail} onChange={(e) => { setEditEmail(e.target.value); if (emailError) setEmailError(""); }} className="bg-slate-50 border-slate-200" error={emailError} />
+                <Controller control={editForm.control} name="name" render={({ field: { onChange, value } }) => (
+                  <div><Input label="Full Name" icon={<UserIcon size={18} />} type="text" value={value} onChange={onChange} className={`bg-slate-50 border-slate-200 ${editForm.formState.errors.name ? 'border-red-400' : ''}`} />
+                  {editForm.formState.errors.name && <p className="text-xs text-red-500 mt-1">{editForm.formState.errors.name.message}</p>}</div>
+                )}/>
+                <Controller control={editForm.control} name="email" render={({ field: { onChange, value } }) => (
+                  <div><Input label="Email Address" icon={<Mail size={18} />} type="email" value={value} onChange={onChange} className={`bg-slate-50 border-slate-200 ${editForm.formState.errors.email ? 'border-red-400' : ''}`} />
+                  {editForm.formState.errors.email && <p className="text-xs text-red-500 mt-1">{editForm.formState.errors.email.message}</p>}</div>
+                )}/>
                 
                 <div className="space-y-2 pt-2">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Update Role</label>
-                  <div className="flex gap-3">
-                    <button type="button" onClick={() => setEditRole("STAFF")} className={`flex-1 flex flex-col items-center justify-center gap-1 py-3 px-4 rounded-xl border transition-all ${editRole === "STAFF" ? "border-indigo-500 bg-indigo-50 text-indigo-700 ring-2 ring-indigo-500/20" : "border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100"}`}><Shield size={20} className="mb-1" /><span className="text-xs font-bold">STAFF</span></button>
-                    <button type="button" onClick={() => setEditRole("ADMIN")} className={`flex-1 flex flex-col items-center justify-center gap-1 py-3 px-4 rounded-xl border transition-all ${editRole === "ADMIN" ? "border-rose-500 bg-rose-50 text-rose-700 ring-2 ring-rose-500/20" : "border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100"}`}><Shield size={20} className="mb-1" /><span className="text-xs font-bold">ADMIN</span></button>
-                  </div>
+                  <Controller control={editForm.control} name="role" render={({ field: { onChange, value } }) => (
+                    <div className="flex gap-3">
+                      <button type="button" onClick={() => onChange("STAFF")} className={`flex-1 flex flex-col items-center justify-center gap-1 py-3 px-4 rounded-xl border transition-all ${value === "STAFF" ? "border-indigo-500 bg-indigo-50 text-indigo-700 ring-2 ring-indigo-500/20" : "border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100"}`}><Shield size={20} className="mb-1" /><span className="text-xs font-bold">STAFF</span></button>
+                      <button type="button" onClick={() => onChange("ADMIN")} className={`flex-1 flex flex-col items-center justify-center gap-1 py-3 px-4 rounded-xl border transition-all ${value === "ADMIN" ? "border-rose-500 bg-rose-50 text-rose-700 ring-2 ring-rose-500/20" : "border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100"}`}><Shield size={20} className="mb-1" /><span className="text-xs font-bold">ADMIN</span></button>
+                    </div>
+                  )}/>
                 </div>
 
                 <div className="pt-2"><DetailItem icon={<Calendar size={18} />} label="Account Created" value={editingUser.createdAt} /></div>

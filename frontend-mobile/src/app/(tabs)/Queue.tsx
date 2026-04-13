@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Image, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Image, Alert, Platform, StatusBar } from 'react-native';
 import { MapPin, Ticket, Calendar as CalendarIcon, Clock, Users, Store, AlertCircle } from 'lucide-react-native';
-import { Button } from '../../components/ui/Button';
 
 type FilterType = 'active' | 'all' | 'success' | 'cancelled';
 
@@ -17,18 +16,12 @@ interface BookingHistory {
   image: string;
 }
 
-// ==========================================
-// 🗄️ [Supabase] TODO: ดึงข้อมูล Mock เหล่านี้จากฐานข้อมูล
-// ==========================================
-
-// Mock: ประวัติการจอง (History)
 const MOCK_HISTORY: BookingHistory[] = [
   { id: '1', dateLabel: 'Today', shopName: 'Copper Beyond Buffet', category: 'Dining • Thai Cuisine', queueNumber: 'A102', time: '14:30 PM', location: 'The Sense Pinklao 2nd Floor, Borommaratchachonn...', status: 'success', image: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=200' },
   { id: '2', dateLabel: 'Yesterday', shopName: 'After You Dessert Cafe', category: 'Dessert • Cafe', queueNumber: 'B12', time: '2:00 PM', location: 'Siam Square One, Bangkok', status: 'success', image: 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=200' },
   { id: '3', dateLabel: 'Oct 15, 2023', shopName: 'MK Restaurants', category: 'Dining • Suki', queueNumber: 'C08', time: '6:30 PM', location: 'Central World, Bangkok', status: 'cancelled', image: 'https://images.unsplash.com/photo-1526462153549-36224314cfa8?w=200' },
 ];
 
-// Mock: คิวที่กำลังรออยู่ปัจจุบัน (Active Queue)
 const MOCK_ACTIVE_QUEUE = {
   id: 'q_123',
   shopName: 'สุกี้ตี๋น้อย (สาขารัชโยธิน)',
@@ -40,12 +33,8 @@ const MOCK_ACTIVE_QUEUE = {
 };
 
 export default function QueuePage() {
-  // ตั้งค่าเริ่มต้นให้เปิดมาเจอ "คิวที่จอง" ก่อนเลย
   const [activeFilter, setActiveFilter] = useState<FilterType>('active');
   const [activeQueue, setActiveQueue] = useState<typeof MOCK_ACTIVE_QUEUE | null>(MOCK_ACTIVE_QUEUE);
-
-  // 🗄️ [Supabase] TODO: ใช้ useEffect เพื่อ Subscribe Realtime Database ตรงนี้
-  // เพื่อให้เลขคิว (queuesAhead) อัปเดตอัตโนมัติโดยไม่ต้องรีเฟรชหน้า
 
   const handleCancelQueue = () => {
     Alert.alert(
@@ -57,13 +46,7 @@ export default function QueuePage() {
           text: 'ยืนยันการยกเลิก', 
           style: 'destructive',
           onPress: async () => {
-            // 🗄️ [Supabase] TODO: ยิง API ไปอัปเดต status คิวเป็น 'cancelled' ใน Database
-            /* const { error } = await supabase
-                .from('bookings')
-                .update({ status: 'cancelled' })
-                .eq('id', activeQueue?.id);
-            */
-            setActiveQueue(null); // จำลองการลบคิวออกจากหน้าจอ
+            setActiveQueue(null); 
             Alert.alert('ยกเลิกสำเร็จ', 'ระบบได้ยกเลิกคิวของคุณแล้ว');
           }
         }
@@ -97,13 +80,10 @@ export default function QueuePage() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      
-      {/* Header Section */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>คิวของฉัน</Text>
       </View>
 
-      {/* Filter Tabs (เพิ่ม ScrollView แนวนอน เผื่อจอเล็ก) */}
       <View style={styles.filterWrapper}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterContainer}>
           <FilterButton label="ทั้งหมด" type="all" />
@@ -113,12 +93,7 @@ export default function QueuePage() {
         </ScrollView>
       </View>
 
-      {/* Content Section */}
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        
-        {/* =========================================
-            🟢 กรณีดู Tab "คิวที่จอง" (Active Queue)
-            ========================================= */}
         {activeFilter === 'active' ? (
           activeQueue ? (
             <View>
@@ -165,20 +140,16 @@ export default function QueuePage() {
                 </Text>
               </View>
 
-              <Button title="ดูเมนูอาหาร" variant="outline" style={{ marginBottom: 12, borderColor: '#6FA4A1' }} />
+              <TouchableOpacity style={styles.menuButton} activeOpacity={0.7}>
+                <Text style={styles.menuButtonText}>ดูเมนูอาหาร</Text>
+              </TouchableOpacity>
               
-              {/* 🌟 แก้ไข: เปลี่ยนจาก Button เป็น TouchableOpacity เพื่อแก้ Error textStyle */}
-              <TouchableOpacity 
-                style={styles.cancelButton} 
-                onPress={handleCancelQueue}
-                activeOpacity={0.7}
-              >
+              <TouchableOpacity style={styles.cancelButton} onPress={handleCancelQueue} activeOpacity={0.7}>
                 <Text style={styles.cancelButtonText}>ยกเลิกการจอง</Text>
               </TouchableOpacity>
 
             </View>
           ) : (
-            // กรณีไม่มีคิวปัจจุบัน
             <View style={styles.emptyContainer}>
               <View style={styles.emptyIconCircle}><Ticket size={32} color="#A0AEC0" /></View>
               <Text style={styles.emptyTitle}>ไม่มีคิวที่กำลังรอ</Text>
@@ -186,9 +157,6 @@ export default function QueuePage() {
             </View>
           )
         ) : (
-        /* =========================================
-           🕒 กรณีดู Tab "ประวัติการจอง" (History)
-           ========================================= */
           filteredHistory.length === 0 ? (
             <View style={styles.emptyContainer}>
               <View style={styles.emptyIconCircle}><CalendarIcon size={32} color="#A0AEC0" /></View>
@@ -225,7 +193,6 @@ export default function QueuePage() {
             ))
           )
         )}
-
       </ScrollView>
     </SafeAreaView>
   );
@@ -233,20 +200,21 @@ export default function QueuePage() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#EEF2F4' },
-  header: { alignItems: 'center', justifyContent: 'center', paddingVertical: 16, backgroundColor: '#EEF2F4' },
+  header: { 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    paddingBottom: 16, 
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 16 : 16, 
+    backgroundColor: '#EEF2F4' 
+  },
   headerTitle: { fontSize: 18, fontWeight: '800', color: '#2D3748' },
-  
-  // Filters
   filterWrapper: { borderBottomWidth: 1, borderBottomColor: '#E2E8F0', backgroundColor: '#EEF2F4' },
   filterContainer: { flexDirection: 'row', paddingHorizontal: 16, paddingBottom: 16 },
   filterBtn: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, backgroundColor: '#FFFFFF', marginRight: 8, borderWidth: 1, borderColor: '#EDF2F7' },
   filterBtnActive: { backgroundColor: '#2D3748', borderColor: '#2D3748' },
   filterText: { fontSize: 13, fontWeight: '700', color: '#4A5568' },
   filterTextActive: { color: '#FFFFFF' },
-  
   scrollContent: { padding: 20, paddingBottom: 100 },
-  
-  // 🌟 Active Queue Styles (คิวที่จอง)
   mainCard: { backgroundColor: '#FFFFFF', borderRadius: 24, padding: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.08, shadowRadius: 15, elevation: 6, marginBottom: 20 },
   shopSection: { flexDirection: 'row', alignItems: 'center', marginBottom: 24 },
   shopImg: { width: 50, height: 50, borderRadius: 12 },
@@ -268,12 +236,10 @@ const styles = StyleSheet.create({
   infoValue: { fontSize: 16, fontWeight: '800', color: '#2D3748', marginTop: 2 },
   warningCard: { flexDirection: 'row', backgroundColor: '#FFF5F5', padding: 16, borderRadius: 16, alignItems: 'center', borderWidth: 1, borderColor: '#FED7D7', marginBottom: 24 },
   warningText: { flex: 1, marginLeft: 12, fontSize: 13, color: '#C53030', lineHeight: 18 },
-  
-  // 🌟 ปุ่มยกเลิกคิว (เพิ่มใหม่)
+  menuButton: { backgroundColor: '#FFFFFF', paddingVertical: 14, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#6FA4A1', marginBottom: 12 },
+  menuButtonText: { color: '#6FA4A1', fontSize: 16, fontWeight: '700' },
   cancelButton: { backgroundColor: '#FFF5F5', paddingVertical: 14, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#FED7D7' },
   cancelButtonText: { color: '#E53E3E', fontSize: 16, fontWeight: '700' },
-  
-  // 🕒 History Styles (ประวัติ)
   dateLabel: { fontSize: 12, fontWeight: '700', color: '#718096', marginBottom: 12, marginTop: 8 },
   card: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 16, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 3, borderRightWidth: 3 },
   cardSuccess: { borderRightColor: '#6FA4A1' },
@@ -297,9 +263,7 @@ const styles = StyleSheet.create({
   dividerHistory: { height: 1, backgroundColor: '#EDF2F7', marginVertical: 12 },
   locationRow: { flexDirection: 'row', alignItems: 'center' },
   locationText: { fontSize: 12, color: '#718096', marginLeft: 6, flex: 1 },
-
-  // Empty State
-  emptyContainer: { backgroundColor: '#FFFFFF', borderRadius: 24, padding: 40, alignItems: 'center', justifyContent: 'center', marginTop: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 3 },
+  emptyContainer: { backgroundColor: '#FFFFFF', borderRadius: 24, padding: 40, alignItems: 'center', justifyContent: 'center', marginTop: 20 },
   emptyIconCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#F7FAFC', justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
   emptyTitle: { fontSize: 18, fontWeight: '800', color: '#2D3748', marginBottom: 8 },
   emptySubtitle: { fontSize: 13, color: '#718096', textAlign: 'center', lineHeight: 20, marginBottom: 24 },

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Image, ScrollView, Modal, Alert, SafeAreaView, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Image, ScrollView, Modal, Alert, SafeAreaView, KeyboardAvoidingView, Platform, StatusBar } from 'react-native';
 import { Search, MapPin, Plus, Utensils, Coffee, Dumbbell, X, ArrowLeft, LucideIcon } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
@@ -54,10 +54,7 @@ const initialNearbyUsers: NearbyUser[] = [
   { id: '102', name: 'วิศรุต', activity: 'หาเพื่อนไปนั่งทำงานเงียบๆ', expireAt: Date.now() + 86400000, timeStr: 'พรุ่งนี้ 06:00 น.', lat: 13.7500, lng: 100.5200, avatar: 'https://i.pravatar.cc/150?u=2', category: 'คาเฟ่' },
 ];
 
-interface FilterChipProps {
-  label: string;
-  icon: LucideIcon;
-}
+interface FilterChipProps { label: string; icon: LucideIcon; }
 
 export default function FindFriendsPage() {
   const router = useRouter();
@@ -177,7 +174,10 @@ export default function FindFriendsPage() {
   return (
     <SafeAreaView className="flex-1 bg-[#F7FAFC]">
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1">
-        <View className="px-5 pt-4 pb-2 bg-[#6FA4A1] rounded-b-3xl shadow-sm z-10">
+        <View 
+          className="px-5 pb-4 bg-[#6FA4A1] rounded-b-3xl shadow-sm z-10"
+          style={{ paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 16 : 16 }}
+        >
           <View className="flex-row items-center mb-2">
             <TouchableOpacity onPress={() => router.back()} className="mr-3 p-1">
               <ArrowLeft size={24} color="#FFFFFF" />
