@@ -7,6 +7,7 @@ import settingsReducer from "./settingSlice";
 import userReducer from "./userSlice";
 import staffReducer from "./staffSlice";
 import postReducer from './postSlice';
+import authReducer from "./authSlice";
 
 export const store = configureStore({
   reducer: {
@@ -17,8 +18,9 @@ export const store = configureStore({
     booking: bookingReducer,
     settings: settingsReducer,
     users: userReducer,
+    auth: authReducer,
     staffs: staffReducer
-  }
+  },
 });
 
 export type RootState = ReturnType<typeof store.getState>;

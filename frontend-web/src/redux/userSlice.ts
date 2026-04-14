@@ -4,34 +4,42 @@ import axios from "axios";
 
 const API_URL = "http://localhost:3000/api/users"; 
 
-// --- 1. Actions สำหรับเรียก API (Async Thunks) ---
+// Helper function สำหรับดึง Token และตั้งค่า Header
+const getAuthConfig = () => {
+  const token = localStorage.getItem("token"); // ดึง token ที่เซฟไว้ตอน login
+  return {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  };
+};
 
+// 1. Actions สำหรับเรียก API (Async Thunks)
 // ดึงข้อมูลทั้งหมด
 export const fetchUsers = createAsyncThunk("users/fetchUsers", async () => {
-  const response = await axios.get(API_URL);
+  const response = await axios.get(API_URL, getAuthConfig());
   return response.data;
 });
 
 // เพิ่ม User
 export const addUserAsync = createAsyncThunk("users/addUser", async (newUser: Partial<User>) => {
-  const response = await axios.post(API_URL, newUser);
+  const response = await axios.post(API_URL, newUser, getAuthConfig());
   return response.data;
 });
 
-// แก้ไข User (ตัวที่ขาดไป)
+// แก้ไข User
 export const updateUserAsync = createAsyncThunk("users/updateUser", async (updatedUser: User) => {
-  const response = await axios.put(`${API_URL}/${updatedUser.id}`, updatedUser);
+  const response = await axios.put(`${API_URL}/${updatedUser.id}`, updatedUser, getAuthConfig());
   return response.data;
 });
 
 // ลบ User
 export const deleteUserAsync = createAsyncThunk("users/deleteUser", async (userId: string) => {
-  await axios.delete(`${API_URL}/${userId}`);
+  await axios.delete(`${API_URL}/${userId}`, getAuthConfig());
   return userId;
 });
 
-// --- 2. Initial State ---
-
+// 2. Initial State
 interface UserState {
   users: User[];
   loading: boolean;
@@ -44,7 +52,7 @@ const initialState: UserState = {
   error: null,
 };
 
-// --- 3. Slice ---
+// 3. Slice
 
 const userSlice = createSlice({
   name: "users",
@@ -63,6 +71,8 @@ const userSlice = createSlice({
       })
       .addCase(fetchUsers.rejected, (state, action) => {
         state.loading = false;
+        
+        // ถ้าขึ้น 401 อาจจะแปลว่า Token หมดอายุ
         state.error = action.error.message || "Failed to fetch users";
       })
 
