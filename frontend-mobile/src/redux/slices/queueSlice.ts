@@ -1,28 +1,30 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
-import type { Ticket } from "../../types";
+const MOCK_TICKETS = [
+  { id: 'ATRC3-CTM1', name: 'Taggsh', service: 'ร้านอาหาร', shopId: '1', status: 'Waiting', createdAt: new Date().toISOString() },
+  { id: 'SBNR1-CTM5', name: 'Taggsh', service: 'ร้านอาหาร', shopId: '2', status: 'Serving', createdAt: new Date().toISOString() },
+  { id: 'VCC2-CTM10', name: 'Taggsh', service: 'คาเฟ่', shopId: '3', status: 'Completed', createdAt: new Date(Date.now() - 86400000).toISOString() }, 
+  { id: 'ATRC3-CTM0', name: 'Taggsh', service: 'คาเฟ่', shopId: '1', status: 'Cancelled', createdAt: new Date(Date.now() - 172800000).toISOString() } 
+];
 
-const initialState: { myTickets: Ticket[]; allTickets: Ticket[] } = {
-  myTickets: [],
-  allTickets: [],
+const initialState = {
+  allTickets: MOCK_TICKETS,
 };
 
 const queueSlice = createSlice({
   name: "queue",
   initialState,
   reducers: {
-    bookTicket: (state, action: PayloadAction<Ticket>) => {
-      state.myTickets.push(action.payload);
-      state.allTickets.push(action.payload);
+    // เพิ่มคิวใหม่เข้าระบบ
+    bookTicket: (state, action: PayloadAction<any>) => { 
+      state.allTickets.push(action.payload); 
     },
-    // 🌟 เพิ่ม Action นี้เข้าไปเพื่ออัปเดตสถานะ เช่น ยกเลิกคิว (Cancelled)
-    updateQueueStatus: (state, action: PayloadAction<{ id: string; status: Ticket['status'] }>) => {
-      const { id, status } = action.payload;
-      
-      const myTicket = state.myTickets.find(t => t.id === id);
-      if (myTicket) myTicket.status = status;
-      
-      const allTicket = state.allTickets.find(t => t.id === id);
-      if (allTicket) allTicket.status = status;
+    
+    // อัปเดตสถานะคิว (ใช้ตอนกดยกเลิกคิว)
+    updateQueueStatus: (state, action: PayloadAction<{ id: string; status: string }>) => {
+      const ticket = state.allTickets.find((t: any) => t.id === action.payload.id);
+      if (ticket) {
+        ticket.status = action.payload.status;
+      }
     }
   },
 });
