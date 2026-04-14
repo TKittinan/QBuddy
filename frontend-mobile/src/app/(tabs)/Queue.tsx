@@ -1,78 +1,88 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Image, Alert, Platform, StatusBar } from 'react-native';
-import { MapPin, Ticket, Calendar as CalendarIcon, Clock, Users, Store, AlertCircle } from 'lucide-react-native';
+import { MapPin, Ticket as TicketIcon, Calendar as CalendarIcon, Clock, Users, Store, AlertCircle } from 'lucide-react-native';
+
+// 🌟 นำเข้าจาก Redux (เอาไว้ใช้ตอนเชื่อมจริง)
+import { useAppDispatch, useAppSelector } from '../../hooks/useRedux';
+import { updateQueueStatus } from '../../redux/slices/queueSlice'; 
 
 type FilterType = 'active' | 'all' | 'success' | 'cancelled';
 
-interface BookingHistory {
-  id: string;
-  dateLabel: string;
-  shopName: string;
-  category: string;
-  queueNumber: string;
-  time: string;
-  location: string;
-  status: 'success' | 'cancelled';
-  image: string;
-}
+// ==========================================================
+// 🧪 MOCK DATA ZONE (สำหรับดูรูปแบบการแสดงผล)
+// ==========================================================
+const MOCK_USER = { name: "Taggsh" };
 
-const MOCK_HISTORY: BookingHistory[] = [
-  { id: '1', dateLabel: 'Today', shopName: 'Copper Beyond Buffet', category: 'Dining • Thai Cuisine', queueNumber: 'A102', time: '14:30 PM', location: 'The Sense Pinklao 2nd Floor, Borommaratchachonn...', status: 'success', image: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=200' },
-  { id: '2', dateLabel: 'Yesterday', shopName: 'After You Dessert Cafe', category: 'Dessert • Cafe', queueNumber: 'B12', time: '2:00 PM', location: 'Siam Square One, Bangkok', status: 'success', image: 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=200' },
-  { id: '3', dateLabel: 'Oct 15, 2023', shopName: 'MK Restaurants', category: 'Dining • Suki', queueNumber: 'C08', time: '6:30 PM', location: 'Central World, Bangkok', status: 'cancelled', image: 'https://images.unsplash.com/photo-1526462153549-36224314cfa8?w=200' },
+const MOCK_PLACES_DB = [
+  { id: 'shop_apple_thon', name: 'Apple (Thonglor)', branch: 'Thonglor', placeId: '#AT-RC-003', logoUrl: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=500', categories: ['ร้านอาหาร', 'คาเฟ่'], address: '123 Sukhumvit Road, Bangkok', avgServiceTime: 15 },
+  { id: 'shop_shabushi', name: 'Shabushi (Central World)', branch: 'Central World', placeId: '#SBN-R-001', logoUrl: 'https://images.unsplash.com/photo-1526462153549-36224314cfa8?w=500', categories: ['ร้านอาหาร'], address: '6th Floor, Central World', avgServiceTime: 10 },
+  { id: 'shop_cafe_vibe', name: 'Vibe Cafe (Siam)', branch: 'Siam Square', placeId: '#VC-C-002', logoUrl: 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=500', categories: ['คาเฟ่'], address: 'Siam Square One', avgServiceTime: 5 }
 ];
 
-const MOCK_ACTIVE_QUEUE = {
-  id: 'q_123',
-  shopName: 'สุกี้ตี๋น้อย (สาขารัชโยธิน)',
-  shopImage: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=500',
-  location: 'สาขารัชโยธิน',
-  queueNumber: 'A012',
-  queuesAhead: 5,
-  estimatedWaitTime: 15,
-};
+const MOCK_TICKETS = [
+  // คิวที่ 1: กำลังรอ (Waiting) - แสดง ID รูปแบบใหม่
+  { id: 'ATRC3-CTM1', name: 'Taggsh', service: 'ร้านอาหาร', shopId: 'shop_apple_thon', status: 'Waiting', createdAt: new Date().toISOString() },
+  // คิวที่ 2: กำลังเรียก (Serving)
+  { id: 'SBNR1-CTM5', name: 'Taggsh', service: 'ร้านอาหาร', shopId: 'shop_shabushi', status: 'Serving', createdAt: new Date().toISOString() },
+  // คิวที่ 3: สำเร็จแล้ว (Completed)
+  { id: 'VCC2-CTM10', name: 'Taggsh', service: 'คาเฟ่', shopId: 'shop_cafe_vibe', status: 'Completed', createdAt: new Date(Date.now() - 86400000).toISOString() }, // Yesterday
+  // คิวที่ 4: ยกเลิกแล้ว (Cancelled)
+  { id: 'ATRC3-CTM0', name: 'Taggsh', service: 'คาเฟ่', shopId: 'shop_apple_thon', status: 'Cancelled', createdAt: new Date(Date.now() - 172800000).toISOString() } // 2 days ago
+];
+// ==========================================================
 
 export default function QueuePage() {
-  const [activeFilter, setActiveFilter] = useState<FilterType>('active');
-  const [activeQueue, setActiveQueue] = useState<typeof MOCK_ACTIVE_QUEUE | null>(MOCK_ACTIVE_QUEUE);
+  const dispatch = useAppDispatch();
+  
+  // 🌟 สำหรับตอนนี้เราใช้ Mock Data แทนการดึงจาก Redux เพื่อดูรูปแบบ
+  const user = MOCK_USER; 
+  const allTickets = MOCK_TICKETS;
+  const places = MOCK_PLACES_DB;
 
-  const handleCancelQueue = () => {
-    Alert.alert(
-      'ยกเลิกการจอง',
-      'คุณแน่ใจหรือไม่ว่าต้องการยกเลิกคิวนี้?',
-      [
-        { text: 'ปิด', style: 'cancel' },
-        { 
-          text: 'ยืนยันการยกเลิก', 
-          style: 'destructive',
-          onPress: async () => {
-            setActiveQueue(null); 
-            Alert.alert('ยกเลิกสำเร็จ', 'ระบบได้ยกเลิกคิวของคุณแล้ว');
-          }
-        }
-      ]
-    );
+  const [activeFilter, setActiveFilter] = useState<FilterType>('active');
+
+  // กรองเฉพาะคิวที่เป็นของ User คนนี้
+  const myTickets = useMemo(() => {
+    if (!user) return [];
+    return allTickets.filter((t: any) => t.name === user.name);
+  }, [allTickets, user]);
+
+  const activeTickets = myTickets.filter((t: any) => t.status === 'Waiting' || t.status === 'Serving');
+  const historyTickets = myTickets.filter((t: any) => t.status === 'Completed' || t.status === 'Cancelled' || t.status === 'Skipped');
+
+  const getQueueDetails = (ticket: any) => {
+    const shop: any = places.find((p: any) => p.id === ticket.shopId) || { name: 'Unknown', address: 'Unknown', avgServiceTime: 15 };
+    const queuesAhead = ticket.status === 'Serving' ? 0 : 2; // จำลองว่ารออีก 2 คิว
+    const estimatedWaitTime = queuesAhead * (shop.avgServiceTime || 15);
+    return { shop, queuesAhead, estimatedWaitTime };
   };
 
-  const filteredHistory = MOCK_HISTORY.filter(item => {
+  const handleCancelQueue = (ticketId: string) => {
+    Alert.alert('ยกเลิกการจอง', 'คุณแน่ใจหรือไม่ว่าต้องการยกเลิกคิวนี้?', [
+      { text: 'ปิด', style: 'cancel' },
+      { text: 'ยืนยันการยกเลิก', style: 'destructive', onPress: () => Alert.alert('สำเร็จ', 'ยกเลิกคิวเรียบร้อยแล้ว') }
+    ]);
+  };
+
+  const filteredHistory = historyTickets.filter((item: any) => {
     if (activeFilter === 'all') return true;
-    return item.status === activeFilter;
+    if (activeFilter === 'success' && item.status === 'Completed') return true;
+    if (activeFilter === 'cancelled' && (item.status === 'Cancelled' || item.status === 'Skipped')) return true;
+    return false;
   });
 
-  const groupedHistory = filteredHistory.reduce((acc, item) => {
-    if (!acc[item.dateLabel]) acc[item.dateLabel] = [];
-    acc[item.dateLabel].push(item);
+  const groupedHistory = filteredHistory.reduce((acc: any, ticket: any) => {
+    const date = new Date(ticket.createdAt);
+    const dateLabel = date.toDateString() === new Date().toDateString() ? 'Today' : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    if (!acc[dateLabel]) acc[dateLabel] = [];
+    acc[dateLabel].push(ticket);
     return acc;
-  }, {} as Record<string, BookingHistory[]>);
+  }, {});
 
   const FilterButton = ({ label, type }: { label: string, type: FilterType }) => {
     const isActive = activeFilter === type;
     return (
-      <TouchableOpacity 
-        style={[styles.filterBtn, isActive && styles.filterBtnActive]}
-        onPress={() => setActiveFilter(type)}
-        activeOpacity={0.8}
-      >
+      <TouchableOpacity style={[styles.filterBtn, isActive && styles.filterBtnActive]} onPress={() => setActiveFilter(type)}>
         <Text style={[styles.filterText, isActive && styles.filterTextActive]}>{label}</Text>
       </TouchableOpacity>
     );
@@ -80,9 +90,7 @@ export default function QueuePage() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>คิวของฉัน</Text>
-      </View>
+      <View style={styles.header}><Text style={styles.headerTitle}>คิวของฉัน</Text></View>
 
       <View style={styles.filterWrapper}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterContainer}>
@@ -95,100 +103,86 @@ export default function QueuePage() {
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {activeFilter === 'active' ? (
-          activeQueue ? (
+          activeTickets.length > 0 ? (
             <View>
-              <View style={styles.mainCard}>
-                <View style={styles.shopSection}>
-                  <Image source={{ uri: activeQueue.shopImage }} style={styles.shopImg} />
-                  <View style={styles.shopText}>
-                    <Text style={styles.shopName} numberOfLines={1}>{activeQueue.shopName}</Text>
-                    <View style={styles.locationTag}>
-                      <Store size={12} color="#718096" />
-                      <Text style={styles.locationTextSmall}>{activeQueue.location}</Text>
+              {activeTickets.map((ticket: any) => {
+                const { shop, queuesAhead, estimatedWaitTime } = getQueueDetails(ticket);
+                return (
+                  <View key={ticket.id} style={styles.mainCard}>
+                    <View style={styles.shopSection}>
+                      <Image source={{ uri: shop.logoUrl }} style={styles.shopImg} />
+                      <View style={styles.shopText}>
+                        <Text style={styles.shopName} numberOfLines={1}>{shop.name.split(' (')[0]}</Text>
+                        <View style={styles.locationTag}><Store size={12} color="#718096" /><Text style={styles.locationTextSmall}>{shop.branch}</Text></View>
+                      </View>
                     </View>
+
+                    <View style={styles.queueDisplay}>
+                      <Text style={styles.queueLabel}>หมายเลขคิวของคุณคือ</Text>
+                      {/* 🌟 แสดง Ticket ID แบบใหม่: ATRC3-CTM1 */}
+                      <Text style={styles.queueNumberDisplay}>{ticket.id}</Text>
+                      <View style={[styles.statusBadgeActive, ticket.status === 'Serving' && { backgroundColor: '#EBF8FF', borderColor: '#BEE3F8' }]}>
+                        <Text style={[styles.statusTextActive, ticket.status === 'Serving' && { color: '#3182CE' }]}>
+                          {ticket.status === 'Serving' ? '📢 กำลังเรียกคิวของคุณ' : `รออีก ${queuesAhead} คิว`}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.divider} />
+                    <View style={styles.infoRow}>
+                      <View style={styles.infoItem}>
+                        <View style={styles.iconCircleBlue}><Users size={20} color="#3182CE" /></View>
+                        <Text style={styles.infoLabel}>คิวที่รออยู่</Text>
+                        <Text style={styles.infoValue}>{queuesAhead} คิว</Text>
+                      </View>
+                      <View style={styles.infoItem}>
+                        <View style={styles.iconCircleOrange}><Clock size={20} color="#DD6B20" /></View>
+                        <Text style={styles.infoLabel}>รอประมาณ</Text>
+                        <Text style={styles.infoValue}>~{estimatedWaitTime} นาที</Text>
+                      </View>
+                    </View>
+
+                    <View style={[styles.warningCard, { marginTop: 24 }]}>
+                      <AlertCircle size={20} color="#E53E3E" />
+                      <Text style={styles.warningText}>กรุณามาถึงร้านก่อนถึงคิวของคุณประมาณ 10 นาที</Text>
+                    </View>
+
+                    <TouchableOpacity style={styles.menuButton} activeOpacity={0.7}><Text style={styles.menuButtonText}>ดูเมนูอาหาร</Text></TouchableOpacity>
+                    <TouchableOpacity style={styles.cancelButton} onPress={() => handleCancelQueue(ticket.id)} activeOpacity={0.7}><Text style={styles.cancelButtonText}>ยกเลิกการจอง</Text></TouchableOpacity>
                   </View>
-                </View>
-
-                <View style={styles.queueDisplay}>
-                  <Text style={styles.queueLabel}>หมายเลขคิวของคุณคือ</Text>
-                  <Text style={styles.queueNumberDisplay}>{activeQueue.queueNumber}</Text>
-                  <View style={styles.statusBadgeActive}>
-                    <Text style={styles.statusTextActive}>รออีก {activeQueue.queuesAhead} คิว</Text>
-                  </View>
-                </View>
-
-                <View style={styles.divider} />
-
-                <View style={styles.infoRow}>
-                  <View style={styles.infoItem}>
-                    <View style={styles.iconCircleBlue}><Users size={20} color="#3182CE" /></View>
-                    <Text style={styles.infoLabel}>คิวที่รออยู่</Text>
-                    <Text style={styles.infoValue}>{activeQueue.queuesAhead} คิว</Text>
-                  </View>
-                  <View style={styles.infoItem}>
-                    <View style={styles.iconCircleOrange}><Clock size={20} color="#DD6B20" /></View>
-                    <Text style={styles.infoLabel}>รอประมาณ</Text>
-                    <Text style={styles.infoValue}>~{activeQueue.estimatedWaitTime} นาที</Text>
-                  </View>
-                </View>
-              </View>
-
-              <View style={styles.warningCard}>
-                <AlertCircle size={20} color="#E53E3E" />
-                <Text style={styles.warningText}>
-                  กรุณามาถึงร้านก่อนถึงคิวของคุณประมาณ 10 นาที มิฉะนั้นคิวอาจถูกยกเลิก
-                </Text>
-              </View>
-
-              <TouchableOpacity style={styles.menuButton} activeOpacity={0.7}>
-                <Text style={styles.menuButtonText}>ดูเมนูอาหาร</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity style={styles.cancelButton} onPress={handleCancelQueue} activeOpacity={0.7}>
-                <Text style={styles.cancelButtonText}>ยกเลิกการจอง</Text>
-              </TouchableOpacity>
-
+                );
+              })}
             </View>
-          ) : (
-            <View style={styles.emptyContainer}>
-              <View style={styles.emptyIconCircle}><Ticket size={32} color="#A0AEC0" /></View>
-              <Text style={styles.emptyTitle}>ไม่มีคิวที่กำลังรอ</Text>
-              <Text style={styles.emptySubtitle}>คุณยังไม่ได้ทำการจองคิวร้านใดๆ ในขณะนี้</Text>
-            </View>
-          )
+          ) : <EmptyQueue />
         ) : (
-          filteredHistory.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <View style={styles.emptyIconCircle}><CalendarIcon size={32} color="#A0AEC0" /></View>
-              <Text style={styles.emptyTitle}>ยังไม่มีรายการจอง</Text>
-              <Text style={styles.emptySubtitle}>คุณยังไม่มีประวัติการทำรายการในหมวดหมู่นี้</Text>
-            </View>
-          ) : (
+          Object.keys(groupedHistory).length === 0 ? <EmptyQueue /> : (
             Object.keys(groupedHistory).map((dateKey) => (
               <View key={dateKey}>
                 <Text style={styles.dateLabel}>{dateKey}</Text>
-                {groupedHistory[dateKey].map((booking) => (
-                  <View key={booking.id} style={[styles.card, booking.status === 'success' ? styles.cardSuccess : styles.cardCancelled]}>
-                    <View style={styles.cardMain}>
-                      <Image source={{ uri: booking.image }} style={styles.shopImageHistory} />
-                      <View style={styles.shopDetails}>
-                        <View style={styles.shopTitleRow}>
-                          <Text style={styles.shopNameHistory} numberOfLines={1}>{booking.shopName}</Text>
-                          <View style={[styles.statusBadge, booking.status === 'success' ? styles.badgeSuccess : styles.badgeCancelled]}>
-                            <Text style={[styles.statusBadgeText, booking.status === 'success' ? styles.badgeTextSuccess : styles.badgeTextCancelled]}>{booking.status === 'success' ? 'สำเร็จ' : 'ยกเลิก'}</Text>
+                {groupedHistory[dateKey].map((booking: any) => {
+                  const shop: any = places.find((p: any) => p.id === booking.shopId) || { name: 'Unknown' };
+                  const isSuccess = booking.status === 'Completed';
+                  return (
+                    <View key={booking.id} style={[styles.card, isSuccess ? styles.cardSuccess : styles.cardCancelled]}>
+                      <View style={styles.cardMain}>
+                        <Image source={{ uri: shop.logoUrl }} style={styles.shopImageHistory} />
+                        <View style={styles.shopDetails}>
+                          <View style={styles.shopTitleRow}>
+                            <Text style={styles.shopNameHistory} numberOfLines={1}>{shop.name.split(' (')[0]}</Text>
+                            <View style={[styles.statusBadge, isSuccess ? styles.badgeSuccess : styles.badgeCancelled]}>
+                              <Text style={[styles.statusBadgeText, isSuccess ? styles.badgeTextSuccess : styles.badgeTextCancelled]}>{isSuccess ? 'สำเร็จ' : 'ยกเลิก'}</Text>
+                            </View>
                           </View>
-                        </View>
-                        <Text style={styles.shopCategory}>{booking.category}</Text>
-                        <View style={styles.queueTimeRow}>
-                          <View style={styles.queueTag}><Ticket size={12} color="#4A5568" /><Text style={styles.queueText}>{booking.queueNumber}</Text></View>
-                          <Text style={styles.timeText}>{booking.time}</Text>
+                          <Text style={styles.shopCategory}>{booking.service}</Text>
+                          <View style={styles.queueTimeRow}>
+                            <View style={styles.queueTag}><TicketIcon size={12} color="#4A5568" /><Text style={styles.queueText}>{booking.id}</Text></View>
+                            <Text style={styles.timeText}>{new Date(booking.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</Text>
+                          </View>
                         </View>
                       </View>
                     </View>
-                    <View style={styles.dividerHistory} />
-                    <View style={styles.locationRow}><MapPin size={14} color="#718096" /><Text style={styles.locationText} numberOfLines={1}>{booking.location}</Text></View>
-                  </View>
-                ))}
+                  );
+                })}
               </View>
             ))
           )
@@ -198,17 +192,19 @@ export default function QueuePage() {
   );
 }
 
+const EmptyQueue = () => (
+  <View style={styles.emptyContainer}>
+    <View style={styles.emptyIconCircle}><CalendarIcon size={32} color="#A0AEC0" /></View>
+    <Text style={styles.emptyTitle}>ไม่มีรายการจอง</Text>
+    <Text style={styles.emptySubtitle}>คุณยังไม่ได้ทำการจองคิวร้านใดๆ ในขณะนี้</Text>
+  </View>
+);
+
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#EEF2F4' },
-  header: { 
-    alignItems: 'center', 
-    justifyContent: 'center', 
-    paddingBottom: 16, 
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 16 : 16, 
-    backgroundColor: '#EEF2F4' 
-  },
+  header: { alignItems: 'center', justifyContent: 'center', paddingBottom: 16, paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 16 : 16 },
   headerTitle: { fontSize: 18, fontWeight: '800', color: '#2D3748' },
-  filterWrapper: { borderBottomWidth: 1, borderBottomColor: '#E2E8F0', backgroundColor: '#EEF2F4' },
+  filterWrapper: { borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },
   filterContainer: { flexDirection: 'row', paddingHorizontal: 16, paddingBottom: 16 },
   filterBtn: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, backgroundColor: '#FFFFFF', marginRight: 8, borderWidth: 1, borderColor: '#EDF2F7' },
   filterBtnActive: { backgroundColor: '#2D3748', borderColor: '#2D3748' },
@@ -224,7 +220,7 @@ const styles = StyleSheet.create({
   locationTextSmall: { fontSize: 12, color: '#718096', marginLeft: 4 },
   queueDisplay: { alignItems: 'center', marginVertical: 10 },
   queueLabel: { fontSize: 14, color: '#A0AEC0', fontWeight: '600', marginBottom: 8 },
-  queueNumberDisplay: { fontSize: 64, fontWeight: '900', color: '#6FA4A1', letterSpacing: 2 },
+  queueNumberDisplay: { fontSize: 36, fontWeight: '900', color: '#6FA4A1', letterSpacing: 1 },
   statusBadgeActive: { backgroundColor: '#F0FDF4', paddingHorizontal: 16, paddingVertical: 6, borderRadius: 20, marginTop: 10, borderWidth: 1, borderColor: '#DCFCE7' },
   statusTextActive: { color: '#166534', fontSize: 14, fontWeight: '800' },
   divider: { height: 1, backgroundColor: '#EDF2F7', marginVertical: 24 },
@@ -241,7 +237,7 @@ const styles = StyleSheet.create({
   cancelButton: { backgroundColor: '#FFF5F5', paddingVertical: 14, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#FED7D7' },
   cancelButtonText: { color: '#E53E3E', fontSize: 16, fontWeight: '700' },
   dateLabel: { fontSize: 12, fontWeight: '700', color: '#718096', marginBottom: 12, marginTop: 8 },
-  card: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 16, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 3, borderRightWidth: 3 },
+  card: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 16, marginBottom: 16, borderRightWidth: 3 },
   cardSuccess: { borderRightColor: '#6FA4A1' },
   cardCancelled: { borderRightColor: '#E53E3E' },
   cardMain: { flexDirection: 'row', alignItems: 'center' },
@@ -260,11 +256,8 @@ const styles = StyleSheet.create({
   badgeCancelled: { backgroundColor: '#FFF5F5' },
   badgeTextCancelled: { color: '#E53E3E' },
   statusBadgeText: { fontSize: 10, fontWeight: '800' },
-  dividerHistory: { height: 1, backgroundColor: '#EDF2F7', marginVertical: 12 },
-  locationRow: { flexDirection: 'row', alignItems: 'center' },
-  locationText: { fontSize: 12, color: '#718096', marginLeft: 6, flex: 1 },
   emptyContainer: { backgroundColor: '#FFFFFF', borderRadius: 24, padding: 40, alignItems: 'center', justifyContent: 'center', marginTop: 20 },
   emptyIconCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#F7FAFC', justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
   emptyTitle: { fontSize: 18, fontWeight: '800', color: '#2D3748', marginBottom: 8 },
-  emptySubtitle: { fontSize: 13, color: '#718096', textAlign: 'center', lineHeight: 20, marginBottom: 24 },
+  emptySubtitle: { fontSize: 13, color: '#718096', textAlign: 'center', marginBottom: 24 },
 });

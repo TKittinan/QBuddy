@@ -1,8 +1,7 @@
-import { Stack, useRouter, useSegments, Href, useRootNavigationState } from "expo-router";
-import { useEffect } from "react";
+import { Stack, useRouter, useSegments, Href } from "expo-router";
+import { useEffect, useState } from "react";
 import { Provider } from "react-redux";
 import * as Location from 'expo-location';
-import * as ImagePicker from 'expo-image-picker';
 
 import { store } from "../redux";
 import { useAppSelector } from "../hooks/useRedux";
@@ -12,14 +11,15 @@ const RootNavigation = () => {
   const { user } = useAppSelector((state) => state.auth);
   const segments = useSegments();
   const router = useRouter();
-  const navigationState = useRootNavigationState();
+
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
+    setIsReady(true);
+    
     const requestAppPermissions = async () => {
       try {
         await Location.requestForegroundPermissionsAsync();
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
-        await ImagePicker.requestCameraPermissionsAsync();
       } catch (error) {
         console.error("Permission request error at app launch:", error);
       }
@@ -29,7 +29,7 @@ const RootNavigation = () => {
   }, []);
 
   useEffect(() => {
-    if (!navigationState?.key) return;
+    if (!isReady) return;
 
     const firstSegment = segments[0] as string | undefined;
     const secondSegment = segments[1] as string | undefined;
@@ -43,10 +43,10 @@ const RootNavigation = () => {
       } else if (user && user.ai_consented && inAuthGroup) {
         router.replace('/(tabs)/Home' as Href); 
       }
-    }, 1);
+    }, 10);
     return () => clearTimeout(routingTimer);
 
-  }, [user, segments, navigationState?.key]);
+  }, [user, segments, isReady]);
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
