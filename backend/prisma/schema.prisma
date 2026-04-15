@@ -86,6 +86,7 @@ model Restaurant_Category {
   rc_id         Int @id @default(autoincrement())
   restaurant_id Int
   category_id   Int
+  image_url     String?
 
   restaurant Restaurant @relation(fields: [restaurant_id], references: [restaurant_id])
   category   Category   @relation(fields: [category_id], references: [category_id])

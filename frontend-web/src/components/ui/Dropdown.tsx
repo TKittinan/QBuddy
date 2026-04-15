@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { createPortal } from "react-dom"; // ✅ ใช้ Portal เพื่อให้ลอยเหนือทุกอย่าง
+import { createPortal } from "react-dom"; //ใช้ Portal เพื่อให้ลอยเหนือทุกอย่าง
 
 export interface DropdownItem {
   label: React.ReactNode;
@@ -9,13 +9,14 @@ export interface DropdownItem {
   divider?: boolean;
 }
 
-interface DropdownProps {
+export interface DropdownProps {
   trigger: React.ReactNode;
   items: DropdownItem[];
   className?: string;
+  align?: "left" | "right" | "center";
 }
 
-export function Dropdown({ trigger, items, className = "w-48" }: DropdownProps) {
+export function Dropdown({ trigger, items, className = "w-48", align = "right" }: DropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [coords, setCoords] = useState({ top: 0, left: 0 });
   const triggerRef = useRef<HTMLDivElement>(null);
@@ -24,10 +25,20 @@ export function Dropdown({ trigger, items, className = "w-48" }: DropdownProps) 
   const toggleDropdown = () => {
     if (!isOpen && triggerRef.current) {
       const rect = triggerRef.current.getBoundingClientRect();
-      // คำนวณตำแหน่งให้ลอยทับปุ่มพอดี
+      
+      // คำนวณจุดอ้างอิง (X) ให้ตรงกับ Props ที่ส่งมา
+      let leftPos = 0;
+      if (align === "left") {
+        leftPos = rect.left + window.scrollX;
+      } else if (align === "right") {
+        leftPos = rect.right + window.scrollX;
+      } else if (align === "center") {
+        leftPos = rect.left + window.scrollX + (rect.width / 2);
+      }
+
       setCoords({
         top: rect.bottom + window.scrollY + 5,
-        left: rect.right - 192, // ลบความกว้าง dropdown (w-48 = 192px)
+        left: leftPos,
       });
     }
     setIsOpen(!isOpen);
@@ -40,20 +51,45 @@ export function Dropdown({ trigger, items, className = "w-48" }: DropdownProps) 
         setIsOpen(false);
       }
     };
-    if (isOpen) document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+
+    // ปิดเมนูอัตโนมัติเมื่อมีการ Scroll เพื่อไม่ให้เมนูลอยค้างผิดที่
+    const handleScroll = () => {
+      if (isOpen) setIsOpen(false);
+    };
+
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      window.addEventListener("scroll", handleScroll, { passive: true });
+    }
+    
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("scroll", handleScroll);
+    };
   }, [isOpen]);
+
+  // จัดหน้าเมนูให้ชิดซ้าย ขวา หรือกลาง โดยไม่ต้องฟิกซ์ความกว้าง 192px
+  let transformStyle = "none";
+  if (align === "right") transformStyle = "translateX(-100%)";
+  if (align === "center") transformStyle = "translateX(-50%)";
 
   return (
     <div className="relative inline-block" ref={triggerRef}>
-      <div onClick={toggleDropdown}>{trigger}</div>
+      <div onClick={toggleDropdown} className="cursor-pointer">
+        {trigger}
+      </div>
       
-      {/* ✅ พ่นเมนูไปไว้ที่ชั้นนอกสุดของ HTML เพื่อไม่ให้โดนตารางตัด */}
+      {/* พ่นเมนูไปไว้ที่ชั้นนอกสุดของ HTML เพื่อไม่ให้โดนตารางตัด */}
       {isOpen && createPortal(
         <div
           ref={dropdownRef}
-          style={{ top: coords.top, left: coords.left }}
-          className={`fixed bg-white rounded-xl shadow-2xl border border-slate-100 z-[9999] py-1 overflow-hidden animate-in fade-in zoom-in duration-150 ${className}`}
+          style={{ 
+            top: coords.top, 
+            left: coords.left,
+            transform: transformStyle // เลื่อนตาม Align ที่ตั้งไว้
+          }}
+          // เปลี่ยนจาก fixed เป็น absolute เพื่อให้วิ่งตาม window.scrollY ได้เนียนๆ
+          className={`absolute bg-white rounded-xl shadow-2xl border border-slate-100 z-[9999] py-1 overflow-hidden animate-in fade-in zoom-in duration-150 ${className}`}
         >
           {items.map((item, index) => (
             <div key={index}>

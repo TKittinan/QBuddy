@@ -1,15 +1,14 @@
 import { useState } from "react";
 import { Outlet } from "react-router-dom";
-import Sidebar from "../components/ui/Tabbar/Sidebar"; // ✅ ใช้ Sidebar โค้ดเดิมของคุณ
+import Sidebar from "../components/ui/Tabbar/Sidebar";
 import Header from "../components/ui/Tabbar/Header";
 
 export default function PlaceManagementLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState(""); //  เพิ่ม State ค้นหา
 
   return (
-    <div className="h-screen flex bg-slate-50 overflow-hidden relative font-sans">
-      
-      {/* Sidebar: ซ่อนอัตโนมัติเมื่อจอเล็กกว่า lg (1024px) */}
+    <div className="h-screen flex bg-slate-50 overflow-hidden relative">
       <aside className={`
         fixed inset-y-0 left-0 z-[100] transform transition-transform duration-300 ease-out 
         lg:relative lg:translate-x-0
@@ -18,7 +17,6 @@ export default function PlaceManagementLayout() {
         <Sidebar />
       </aside>
 
-      {/* Mobile/iPad Portrait Overlay */}
       {isSidebarOpen && (
         <div 
           className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[90] lg:hidden animate-in fade-in"
@@ -27,15 +25,18 @@ export default function PlaceManagementLayout() {
       )}
 
       <div className="flex-1 flex flex-col h-full overflow-hidden">
-        {/* ✅ หัวข้อหน้าเปลี่ยนเป็น Place Management */}
+        {/*  ส่ง searchQuery ให้ Header */}
         <Header 
           title="Place Management" 
           onMenuClick={() => setIsSidebarOpen(true)} 
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
         />
 
         <main className="flex-1 p-4 lg:p-8 overflow-y-auto bg-slate-50">
           <div className="max-w-[1400px] mx-auto">
-            <Outlet />
+            {/*  ส่งคำค้นหาลงหน้าลูก */}
+            <Outlet context={{ searchQuery }} />
           </div>
         </main>
       </div>

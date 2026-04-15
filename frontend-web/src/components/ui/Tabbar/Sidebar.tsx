@@ -3,24 +3,40 @@ import {
   PersonIcon,
   CalendarIcon,
   BarChartIcon,
-  GearIcon,
   ExitIcon,
+  GearIcon,
+  EnvelopeClosedIcon
 } from "@radix-ui/react-icons";
 import { NavLink, useNavigate } from "react-router-dom";
-import { useAuth } from "../../../context/auth/use.Auth";
+import { GroupIcon, MessageSquare } from "lucide-react";
+
+// นำเข้า Hooks จาก Redux แทน Context เดิม
+import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
+import { logout } from "../../../redux/authSlice";
 
 const Sidebar = () => {
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const dispatch = useAppDispatch();
+  
+  // ดึงข้อมูล User จาก Redux Store
+  const { user } = useAppSelector((state) => state.auth);
+  
+  // เช็คสิทธิ์ Admin จากข้อมูลใน Redux (ตรวจสอบให้แน่ใจว่า field ชื่อ role หรือ admin.role)
+  const isAdmin = user?.role === "admin";
 
   const handleLogout = () => {
-    logout();
+    // 1. ล้างสถานะใน Redux และ LocalStorage ผ่าน Slice
+    dispatch(logout());
+    
+    // 2. ล้างข้อมูล mock เดิม (ถ้ายังมีค้างอยู่)
+    localStorage.removeItem("system_staffs");
+    
+    // 3. กลับหน้า Login
     navigate("/login");
   };
 
   return (
     <div className="w-64 min-h-screen bg-[#2F3655] text-slate-200 flex flex-col shadow-2xl lg:shadow-none">
-
       <div className="px-6 py-6 flex items-center gap-3">
         <div className="w-10 h-10 bg-emerald-400/20 rounded-xl flex items-center justify-center">
           <DashboardIcon className="text-emerald-400" width={20} height={20} />
@@ -31,22 +47,27 @@ const Sidebar = () => {
         </div>
       </div>
 
-      <nav className="flex-1 px-4 space-y-2">
+      <nav className="flex-1 px-4 space-y-2 overflow-y-auto">
         <SidebarItem to="/dashboard" icon={<DashboardIcon />} label="Dashboard" />
-        <SidebarItem to="/livequeue" icon={<PersonIcon />} label="QueueManagement" />
-        <SidebarItem to="/usermanage" icon={<PersonIcon />} label="UserManage" />
-        <SidebarItem to="/placemanagement" icon={<CalendarIcon />} label="Placemanagement" />
-        <SidebarItem to="/BookingManagement" icon={<BarChartIcon />} label="BookingManagement" />
-        <SidebarItem to="/setting" icon={<PersonIcon />} label="Setting" />
-        
-        {/* ✅ ซ่อนบน iPad แนวตั้ง เพราะย้ายไปไว้ใน Header Profile แล้ว */}
-        <div className="hidden lg:block">
-          <div className="border-t border-white/10 my-4" />
-          <SidebarItem to="/settings" icon={<GearIcon />} label="Settings" />
-        </div>
+        <SidebarItem to="/livequeue" icon={<BarChartIcon />} label="LiveQueue" />
+        <SidebarItem to="/placemanagement" icon={<CalendarIcon />} label="PlaceManagement" />
+        <SidebarItem to="/bookingManagement" icon={<BarChartIcon />} label="BookingManagement" />
+        <SidebarItem to="/postmanagement" icon={<MessageSquare size={18} />} label="PostManagement" />
+
+        {/* เมนูจะโชว์เมื่อ isAdmin เป็น true เท่านั้น */}
+        {isAdmin && (
+          <>
+            <div className="border-t border-white/10 my-4 mx-2" />
+            <SidebarItem to="/usermanage" icon={<PersonIcon />} label="UserManage" />
+            <SidebarItem to="/staffmanagement" icon={<GroupIcon size={18} />} label="StaffManagement" />
+          </>
+        )}
+
+        <div className="border-t border-white/10 my-4 mx-2" />
+        <SidebarItem to="/inbox" icon={<EnvelopeClosedIcon />} label="Support / Inbox" />
+        <SidebarItem to="/settings" icon={<GearIcon />} label="Settings" />
       </nav>
 
-      {/* ✅ ซ่อนปุ่ม Sign Out บน iPad แนวตั้ง */}
       <div className="px-4 pb-6 hidden lg:block">
         <button
           onClick={handleLogout}
@@ -56,20 +77,11 @@ const Sidebar = () => {
           <span className="text-sm">Sign Out</span>
         </button>
       </div>
-
     </div>
   );
 };
 
-export default Sidebar;
-
-interface ItemProps {
-  to: string;
-  icon: React.ReactNode;
-  label: string;
-}
-
-const SidebarItem = ({ to, icon, label }: ItemProps) => {
+const SidebarItem = ({ to, icon, label }: { to: string; icon: React.ReactNode; label: string }) => {
   return (
     <NavLink
       to={to}
@@ -84,3 +96,5 @@ const SidebarItem = ({ to, icon, label }: ItemProps) => {
     </NavLink>
   );
 };
+
+export default Sidebar;

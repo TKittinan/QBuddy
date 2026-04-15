@@ -1,37 +1,77 @@
 import { Routes, Route, Navigate } from "react-router-dom";
+// Layouts
 import DashboardLayout from "../layout/DashboardLayout";
 import LiveQueueLayout from "../layout/LiveQueueLayout";
 import UserManageLayout from "../layout/UserManageLayout";
-import PlaceManagementLayout from "../layout/PlacemanagementLayout"; // ✅ ชื่อใหม่
+import PlaceManagementLayout from "../layout/PlacemanagementLayout";
+import BookingManagementLayout from "../layout/BookingManagementLayout";
+import SettingsLayout from "../layout/SettingsLayout";
+import StaffManagementLayout from "../layout/StaffManagementLayout";
+import InboxLayout from "../layout/InboxLayout"; 
+import PostManagementLayout from "../layout/PostManagementLayout";
+
 // Pages
 import Dashboard from "../pages/Dashboard";
 import LiveQueue from "../pages/LiveQueue";
 import UserManagement from "../pages/UserManagement";
-import PlaceManagement from "../pages/PlaceManagement"; // ✅ ชื่อใหม่
+import PlaceManagement from "../pages/PlaceManagement";
+import BookingManagement from "../pages/BookingManagement";
+import Settings from "../pages/Settings";
+import StaffManagement from "../pages/StaffManagement";
+import Login from "../pages/Login"; 
+import InboxChat from "../pages/Inbox";
+import PostManagement from "../pages/PostManagement";
+
+import ProtectedRoute from "./ProtectedRoute"; 
 
 export default function AppRoutes() {
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/dashboard" />} />
+      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      <Route path="/login" element={<Login />} />
 
-      <Route element={<DashboardLayout />}>
-        <Route path="/dashboard" element={<Dashboard />} />
+      <Route element={<ProtectedRoute />}>
+        
+        <Route path="/dashboard" element={<DashboardLayout />}>
+          <Route index element={<Dashboard />} />
+        </Route>
+
+        <Route path="/livequeue" element={<LiveQueueLayout />}>
+          <Route index element={<LiveQueue />} />
+        </Route>
+
+        <Route path="/usermanage" element={<UserManageLayout />}>
+          <Route index element={<UserManagement />} />
+        </Route>
+
+        <Route path="/placemanagement" element={<PlaceManagementLayout />}>
+          <Route index element={<PlaceManagement />} />
+        </Route>
+
+        <Route path="/bookingManagement" element={<BookingManagementLayout />}>
+          <Route index element={<BookingManagement />} />
+        </Route>
+
+        <Route path="/settings" element={<SettingsLayout />}>
+          <Route index element={<Settings />} />
+        </Route>
+
+        <Route path="/staffmanagement" element={<StaffManagementLayout />}>
+          <Route index element={<StaffManagement />} />
+        </Route>
+
+        <Route path="/postmanagement" element={<PostManagementLayout />}>
+          <Route index element={<PostManagement />} />
+        </Route>
+
+        <Route path="/inbox" element={<InboxLayout />}>
+          <Route index element={<InboxChat />} />         {/* หน้าว่าง */}
+          <Route path=":id" element={<InboxChat />} />    {/* หน้ามีแชท */}
+        </Route>
+
       </Route>
 
-      <Route element={<LiveQueueLayout />}>
-        <Route path="/livequeue" element={<LiveQueue />} />
-      </Route>
-
-      <Route element={<UserManageLayout />}>
-        <Route path="/usermanage" element={<UserManagement />} />
-      </Route>
-
-      {/* ✅ เส้นทางสำหรับ Place Management */}
-      <Route element={<PlaceManagementLayout />}>
-        <Route path="/placemanagement" element={<PlaceManagement />} />
-      </Route>
-
-      <Route path="*" element={<div>404 Not Found</div>} />
+      <Route path="*" element={<div className="flex h-screen w-full items-center justify-center text-xl font-bold text-slate-500">404 Not Found</div>} />
     </Routes>
   );
 }

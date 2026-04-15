@@ -36,32 +36,32 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.use("/users", userRoute);
-app.use("/admin", adminRoute);
-app.use("/auth", authRoute);
+app.use("/api/users", userRoute);
+app.use("/api/admin", adminRoute);
+app.use("/api/auth", authRoute);
 
-app.use("/restaurants", restaurantRoute);
-app.use("/categories", categoryRoute);
-app.use("/restaurant-category", restaurantCategoryRoute);
+app.use("/api/restaurants", restaurantRoute);
+app.use("/api/categories", categoryRoute);
+app.use("/api/restaurant-category", restaurantCategoryRoute);
 
-app.use("/queue", queueRoute);
+app.use("/api/queue", queueRoute);
 
-app.use("/booking" , bookingRoute);
+app.use("/api/booking" , bookingRoute);
 
-app.use("/promotion", promotionRoute);
+app.use("/api/promotion", promotionRoute);
 
-app.use("/activity" , activityRoute)
+app.use("/api/activity" , activityRoute)
 
-app.use("/chat", chatRoute);
+app.use("/api/chat", chatRoute);
 
-app.use("/ai", aiRoute);
+app.use("/api/ai", aiRoute);
 
-app.use("/ai-chat", aiChatRoute);
+app.use("/api/ai-chat", aiChatRoute);
 
-app.use("/location", locationRoute);
+app.use("/api/location", locationRoute);
 
 // use upload route for uploading images to Supabase
-app.use("/upload", uploadRoute);
+app.use("/api/upload", uploadRoute);
 
 app.listen(3000, () => {
   console.log("Server running on 3000");

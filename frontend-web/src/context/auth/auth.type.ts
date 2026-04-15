@@ -1,12 +1,13 @@
 export interface User {
   id: string;
   name: string;
-  role: "admin" | "staff";
+  role: "ADMIN" | "STAFF";
   email: string;
 }
 
 export interface AuthContextType {
   user: User | null;
-  login: (user: User) => void;
+  token: string | null;
+  login: (user: User, token: string) => void;
   logout: () => void;
 }

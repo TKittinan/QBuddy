@@ -1,18 +1,17 @@
 import { useState } from "react";
 import { Outlet } from "react-router-dom";
-import Sidebar from "../components/ui/Tabbar/Sidebar";
+import Sidebar from "../components/ui/Tabbar/Sidebar"; 
 import Header from "../components/ui/Tabbar/Header";
 
-export default function LiveQueueLayout() {
+export default function BookingManagementLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
-  //  เพิ่ม State สำหรับเก็บคำค้นหา
+  //  เพิ่ม State สำหรับค้นหา
   const [searchQuery, setSearchQuery] = useState("");
 
   return (
     <div className="h-screen flex bg-slate-50 overflow-hidden relative font-sans">
-      
-      {/* 1. Sidebar: ซ่อนอัตโนมัติเมื่อจอเล็กกว่า lg (1024px) */}
+
       <aside className={`
         fixed inset-y-0 left-0 z-[100] transform transition-transform duration-300 ease-out 
         lg:relative lg:translate-x-0
@@ -21,19 +20,15 @@ export default function LiveQueueLayout() {
         <Sidebar />
       </aside>
 
-      {/* 2. Overlay: แสดงเมื่อเปิด Sidebar บน iPad แนวตั้ง/Mobile */}
       {isSidebarOpen && (
         <div 
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[90] lg:hidden animate-in fade-in"
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[90] lg:hidden animate-in fade-in duration-300"
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
-
-      {/* 3. Main Content */}
       <div className="flex-1 flex flex-col h-full overflow-hidden">
-        {/*  ส่ง searchQuery และ setSearchQuery ไปที่ Header */}
         <Header 
-          title="Live Queue Management" 
+          title="Booking Management" 
           onMenuClick={() => setIsSidebarOpen(true)} 
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
@@ -41,10 +36,10 @@ export default function LiveQueueLayout() {
 
         <main className="flex-1 p-4 lg:p-8 overflow-y-auto bg-slate-50">
           <div className="max-w-[1400px] mx-auto">
-            {/*  ส่งคำค้นหาลงไปให้หน้าลูก (LiveQueue) */}
             <Outlet context={{ searchQuery }} />
           </div>
         </main>
+        
       </div>
     </div>
   );
