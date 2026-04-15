@@ -12,7 +12,7 @@ import { Button } from "../components/ui/Button";
 import { Dropdown } from "../components/ui/Dropdown";
 import { Pagination } from "../components/ui/Pagination";
 import { SidePanelEdit } from "../components/ui/Tabbar/SidePanelEdit";
-import { Status } from "../components/ui/Status";
+import { Status } from "../components/ui/StatusBadge";
 import type { Column } from "../types";
 
 export default function PostManagement() {

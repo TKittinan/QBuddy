@@ -5,7 +5,7 @@ import { Send, CheckCircle2, ArrowLeft, AlertCircle } from "lucide-react";
 import type { RootState } from "../redux/Reduxindex";
 import { addReply, resolveTicket } from "../redux/inboxSlice";
 import { Button } from "../components/ui/Button";
-import { Status } from "../components/ui/Status";
+import { Status } from "../components/ui/StatusBadge";
 import { ChatMessage } from "../components/ui/User/ChatMessage";
 import { useAuth } from "../context/auth/use.Auth";
 

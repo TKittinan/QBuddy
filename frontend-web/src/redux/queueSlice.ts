@@ -1,19 +1,8 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-
-export type TicketStatus = "Waiting" | "Serving" | "Completed" | "Skipped" | "Cancelled";
-
-export type Ticket = {
-  id: string;
-  name: string;
-  service: string;
-  shopId: string;
-  waitTime: number;
-  status: TicketStatus;
-  createdAt: string;
-};
+import type { Ticket, TicketStatus } from "../types";
 
 const initialState: { tickets: Ticket[] } = {
-  tickets: JSON.parse(localStorage.getItem("live_queue_tickets") || "[]")
+  tickets: JSON.parse(localStorage.getItem("live_queue_tickets") || "[]") as Ticket[]
 };
 
 const queueSlice = createSlice({

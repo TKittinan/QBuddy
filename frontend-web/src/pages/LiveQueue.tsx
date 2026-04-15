@@ -1,18 +1,21 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { useOutletContext } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import type { RootState } from "../redux/Reduxindex";
 import { addQueue, updateQueueStatus, type TicketStatus, type Ticket } from "../redux/queueSlice";
-import { RefreshCcw, Plus, Clock, PlayCircle, CheckCircle2, MoreHorizontal, User, ChevronDown, SkipForward, XCircle } from "lucide-react";
+import { RefreshCcw, Plus, Clock, PlayCircle, CheckCircle2, MoreHorizontal, User, SkipForward, XCircle } from "lucide-react";
 import { Table } from "../components/ui/Table/Table";
 import { Dropdown } from "../components/ui/Dropdown";
 import { Button } from "../components/ui/Button";
 import { SidePanelEdit } from "../components/ui/Tabbar/SidePanelEdit";
 import { SearchSelect, type SearchOption } from "../components/ui/SearchSelect";
-import { Status } from "../components/ui/Status";
+import { StatusBadge } from "../components/ui/StatusBadge"; // 🌟 ใช้ Component ใหม่
 import { Pagination } from "../components/ui/Pagination"; 
+import type { Column, Place } from "../types";
 
-// 🌟 1. นำเข้า Hook Form และ Zod
+// 🌟 นำเข้า Logic กลางที่ตรงกับฝั่ง Mobile
+import { generateGlobalTicketId, getQueueDetails } from "../utils/queueUtils";
+
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -23,282 +26,210 @@ const ticketSchema = z.object({
     id: z.string(),
     label: z.string(),
     subLabel: z.string().optional(),
-    originalData: z.any()
-  }, { message: "กรุณาเลือกร้านค้า" })
+    originalData: z.any().optional() // อนุโลม Zod schema สำหรับ originalData
+  }, { required_error: "กรุณาเลือกร้านค้า" }),
+  pax: z.number().min(1, "ระบุจำนวนคนอย่างน้อย 1 คน")
 });
 
 type TicketFormData = z.infer<typeof ticketSchema>;
 
 export default function LiveQueue() {
   const dispatch = useDispatch();
-  
-  const tickets = useSelector((state: RootState) => state.queue.tickets);
-  const shops = useSelector((state: RootState) => state.places.places.filter(s => s.status === "Active"));
-  const maxQueue = useSelector((state: RootState) => parseInt(state.settings.maxQueuePerDay, 10) || Infinity);
-
-  const [filter, setFilter] = useState<string>("All");
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 6;
-  const [isRefreshing, setIsRefreshing] = useState(false);
-
-  const context = useOutletContext<{ searchQuery: string }>();
+  const context = useOutletContext<{ searchQuery: string } | null>();
   const searchQuery = context?.searchQuery || "";
 
-  const [isPanelOpen, setIsPanelOpen] = useState(false);
+  const tickets = useSelector((state: RootState) => state.queue.tickets);
+  const places = useSelector((state: RootState) => state.places.places);
 
-  // 🌟 3. ติดตั้ง useForm 
-  const {
-    control,
-    handleSubmit,
-    reset,
-    formState: { errors }
-  } = useForm<TicketFormData>({
+  const [activeTab, setActiveTab] = useState<TicketStatus | "All">("Waiting");
+  const [isPanelOpen, setIsPanelOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
+
+  const { control, handleSubmit, reset, formState: { errors } } = useForm<TicketFormData>({
     resolver: zodResolver(ticketSchema),
-    defaultValues: {
-      customerName: "",
-      selectedShopOption: undefined
-    },
-    mode: "onChange"
+    defaultValues: { customerName: "", pax: 1, selectedShopOption: undefined }
   });
 
-  const loadData = () => {
-    setIsRefreshing(true);
-    setTimeout(() => setIsRefreshing(false), 500); 
-  };
+  const activePlaces = useMemo(() => places.filter((p: Place) => p.status === "Active"), [places]);
 
-  const shopOptions: SearchOption[] = useMemo(() => {
-    return shops.map(shop => ({
+  const shopOptions: SearchOption<Place>[] = useMemo(() => {
+    return activePlaces.map((shop: Place) => ({
       id: shop.id,
       label: shop.name,
-      subLabel: `(${shop.placeId})`,
+      subLabel: `${shop.branch} • คิวรอ: ${shop.queueCount}`,
       originalData: shop
     }));
-  }, [shops]);
+  }, [activePlaces]);
 
-  const todayStr = new Date().toDateString();
-  const ticketsToday = tickets.filter(t => new Date(t.createdAt).toDateString() === todayStr).length;
-  const isQueueFull = ticketsToday >= maxQueue;
-
-  // 🌟 4. ฟังก์ชันจัดการ Submit 
-  const onSubmitTicket = (data: TicketFormData) => {
-    if (isQueueFull) {
-      alert("ไม่สามารถเพิ่มคิวได้เนื่องจากคิวเต็มตามจำนวนที่กำหนดไว้ในวันนี้แล้ว");
-      return;
-    }
-
-    const shopData = data.selectedShopOption.originalData;
-    const shopId = shopData.id; // ใช้ Sys ID ในการค้นหาความสัมพันธ์ใน DB
-    const shopTickets = tickets.filter(t => t.shopId === shopId);
-
-    // =======================================================
-    // 🌟 ลอจิกแปลงรหัส Place ID ให้เป็น Ticket Prefix สวยๆ
-    // =======================================================
-    const rawPlaceId = shopData.placeId.replace('#', ''); // ตัด # ออก เช่น "AT-RC-003"
-    const idParts = rawPlaceId.split('-'); 
-    let displayPrefix = rawPlaceId;
-    
-    if (idParts.length >= 3) {
-      const namePart = idParts[0]; // "AT"
-      const catPart = idParts[1]; // "RC"
-      const seqPart = parseInt(idParts[2], 10); // "003" -> 3
-      displayPrefix = `${namePart}${catPart}${seqPart}`; // นำมาต่อกันเป็น "ATRC3"
-    } else {
-      displayPrefix = rawPlaceId.replace(/-/g, ''); // สำรองเผื่อรหัสไม่ได้มาในรูปแบบปกติ
-    }
-
-    // หาหมายเลขคิวล่าสุดของร้านนี้
-    let maxQueueNum = 0;
-    shopTickets.forEach(t => {
-      // ตัดคำด้วย -CTM (แปลงเป็น UpperCase ป้องกันปัญหาพิมพ์เล็ก/ใหญ่)
-      const parts = t.id.toUpperCase().split('-CTM'); 
-      if (parts.length === 2) {
-        const num = parseInt(parts[1], 10);
-        if (!isNaN(num) && num > maxQueueNum) { maxQueueNum = num; }
-      }
-    });
-
-    const nextQueueNum = maxQueueNum + 1;
-    
-    // 🌟 ประกอบร่าง Ticket ID เช่น ATRC3-CTM1
-    const newTicketId = `${displayPrefix}-CTM${nextQueueNum}`;
-
-    const peopleAhead = shopTickets.filter(t => t.status === "Waiting").length;
-    const calculatedWait = peopleAhead * (shopData.avgServiceTime || 15);
-
-    const newTicket: Ticket = {
-      id: newTicketId, // 🌟 ใช้ ID สวยๆ นี้แสดงผลให้ User เห็น
-      name: data.customerName,
-      service: shopData.categories?.[0] || "Unknown Service",
-      shopId: shopId, // 🌟 ส่วนการเชื่อมข้อมูลร้านค้า ยังคงใช้รหัสระบบ เพื่อไม่ให้ Database สับสน
-      waitTime: calculatedWait,
-      status: "Waiting",
-      createdAt: new Date().toISOString(),
-    };
-
-    dispatch(addQueue(newTicket)); 
-    
-    reset();
-    setIsPanelOpen(false);
-  };
-
-  const handleClosePanel = () => {
-    reset();
-    setIsPanelOpen(false);
-  }
-
-  const updateStatus = (id: string, newStatus: TicketStatus) => {
-    dispatch(updateQueueStatus({ id, status: newStatus })); 
-  };
-
-  const filteredData = useMemo(() => {
-    let result = [...tickets];
-    if (filter !== "All") result = result.filter(t => t.status === filter);
+  const displayTickets = useMemo(() => {
+    let result = [...tickets].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    if (activeTab !== "All") result = result.filter(t => t.status === activeTab);
     if (searchQuery) {
-      const lowerQuery = searchQuery.toLowerCase();
       result = result.filter(t => 
-        t.id.toLowerCase().includes(lowerQuery) || t.name.toLowerCase().includes(lowerQuery)
+        t.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+        t.id.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
-    result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     return result;
-  }, [tickets, filter, searchQuery]);
+  }, [tickets, activeTab, searchQuery]);
 
-  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
-  const paginatedData = filteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const totalPages = Math.ceil(displayTickets.length / itemsPerPage);
+  const currentData = displayTickets.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  useEffect(() => { setCurrentPage(1); }, [filter, searchQuery, tickets.length]);
+  const handleStatusChange = (id: string, newStatus: TicketStatus) => {
+    dispatch(updateQueueStatus({ id, status: newStatus }));
+  };
 
-  const queueColumns = [
-    { header: "TICKET", key: "id", className: "text-left font-bold text-indigo-600 uppercase" },
-    { header: "CUSTOMER NAME", key: "name", className: "text-left font-medium text-slate-700" },
+  const onSubmit = (data: TicketFormData) => {
+    const shopId = data.selectedShopOption.id;
+    const currentTime = new Date().toISOString();
+    const shopData = data.selectedShopOption.originalData as Place;
+    
+    // 🌟 สร้าง Ticket ID ด้วย Logic สากล
+    const newTicketId = generateGlobalTicketId(shopId, currentTime, places, tickets);
+
+    const newTicket: Ticket = {
+      id: newTicketId,
+      name: data.customerName,
+      service: shopData?.category || "General",
+      shopId: shopId,
+      guests: data.pax,
+      waitTime: shopData?.avgServiceTime || 15,
+      status: "Waiting",
+      createdAt: currentTime,
+      bookDate: currentTime,
+      bookTime: new Date(currentTime).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+    };
+
+    dispatch(addQueue(newTicket));
+    reset();
+    setIsPanelOpen(false);
+  };
+
+  const columns: Column<Ticket>[] = [
+    { header: "Queue No", key: "id", className: "font-bold text-indigo-600" },
     { 
-      header: "SERVICE TYPE", 
-      key: "service", 
-      className: "text-left",
-      render: (item: Ticket) => (
-        <div className="flex justify-start">
-          <span className="px-3 py-1 bg-teal-50 border border-teal-200 text-teal-700 rounded-xl text-[10px] font-bold whitespace-nowrap">
-            {item.service}
-          </span>
+      header: "Customer", 
+      key: "name",
+      render: (row) => (
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500"><User size={14} /></div>
+          <div><p className="font-semibold text-slate-700">{row.name}</p><p className="text-xs text-slate-400">{row.guests} Pax</p></div>
         </div>
       )
     },
-    { header: "WAIT TIME", key: "waitTime", className: "text-left", render: (item: Ticket) => (
-        <div className="flex items-center justify-start gap-2 text-slate-500"><Clock size={14} /> {item.waitTime}m</div>
-      )
+    { 
+      header: "Shop", 
+      key: "shopId",
+      render: (row) => {
+        const shop = places.find((p: Place) => p.id === row.shopId);
+        return <span className="text-slate-600 font-medium">{shop ? shop.name : "Unknown"}</span>;
+      }
     },
-    { header: "STATUS", key: "status", className: "text-left", render: (item: Ticket) => (
-        <div className="flex justify-start"><Status status={item.status} /></div>
-      )
+    { 
+      header: "Est. Wait", 
+      key: "waitTime",
+      render: (row) => {
+        // 🌟 ใช้ Logic คำนวณคิวตรงกลางจาก Mobile
+        const { estimatedWaitTime } = getQueueDetails(row, places, tickets);
+        return (
+          <div className="flex items-center gap-1.5 text-slate-500">
+            <Clock size={14} className={estimatedWaitTime > 30 ? "text-amber-500" : "text-emerald-500"} />
+            <span>{estimatedWaitTime} mins</span>
+          </div>
+        );
+      }
     },
-    { header: "ACTIONS", key: "id", className: "text-right", render: (item: Ticket) => (
-        <div className="flex justify-end">
-          <Dropdown 
-            trigger={<button className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors"><MoreHorizontal size={18} /></button>}
-            items={[
-              { label: "Start Serving", icon: <PlayCircle size={16} />, className: "text-blue-600", onClick: () => updateStatus(item.id, "Serving") },
-              { label: "Mark Completed", icon: <CheckCircle2 size={16} />, className: "text-emerald-600", onClick: () => updateStatus(item.id, "Completed") },
-              { label: "Skip", icon: <SkipForward size={16} />, className: "text-amber-500", divider: true, onClick: () => updateStatus(item.id, "Skipped") },
-              { label: "Cancel", icon: <XCircle size={16} />, className: "text-rose-600", onClick: () => updateStatus(item.id, "Cancelled") },
-            ]}
-          />
-        </div>
-      )},
+    { 
+      header: "Status", 
+      key: "status",
+      render: (row) => <StatusBadge status={row.status} /> // 🌟 ใช้ Component ใหม่
+    },
+    {
+      header: "Actions",
+      key: "actions",
+      className: "text-right",
+      render: (row) => (
+        <Dropdown 
+          align="right"
+          trigger={<button className="p-2 text-slate-400 hover:bg-slate-100 rounded-lg transition-colors"><MoreHorizontal size={18} /></button>}
+          items={[
+            { label: "Call / Serving", icon: <PlayCircle size={16} />, onClick: () => handleStatusChange(row.id, "Serving"), className: "text-blue-600" },
+            { label: "Mark Completed", icon: <CheckCircle2 size={16} />, onClick: () => handleStatusChange(row.id, "Completed"), className: "text-emerald-600" },
+            { divider: true, label: "" },
+            { label: "Skip Queue", icon: <SkipForward size={16} />, onClick: () => handleStatusChange(row.id, "Skipped"), className: "text-amber-600" },
+            { label: "Cancel Ticket", icon: <XCircle size={16} />, onClick: () => handleStatusChange(row.id, "Cancelled"), className: "text-rose-600" },
+          ]}
+        />
+      )
+    }
   ];
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <Dropdown align="left"
-          trigger={
-            <Button variant="outline" className="flex items-center gap-2 bg-white min-w-[140px] justify-between border-slate-200 shadow-sm hover:bg-slate-50">
-              <span className="text-slate-700 font-medium">Status: {filter === "All" ? "All" : filter}</span>
-              <ChevronDown size={16} className="text-slate-400" />
-            </Button>
-          }
-          items={[
-            { label: "All Status", onClick: () => setFilter("All") },
-            { label: "Waiting", onClick: () => setFilter("Waiting") },
-            { label: "Serving", onClick: () => setFilter("Serving") },
-            { label: "Completed", onClick: () => setFilter("Completed") },
-            { label: "Skipped", onClick: () => setFilter("Skipped") },
-            { label: "Cancelled", onClick: () => setFilter("Cancelled") },
-          ]}
-        />
-
-        <div className="flex flex-row items-center gap-3">
-          <Button variant="outline" className="flex flex-row items-center justify-center bg-white shadow-sm border-slate-200 hover:bg-slate-50" onClick={loadData} disabled={isRefreshing}>
-            <RefreshCcw size={16} className={`mr-2 ${isRefreshing ? "animate-spin text-teal-500" : "text-slate-600"}`} /> 
-            <span className="text-slate-700 font-medium">{isRefreshing ? "Refreshing..." : "Refresh Data"}</span>
-          </Button>
-
-          <Button variant="primary" className={`flex flex-row items-center justify-center text-white border-none shadow-sm font-medium px-4 ${isQueueFull ? "bg-slate-400 cursor-not-allowed" : "bg-[#0d9488] hover:bg-[#0f766e]"}`} onClick={() => { if(!isQueueFull) setIsPanelOpen(true); }} disabled={isQueueFull}>
-            <Plus size={18} className="mr-1.5" /> 
-            <span>{isQueueFull ? "Queue Full" : "New Ticket"}</span>
-          </Button>
+    <div className="p-4 lg:p-8 max-w-[1600px] mx-auto w-full">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+        <div>
+          <h1 className="text-2xl font-black text-slate-800 tracking-tight">Live Queue</h1>
+          <p className="text-sm text-slate-500 mt-1">Real-time queue monitoring and management</p>
+        </div>
+        <div className="flex gap-3 w-full sm:w-auto">
+          <Button variant="outline" className="flex-1 sm:flex-none border-slate-200 text-slate-600 hover:bg-slate-50"><RefreshCcw size={16} className="mr-2" /> Refresh</Button>
+          <Button onClick={() => setIsPanelOpen(true)} className="flex-1 sm:flex-none bg-[#5AB2A8] hover:bg-[#4a968d] text-white shadow-lg shadow-teal-100"><Plus size={16} className="mr-2" /> Add Walk-in</Button>
         </div>
       </div>
 
-      {isQueueFull && (
-        <div className="bg-amber-50 border border-amber-200 text-amber-700 px-4 py-3 rounded-xl text-sm font-medium">
-          ระบบคิวปิดรับแล้วเนื่องจากคิวถึงยอดสูงสุดที่กำหนด ({maxQueue} คิว)
-        </div>
-      )}
-
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-        <Table data={paginatedData} columns={queueColumns} />
-        <Pagination currentPage={currentPage} totalPages={totalPages} totalItems={filteredData.length} itemsPerPage={itemsPerPage} onChange={setCurrentPage} />
-      </div>
-
-      <SidePanelEdit isOpen={isPanelOpen} onClose={handleClosePanel} title="New Ticket"
-        footer={
-          <button type="button" onClick={handleSubmit(onSubmitTicket)} className="w-full bg-[#0d9488] hover:bg-[#0f766e] text-white font-semibold py-3 rounded-xl transition-colors shadow-sm">
-            Confirm Ticket
+      <div className="flex overflow-x-auto no-scrollbar gap-2 mb-6 p-1 bg-slate-100/50 rounded-xl w-max border border-slate-100">
+        {(["All", "Waiting", "Serving", "Completed"] as const).map(tab => (
+          <button
+            key={tab}
+            onClick={() => { setActiveTab(tab); setCurrentPage(1); }}
+            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === tab ? "bg-white text-[#5AB2A8] shadow-sm" : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"}`}
+          >
+            {tab}
+            <span className={`ml-2 px-2 py-0.5 rounded-md text-[10px] ${activeTab === tab ? "bg-teal-50 text-[#5AB2A8]" : "bg-slate-200 text-slate-500"}`}>
+              {tab === "All" ? tickets.length : tickets.filter(t => t.status === tab).length}
+            </span>
           </button>
-        }
-      >
-        <div className="space-y-8">
-          
-          <div className="space-y-3">
-            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Customer Name</label>
-            <div className="relative">
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><User size={18} /></div>
-              
-              <Controller
-                control={control}
-                name="customerName"
-                render={({ field: { onChange, onBlur, value } }) => (
-                  <input 
-                    type="text" 
-                    value={value} 
-                    onChange={onChange} 
-                    onBlur={onBlur}
-                    placeholder="Enter customer name..." 
-                    className={`w-full pl-10 pr-4 py-3 bg-white border ${errors.customerName ? "border-rose-400 focus:ring-rose-400" : "border-slate-200 focus:ring-[#0d9488]"} rounded-xl text-sm focus:ring-2 focus:border-transparent outline-none transition-all shadow-sm`} 
-                  />
-                )}
-              />
+        ))}
+      </div>
+
+      <Table 
+        data={currentData} 
+        columns={columns} 
+        emptyMessage={searchQuery ? "No tickets match your search." : `No ${activeTab.toLowerCase()} tickets found.`}
+      />
+      <Pagination currentPage={currentPage} totalPages={totalPages} onChange={setCurrentPage} />
+
+      <SidePanelEdit isOpen={isPanelOpen} onClose={() => setIsPanelOpen(false)} title="New Walk-in Queue">
+        <div className="p-6">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+            <div className="space-y-3">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Customer Name</label>
+              <Controller control={control} name="customerName" render={({ field: { onChange, onBlur, value } }) => (
+                <input type="text" value={value} onChange={onChange} onBlur={onBlur} placeholder="Enter customer name..." className={`w-full pl-4 pr-4 py-3 bg-white border ${errors.customerName ? "border-rose-400" : "border-slate-200"} rounded-xl text-sm focus:ring-2 outline-none`} />
+              )} />
+              {errors.customerName && <p className="text-xs text-rose-500">{errors.customerName.message}</p>}
             </div>
-            {errors.customerName && <p className="text-xs text-rose-500 font-medium">{errors.customerName.message}</p>}
-          </div>
 
-          <div className="space-y-3">
-            <Controller 
-              control={control}
-              name="selectedShopOption"
-              render={({ field: { onChange, value } }) => (
-                <SearchSelect 
-                  label="Select Shop" 
-                  placeholder={shops.length === 0 ? "No active shops available" : "Search for a shop..."} 
-                  options={shopOptions} 
-                  value={value} 
-                  onChange={onChange} 
-                />
-              )}
-            />
-             {errors.selectedShopOption && <p className="text-xs text-rose-500 font-medium">{errors.selectedShopOption.message}</p>}
-          </div>
+            <div className="space-y-3">
+              <Controller control={control} name="selectedShopOption" render={({ field: { onChange, value } }) => (
+                <SearchSelect label="Select Shop" placeholder={shops.length === 0 ? "No active shops available" : "Search for a shop..."} options={shopOptions} value={value} onChange={onChange} />
+              )} />
+               {errors.selectedShopOption && <p className="text-xs text-rose-500">{errors.selectedShopOption.message}</p>}
+            </div>
 
+            <div className="space-y-3">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Number of Pax (Guests)</label>
+              <Controller control={control} name="pax" render={({ field: { onChange, value } }) => (
+                <input type="number" min="1" value={value} onChange={e => onChange(parseInt(e.target.value) || 1)} className="w-full pl-4 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none" />
+              )} />
+            </div>
+
+            <div className="pt-6 mt-6 border-t border-slate-100">
+              <Button type="submit" className="w-full py-3 bg-[#5AB2A8] hover:bg-[#4a968d] text-white rounded-xl shadow-lg shadow-teal-100">Create Ticket</Button>
+            </div>
+          </form>
         </div>
       </SidePanelEdit>
     </div>

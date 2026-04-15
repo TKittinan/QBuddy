@@ -9,7 +9,7 @@ import { Dropdown } from "../components/ui/Dropdown";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input"; 
 import { SidePanelEdit } from "../components/ui/Tabbar/SidePanelEdit";
-import { Status } from "../components/ui/Status"; 
+import { Status } from "../components/ui/StatusBadge"; 
 import type { User, Column } from "../types";
 
 // 🌟 นำเข้า useForm และ Zod

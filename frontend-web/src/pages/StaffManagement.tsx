@@ -10,7 +10,7 @@ import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input"; 
 import { SidePanelEdit } from "../components/ui/Tabbar/SidePanelEdit";
 import { Pagination } from "../components/ui/Pagination";
-import { Status } from "../components/ui/Status"; 
+import { Status } from "../components/ui/StatusBadge"; 
 import type { User, Column } from "../types";
 import { useAuth } from "../context/auth/use.Auth"; 
 

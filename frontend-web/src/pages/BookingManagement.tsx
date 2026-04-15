@@ -11,7 +11,7 @@ import { Input } from "../components/ui/Input";
 import { Pagination } from "../components/ui/Pagination";
 import { SidePanelEdit } from "../components/ui/Tabbar/SidePanelEdit";
 import { SearchSelect, type SearchOption } from "../components/ui/SearchSelect";
-import { Status } from "../components/ui/Status";
+import { Status } from "../components/ui/StatusBadge";
 import type { Column } from "../types";
 import { CATEGORY_LIST } from "../components/ui/CategorySelect"; 
 

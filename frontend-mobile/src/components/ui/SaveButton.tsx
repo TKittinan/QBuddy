@@ -4,6 +4,9 @@ import { Bookmark } from 'lucide-react-native';
 import { useAppSelector, useAppDispatch } from '../../hooks/useRedux';
 import { toggleSavePlace } from '../../redux/slices/savedPlacesSlice';
 
+// 🌟 1. สร้าง Array ว่างไว้ข้างนอก เพื่อแก้ปัญหา Unnecessary Rerenders
+const EMPTY_ARRAY: string[] = [];
+
 interface SaveButtonProps {
   placeId: string;
   style?: StyleProp<ViewStyle>;
@@ -13,7 +16,9 @@ interface SaveButtonProps {
 export const SaveButton: React.FC<SaveButtonProps> = ({ placeId, style, size = 20 }) => {
   const dispatch = useAppDispatch();
   const user = useAppSelector((state: any) => state.auth?.user) || { name: 'Taggsh' };
-  const savedPlaces = useAppSelector((state: any) => state.savedPlaces?.savedByUser[user.name] || []);
+  
+  // 🌟 2. ใช้ EMPTY_ARRAY แทน []
+  const savedPlaces = useAppSelector((state: any) => state.savedPlaces?.savedByUser[user.name] || EMPTY_ARRAY);
 
   const isSaved = savedPlaces.includes(placeId);
 

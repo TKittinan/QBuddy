@@ -4,7 +4,7 @@ import { Table } from "../components/ui/Table/Table";
 import { Dropdown } from "../components/ui/Dropdown";
 import { Button } from "../components/ui/Button";
 import { RefreshCcw, Calendar, ChevronDown, Clock } from "lucide-react";
-import { Status } from "../components/ui/Status";
+import { Status } from "../components/ui/StatusBadge";
 import type { Column } from "../types";
 
 type ActivityItem = {

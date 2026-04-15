@@ -1,27 +1,26 @@
 import { useState, useMemo, useRef, useEffect } from "react";
-import { Search } from "lucide-react"; // ใช้ของเว็บ
+import { Search } from "lucide-react"; 
 
-export interface SearchOption {
+export interface SearchOption<T = unknown> {
   id: string;
   label: string;
   subLabel?: string;
-  originalData?: any;
+  originalData?: T;
 }
 
-interface SearchSelectProps {
+interface SearchSelectProps<T = unknown> {
   label: string;
   placeholder?: string;
-  options: SearchOption[];
-  value: SearchOption | null;
-  onChange: (selected: SearchOption | null) => void;
+  options: SearchOption<T>[];
+  value: SearchOption<T> | null;
+  onChange: (selected: SearchOption<T> | null) => void;
 }
 
-export function SearchSelect({ label, placeholder, options, value, onChange }: SearchSelectProps) {
+export function SearchSelect<T = unknown>({ label, placeholder, options, value, onChange }: SearchSelectProps<T>) {
   const [query, setQuery] = useState(value ? value.label : "");
   const [isOpen, setIsOpen] = useState(false);
-  const wrapperRef = useRef<HTMLDivElement>(null); // ของ Web DOM
+  const wrapperRef = useRef<HTMLDivElement>(null); 
 
-  // ปิด Dropdown เมื่อคลิกที่อื่น (Click outside)
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
@@ -40,34 +39,32 @@ export function SearchSelect({ label, placeholder, options, value, onChange }: S
   }, [query, options]);
 
   return (
-    <div className="space-y-3" ref={wrapperRef}>
-      <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-        {label}
-      </label>
+    <div ref={wrapperRef} className="relative w-full">
+      <label className="text-xs font-bold text-slate-500 uppercase block mb-2">{label}</label>
       <div className="relative">
-        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-          <Search size={18} />
-        </div>
+        <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
         <input
           type="text"
-          value={query}
+          value={isOpen ? query : (value ? value.label : query)}
           onChange={(e) => {
             setQuery(e.target.value);
-            onChange(null);
-            setIsOpen(true);
+            if (!isOpen) setIsOpen(true);
           }}
-          onFocus={() => setIsOpen(true)}
+          onFocus={() => {
+            setIsOpen(true);
+            if (value) setQuery(""); 
+          }}
           placeholder={placeholder || "Search..."}
           className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none transition-all"
         />
         
-        {isOpen && query.length > 0 && (
+        {isOpen && (
           <div className="absolute z-50 w-full mt-2 bg-white border border-slate-100 rounded-xl shadow-lg max-h-60 overflow-y-auto">
             {filteredOptions.length > 0 ? (
               filteredOptions.map(opt => (
                 <button
                   key={opt.id}
-                  type="button" // ป้องกันการ submit ฟอร์ม
+                  type="button" 
                   onClick={() => {
                     onChange(opt);
                     setQuery(opt.label);
@@ -85,11 +82,6 @@ export function SearchSelect({ label, placeholder, options, value, onChange }: S
           </div>
         )}
       </div>
-      {value && (
-        <p className="text-xs text-emerald-600 font-medium">
-          ✓ Selected: {value.label}
-        </p>
-      )}
     </div>
   );
 }
