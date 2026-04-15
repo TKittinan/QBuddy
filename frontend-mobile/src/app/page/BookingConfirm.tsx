@@ -22,9 +22,7 @@ export default function BookingConfirm() {
     month: 'short', day: 'numeric', year: 'numeric'
   }) : 'Select Date';
 
-  // =========================================================================
-  // 🗄️ [SUPABASE DB CONNECTION MOCKUP]
-  // =========================================================================
+  // [SUPABASE DB CONNECTION MOCKUP]
   /*
     const fetchTicketData = async () => {
       const { data } = await supabase.from('tickets').select('*, places(*)').eq('id', ticketId).single();
@@ -51,7 +49,15 @@ export default function BookingConfirm() {
 
         <View style={styles.queueCard}>
           <Text style={styles.queueLabel}>Queue Number</Text>
-          <Text style={styles.queueNumber}>{ticket?.id || 'A-000'}</Text>
+          <View style={styles.queueNumberWrapper}>
+            <Text 
+              style={styles.queueNumber} 
+              adjustsFontSizeToFit 
+              numberOfLines={1}
+            >
+              {ticket?.id || 'A-000'}
+            </Text>
+          </View>
           <View style={styles.statusBadge}>
             <View style={styles.dot} />
             <Text style={styles.statusText}>รอเรียกคิว</Text>
@@ -111,9 +117,10 @@ const styles = StyleSheet.create({
   shopImage: { width: '100%', height: '100%' },
   statusLabel: { fontSize: 14, color: '#A0AEC0', fontWeight: '600', marginBottom: 8 },
   shopName: { fontSize: 22, fontWeight: '800', color: '#2D3748', textAlign: 'center', marginBottom: 30 },
-  queueCard: { backgroundColor: '#FFFFFF', width: '100%', borderRadius: 24, paddingVertical: 32, alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.05, elevation: 4, marginBottom: 30 },
+  queueCard: { backgroundColor: '#FFFFFF', width: '100%', borderRadius: 24, paddingVertical: 32, paddingHorizontal: 20, alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.05, elevation: 4, marginBottom: 30 },
   queueLabel: { fontSize: 14, color: '#718096', fontWeight: '600', marginBottom: 12 },
-  queueNumber: { fontSize: 52, fontWeight: '900', color: '#6FA4A1', letterSpacing: 1, marginBottom: 16 },
+  queueNumberWrapper: { width: '100%', alignItems: 'center', marginBottom: 16 },
+  queueNumber: { fontSize: 56, fontWeight: '900', color: '#6FA4A1', letterSpacing: 1, textAlign: 'center' },
   statusBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#E6FFFA', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#38B2AC', marginRight: 8 },
   statusText: { fontSize: 13, color: '#319795', fontWeight: '700' },

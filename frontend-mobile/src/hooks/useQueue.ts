@@ -4,18 +4,53 @@ export const useQueue = () => {
   const allPlaces = useAppSelector((state: any) => state.places?.places || []);
   const allTickets = useAppSelector((state: any) => state.queue?.allTickets || []);
 
-  // 🌟 1. ฟังก์ชันสร้าง Ticket ID (เช่น CBB-R-001)
+  // 🌟 1. ฟังก์ชันสร้าง Ticket ID (ลอจิกเดียวกับ Web Admin 100%)
   const generateTicketId = (shopId: string, dateString: string) => {
     const shop = allPlaces.find((p: any) => p.id === shopId);
     if (!shop) return `Q-${Math.floor(Math.random() * 1000)}`;
 
-    const shopPrefix = shop.name.split(' ').map((w: string) => w.charAt(0)).join('').toUpperCase().substring(0, 3);
-    const tagPrefix = shop.category === 'ร้านอาหาร' ? 'R' : shop.category === 'คาเฟ่' ? 'C' : 'B'; 
+    // =======================================================
+    // 🌟 ถอดรหัส Place ID ให้กลายเป็น Prefix (เหมือนโค้ด Admin)
+    // =======================================================
+    const rawPlaceId = (shop.placeId || '#XX-X-001').replace('#', ''); // เช่น "CT-R-001"
+    const idParts = rawPlaceId.split('-'); 
+    let displayPrefix = rawPlaceId;
     
-    const todaysTickets = allTickets.filter((t: any) => t.shopId === shopId && t.bookDate?.startsWith(dateString));
-    const queueNumber = String(todaysTickets.length + 1).padStart(3, '0');
+    if (idParts.length >= 3) {
+      const namePart = idParts[0]; // "CT"
+      const catPart = idParts[1]; // "R"
+      const seqPart = parseInt(idParts[2], 10); // 1
+      displayPrefix = `${namePart}${catPart}${seqPart}`; // ประกอบเป็น "CTR1"
+    } else {
+      displayPrefix = rawPlaceId.replace(/-/g, ''); 
+    }
+
+    // 🌟 ดึงคิวทั้งหมดของร้านนี้ในวันนี้
+    const shopTickets = allTickets.filter((t: any) => t.shopId === shopId && t.bookDate?.startsWith(dateString));
     
-    return `${shopPrefix}-${tagPrefix}-${queueNumber}`;
+    // 🌟 หาหมายเลขคิวสูงสุดที่เคยมีในวันนี้ (เผื่อมีคิวข้ามเลข จะได้รันต่อให้ถูก)
+    let maxQueueNum = 0;
+    shopTickets.forEach((t: any) => {
+      // ตัดคำด้วย -CTM ตามฟอร์แมต
+      const parts = t.id.toUpperCase().split('-CTM'); 
+      if (parts.length === 2) {
+        const num = parseInt(parts[1], 10);
+        if (!isNaN(num) && num > maxQueueNum) { 
+          maxQueueNum = num; 
+        }
+      }
+    });
+
+    let nextQueueNum = maxQueueNum + 1;
+    let newId = `${displayPrefix}-CTM${String(nextQueueNum).padStart(3, '0')}`;
+    
+    // 🛡️ เช็คความชัวร์ชั้นที่ 2 ป้องกัน ID ชนกันในระบบ
+    while (allTickets.some((t: any) => t.id === newId)) {
+      nextQueueNum++;
+      newId = `${displayPrefix}-CTM${String(nextQueueNum).padStart(3, '0')}`;
+    }
+    
+    return newId;
   };
 
   // 🌟 2. ฟังก์ชันหาโต๊ะว่าง (Table Mapping)
@@ -30,7 +65,6 @@ export const useQueue = () => {
     if (suitableTables.length === 0) return null;
 
     for (const table of suitableTables) {
-      // เช็คว่ามีคนจองไป 2 คิวหรือยัง (จำลองรับได้ 2 คิวต่อไซส์)
       const sameSlotBookings = allTickets.filter((t: any) =>
         t.shopId === shopId &&
         t.bookDate?.startsWith(dateString) &&

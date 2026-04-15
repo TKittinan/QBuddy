@@ -1,6 +1,5 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
-// 🌟 ประกาศ Type เพื่อให้ TypeScript รู้จักโครงสร้างข้อมูลและป้องกัน Error
 export interface TableType {
   id: string;
   label: string;
@@ -9,6 +8,7 @@ export interface TableType {
 
 export interface Place {
   id: string;
+  placeId: string; // 🌟 เพิ่ม Type ให้รองรับ placeId
   name: string;
   branch: string;
   category: string;
@@ -25,36 +25,14 @@ export interface Place {
   closeTime: string;
   lat: number;
   lng: number;
-  tableTypes?: TableType[]; // 🌟 ระบุว่าเป็น Array ของโต๊ะ (บางร้านอาจจะไม่มี เช่น ร้านตัดผม)
+  tableTypes?: TableType[];
 }
-
-// =========================================================================
-// 🗄️ [SUPABASE DB CONNECTION MOCKUP]
-// =========================================================================
-/*
-  export const fetchPlacesFromDB = async () => {
-    try {
-      const { data: places, error } = await supabase.from('places').select('*');
-      
-      const formattedPlaces = places.map(place => ({
-        ...place,
-        logoUrl: supabase.storage.from('place-images').getPublicUrl(place.logo_path).data.publicUrl,
-        image: supabase.storage.from('place-images').getPublicUrl(place.cover_path).data.publicUrl,
-        // tableTypes: ดึงมาจาก Table Relation หรือ JSONB ใน DB
-      }));
-
-      dispatch(setPlaces(formattedPlaces));
-    } catch (error) {
-      console.error(error);
-    }
-  }
-*/
-// =========================================================================
 
 const MOCK_PLACES: Place[] = [
   // --- 🍽️ หมวด: ร้านอาหาร ---
   {
     id: '1',
+    placeId: '#CT-R-001', // 🌟 Copper (C) + The Sense (T) - ร้านอาหาร (R) - สาขาที่ 1
     name: 'Copper Beyond Buffet',
     branch: 'The Sense Pinklao',
     category: 'ร้านอาหาร',
@@ -66,10 +44,10 @@ const MOCK_PLACES: Place[] = [
     isRecommended: true,
     monthlyBookings: 8500,
     queueCount: 12,
-    avgServiceTime: 120, // Copper ให้เวลากิน 2 ชม.
+    avgServiceTime: 120,
     openTime: '10:00',
     closeTime: '21:30',
-    lat: 13.776916, // พิกัดจริง The Sense ปิ่นเกล้า
+    lat: 13.776916,
     lng: 100.475654,
     tableTypes: [
       { id: 't1', label: 'โต๊ะ 2 ท่าน', capacity: 2 },
@@ -79,6 +57,7 @@ const MOCK_PLACES: Place[] = [
   },
   {
     id: '2',
+    placeId: '#สM-R-001', // 🌟 สุกี้ตี๋น้อย (ส) + Major (M)
     name: 'สุกี้ตี๋น้อย',
     branch: 'Major Ratchayothin',
     category: 'ร้านอาหาร',
@@ -90,10 +69,10 @@ const MOCK_PLACES: Place[] = [
     isRecommended: true,
     monthlyBookings: 12500,
     queueCount: 45,
-    avgServiceTime: 120, // ให้เวลากิน 2 ชม.
+    avgServiceTime: 120,
     openTime: '12:00',
     closeTime: '05:00',
-    lat: 13.829983, // พิกัดจริง เมเจอร์ รัชโยธิน
+    lat: 13.829983,
     lng: 100.568478,
     tableTypes: [
       { id: 't2', label: 'โต๊ะ 2 ท่าน', capacity: 2 },
@@ -102,6 +81,7 @@ const MOCK_PLACES: Place[] = [
   },
   {
     id: '3',
+    placeId: '#MC-R-001', // 🌟 Mo-Mo (M) + Central (C)
     name: 'Mo-Mo-Paradise',
     branch: 'Central World',
     category: 'ร้านอาหาร',
@@ -113,10 +93,10 @@ const MOCK_PLACES: Place[] = [
     isRecommended: false,
     monthlyBookings: 6200,
     queueCount: 8,
-    avgServiceTime: 100, // 100 นาที
+    avgServiceTime: 100,
     openTime: '11:00',
     closeTime: '21:30',
-    lat: 13.746356, // พิกัดจริง Central World
+    lat: 13.746356,
     lng: 100.539352,
     tableTypes: [
       { id: 't2', label: 'โต๊ะ 2-4 ท่าน', capacity: 4 },
@@ -127,6 +107,7 @@ const MOCK_PLACES: Place[] = [
   // --- ☕ หมวด: คาเฟ่ ---
   {
     id: '4',
+    placeId: '#AS-C-001', // 🌟 After (A) + Siam (S)
     name: 'After You Dessert Cafe',
     branch: 'Siam Paragon',
     category: 'คาเฟ่',
@@ -141,7 +122,7 @@ const MOCK_PLACES: Place[] = [
     avgServiceTime: 45,
     openTime: '10:00',
     closeTime: '22:00',
-    lat: 13.746687, // พิกัดจริง สยามพารากอน
+    lat: 13.746687,
     lng: 100.534947,
     tableTypes: [
       { id: 't2', label: 'โต๊ะเล็ก 2 ท่าน', capacity: 2 },
@@ -150,6 +131,7 @@ const MOCK_PLACES: Place[] = [
   },
   {
     id: '5',
+    placeId: '#NA-C-001', // 🌟 Nana (N) + Ari (A)
     name: 'Nana Coffee Roasters',
     branch: 'Ari',
     category: 'คาเฟ่',
@@ -164,7 +146,7 @@ const MOCK_PLACES: Place[] = [
     avgServiceTime: 60,
     openTime: '07:00',
     closeTime: '18:00',
-    lat: 13.779774, // พิกัดจริง อารีย์ ซอย 4
+    lat: 13.779774,
     lng: 100.543789,
     tableTypes: [
       { id: 'b1', label: 'โซนบาร์ 1 ท่าน', capacity: 1 },
@@ -172,33 +154,11 @@ const MOCK_PLACES: Place[] = [
       { id: 't4', label: 'โต๊ะใหญ่ 4-6 ท่าน', capacity: 6 }
     ]
   },
-  {
-    id: '6',
-    name: 'Factory Coffee',
-    branch: 'Phayathai',
-    category: 'คาเฟ่',
-    reason: 'แชมป์บาริสต้าระดับประเทศ กาแฟรสชาติดีเยี่ยม',
-    tags: ['คาเฟ่'],
-    distance: '6.2 กม.',
-    image: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=500',
-    logoUrl: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=200',
-    isRecommended: false,
-    monthlyBookings: 2800,
-    queueCount: 8,
-    avgServiceTime: 45,
-    openTime: '08:00',
-    closeTime: '17:00',
-    lat: 13.757272, // พิกัดจริง พญาไท
-    lng: 100.534433,
-    tableTypes: [
-      { id: 't2', label: 'โต๊ะ 2 ท่าน', capacity: 2 },
-      { id: 't4', label: 'โต๊ะ 4 ท่าน', capacity: 4 }
-    ]
-  },
 
-  // --- 💇‍♀️ หมวด: เสริมสวยอื่นๆ (ไม่มีตัวเลือกโต๊ะ) ---
+  // --- 💇‍♀️ หมวด: เสริมสวยอื่นๆ ---
   {
     id: '7',
+    placeId: '#NS-B-001', // 🌟 Never (N) + Siam (S)
     name: 'Never Say Cutz',
     branch: 'Siam Square One',
     category: 'เสริมสวยอื่นๆ',
@@ -210,49 +170,11 @@ const MOCK_PLACES: Place[] = [
     isRecommended: true,
     monthlyBookings: 1800,
     queueCount: 3,
-    avgServiceTime: 45, // ตัดผมประมาณ 45 นาที
+    avgServiceTime: 45,
     openTime: '10:00',
     closeTime: '20:00',
-    lat: 13.745582, // พิกัดจริง Siam Square One
+    lat: 13.745582,
     lng: 100.534062,
-  },
-  {
-    id: '8',
-    name: 'Kantima Salon',
-    branch: 'Siam Square',
-    category: 'เสริมสวยอื่นๆ',
-    reason: 'ซาลอนและร้านทำเล็บสุดคิวท์กลางสยาม',
-    tags: ['เสริมสวยอื่นๆ'],
-    distance: '7.9 กม.',
-    image: 'https://images.unsplash.com/photo-1522337660859-02fbefca4702?w=500',
-    logoUrl: 'https://images.unsplash.com/photo-1522337660859-02fbefca4702?w=200',
-    isRecommended: false,
-    monthlyBookings: 1200,
-    queueCount: 2,
-    avgServiceTime: 60, // ทำสี/ทำเล็บ ใช้เวลานานหน่อย
-    openTime: '10:00',
-    closeTime: '20:00',
-    lat: 13.744882, // พิกัดจริง สยามสแควร์
-    lng: 100.533221,
-  },
-  {
-    id: '9',
-    name: "Let's Relax Spa",
-    branch: 'MBK Center',
-    category: 'เสริมสวยอื่นๆ',
-    reason: 'สปาและนวดแผนไทยพรีเมียมใจกลางเมือง',
-    tags: ['เสริมสวยอื่นๆ'],
-    distance: '8.0 กม.',
-    image: 'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=500',
-    logoUrl: 'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=200',
-    isRecommended: true,
-    monthlyBookings: 2200,
-    queueCount: 1,
-    avgServiceTime: 120, // นวดสปา 2 ชม.
-    openTime: '10:00',
-    closeTime: '22:00',
-    lat: 13.744388, // พิกัดจริง MBK
-    lng: 100.529983,
   }
 ];
 
