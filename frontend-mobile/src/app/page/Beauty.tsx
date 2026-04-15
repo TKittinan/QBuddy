@@ -4,9 +4,9 @@ import { ArrowLeft, MapPin, Search, Flame } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useAppSelector } from '../../hooks/useRedux';
 
-export default function Restaurant() {
+export default function Beauty() {
   const router = useRouter();
-  const activeCategoryTag = 'ร้านอาหาร'; 
+  const activeCategoryTag = 'เสริมสวยอื่นๆ'; 
 
   const allPlaces = useAppSelector(state => state.places.places);
   const [searchQuery, setSearchQuery] = useState('');
@@ -105,6 +105,7 @@ export default function Restaurant() {
   );
 }
 
+// 🌟 สไตล์ใช้ร่วมกันกับ Restaurant
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#FFFFFF' },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 16, paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 16 : 16, backgroundColor: '#FFFFFF' },

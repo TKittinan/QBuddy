@@ -1,67 +1,48 @@
 import React from 'react';
-import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
-import { Star, MapPin } from 'lucide-react-native';
+import { View, Text, StyleSheet, Image } from 'react-native';
+import { MapPin } from 'lucide-react-native';
 
+// 🌟 ลบ rating ออกจาก Interface แล้ว ไม่บังคับส่งค่าอีกต่อไป
 interface AIChatProps {
-  imageUri: string;
   title: string;
-  rating: string;
+  imageUri: string;
   location: string;
   distance: string;
   tags: string[];
 }
 
-export const AIChat: React.FC<AIChatProps> = ({
-  imageUri, title, rating, location, distance, tags
-}) => {
+export const AIChat: React.FC<AIChatProps> = ({ title, imageUri, location, distance, tags }) => {
   return (
-    <TouchableOpacity style={styles.card} activeOpacity={0.9}>
-      <View style={styles.imageContainer}>
-        <Image source={{ uri: imageUri }} style={styles.image} />
-        <View style={styles.aiBadge}>
-          <Text style={styles.aiBadgeText}>✨ AI แนะนำ</Text>
-        </View>
-      </View>
-      
+    <View style={styles.card}>
+      <Image source={{ uri: imageUri }} style={styles.image} />
       <View style={styles.content}>
-        <View style={styles.titleRow}>
-          <Text style={styles.title} numberOfLines={1}>{title}</Text>
-          <View style={styles.ratingBox}>
-            <Text style={styles.ratingText}>{rating}</Text>
-          </View>
-        </View>
+        <Text style={styles.title} numberOfLines={1}>{title}</Text>
         
-        <View style={styles.locationRow}>
-          <MapPin size={12} color="#718096" />
-          <Text style={styles.locationText}>{location} • {distance}</Text>
+        <View style={styles.infoRow}>
+          <MapPin size={14} color="#6FA4A1" />
+          <Text style={styles.infoText}>{location} • {distance}</Text>
         </View>
 
-        <View style={styles.tagContainer}>
+        <View style={styles.tagsRow}>
           {tags.map((tag, index) => (
-            <View key={index} style={styles.tag}>
+            <View key={index} style={styles.tagBadge}>
               <Text style={styles.tagText}>{tag}</Text>
             </View>
           ))}
         </View>
       </View>
-    </TouchableOpacity>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  card: { width: 280, backgroundColor: '#FFFFFF', borderRadius: 20, marginRight: 16, overflow: 'hidden' },
-  imageContainer: { width: '100%', height: 160, position: 'relative' },
-  image: { width: '100%', height: '100%', borderTopLeftRadius: 20, borderTopRightRadius: 20 },
-  aiBadge: { position: 'absolute', top: 12, left: 12, backgroundColor: 'rgba(255,255,255,0.9)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 20 },
-  aiBadgeText: { fontSize: 10, fontWeight: '700', color: '#38B2AC' },
-  content: { padding: 12 },
-  titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  title: { fontSize: 16, fontWeight: '800', color: '#2D3748', flex: 1 },
-  ratingBox: { backgroundColor: '#F7FAFC', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
-  ratingText: { fontSize: 12, fontWeight: '700', color: '#2D3748' },
-  locationRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  locationText: { fontSize: 12, color: '#718096', marginLeft: 4 },
-  tagContainer: { flexDirection: 'row' },
-  tag: { backgroundColor: '#EDF2F7', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, marginRight: 6 },
-  tagText: { fontSize: 10, color: '#4A5568', fontWeight: '500' },
+  card: { width: 240, backgroundColor: '#FFFFFF', borderRadius: 16, overflow: 'hidden', marginRight: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2, borderWidth: 1, borderColor: '#EDF2F7' },
+  image: { width: '100%', height: 120 },
+  content: { padding: 16 },
+  title: { fontSize: 16, fontWeight: '800', color: '#2D3748', marginBottom: 8 },
+  infoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  infoText: { fontSize: 12, color: '#718096', marginLeft: 4, fontWeight: '500' },
+  tagsRow: { flexDirection: 'row', flexWrap: 'wrap' },
+  tagBadge: { backgroundColor: '#EDF2F7', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, marginRight: 6, marginBottom: 4 },
+  tagText: { fontSize: 11, color: '#4A5568', fontWeight: '700' }
 });

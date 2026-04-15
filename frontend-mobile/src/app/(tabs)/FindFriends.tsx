@@ -25,7 +25,6 @@ export default function FindFriendsPage() {
   const dispatch = useAppDispatch();
   const user = useAppSelector((state: any) => state.auth?.user);
   
-  // 🌟 แก้ไข: เติม s เป็น state.friends และใส่ (state: any) เพื่อแก้ TS Error
   const { nearbyUsers: allNearbyUsers = [], aiMatches: mockAiMatches = [], joinedActivities = [] } = useAppSelector((state: any) => state.friends || {});
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -38,12 +37,21 @@ export default function FindFriendsPage() {
     defaultValues: { activityDesc: '', selectedQueueId: '', category: 'ร้านอาหาร' },
   });
 
+  // 🌟 เพิ่มระบบดัก Error ป้องกันแอปเด้งกรณีไม่ได้เปิด GPS
   useEffect(() => {
     (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status === 'granted') {
-        const currentLocation = await Location.getCurrentPositionAsync({});
-        setLocation(currentLocation);
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          try {
+            const currentLocation = await Location.getCurrentPositionAsync({});
+            setLocation(currentLocation);
+          } catch (locationError) {
+            console.log("ไม่สามารถดึงตำแหน่ง GPS ได้ ให้ใช้ค่า Default ไปก่อน");
+          }
+        }
+      } catch (permissionError) {
+        console.log("เกิดข้อผิดพลาดในการขอสิทธิ์");
       }
     })();
   }, []);
@@ -60,7 +68,7 @@ export default function FindFriendsPage() {
       avatar: 'https://i.pravatar.cc/150?u=me', 
       category: data.category
     };
-    dispatch(addActivity(newActivity)); // 🌟 ส่งเข้า Redux
+    dispatch(addActivity(newActivity)); 
     Alert.alert('สำเร็จ', 'ประกาศหากิจกรรมของคุณถูกสร้างเรียบร้อยแล้ว');
     setIsModalVisible(false); reset(); setActiveFilter(data.category);
   };
@@ -69,7 +77,7 @@ export default function FindFriendsPage() {
     if (joinedActivities.includes(activityId)) {
       Alert.alert('เปิดแชท', `กำลังเปิดหน้าต่างแชทกับคุณ ${activityName}...`);
     } else {
-      dispatch(joinActivity(activityId)); // 🌟 บันทึกการเข้าร่วมเข้า Redux
+      dispatch(joinActivity(activityId)); 
       Alert.alert('สำเร็จ', `ส่งคำขอเข้าร่วมกิจกรรมของ ${activityName} แล้ว!`);
     }
   };

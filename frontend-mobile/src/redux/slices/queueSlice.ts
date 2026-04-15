@@ -1,9 +1,22 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
+
+// =========================================================================
+// 🗄️ [SUPABASE DB CONNECTION MOCKUP] - ตาราง Tickets
+// =========================================================================
+/*
+  การเพิ่มคิวใหม่:
+  const addTicketToDB = async (ticketData) => {
+    const { data, error } = await supabase.from('tickets').insert([ticketData]);
+    if(data) dispatch(bookTicket(data[0]));
+  }
+*/
+// =========================================================================
+
 const MOCK_TICKETS = [
-  { id: 'ATRC3-CTM1', name: 'Taggsh', service: 'ร้านอาหาร', shopId: '1', status: 'Waiting', createdAt: new Date().toISOString() },
-  { id: 'SBNR1-CTM5', name: 'Taggsh', service: 'ร้านอาหาร', shopId: '2', status: 'Serving', createdAt: new Date().toISOString() },
-  { id: 'VCC2-CTM10', name: 'Taggsh', service: 'คาเฟ่', shopId: '3', status: 'Completed', createdAt: new Date(Date.now() - 86400000).toISOString() }, 
-  { id: 'ATRC3-CTM0', name: 'Taggsh', service: 'คาเฟ่', shopId: '1', status: 'Cancelled', createdAt: new Date(Date.now() - 172800000).toISOString() } 
+  { id: 'CBB-R-001', name: 'Taggsh', service: 'ร้านอาหาร', shopId: '1', status: 'Waiting', createdAt: new Date().toISOString(), guests: 2, tableType: 't1' },
+  { id: 'SP-R-015', name: 'Taggsh', service: 'ร้านอาหาร', shopId: '2', status: 'Serving', createdAt: new Date().toISOString(), guests: 4, tableType: 't2' },
+  { id: 'AYD-C-102', name: 'Taggsh', service: 'คาเฟ่', shopId: '3', status: 'Completed', createdAt: new Date(Date.now() - 86400000).toISOString(), guests: 2, tableType: 't2' }, 
+  { id: 'VSS-B-044', name: 'Taggsh', service: 'เสริมสวยอื่นๆ', shopId: '4', status: 'Cancelled', createdAt: new Date(Date.now() - 172800000).toISOString(), guests: 1 } 
 ];
 
 const initialState = {
@@ -14,12 +27,9 @@ const queueSlice = createSlice({
   name: "queue",
   initialState,
   reducers: {
-    // เพิ่มคิวใหม่เข้าระบบ
     bookTicket: (state, action: PayloadAction<any>) => { 
       state.allTickets.push(action.payload); 
     },
-    
-    // อัปเดตสถานะคิว (ใช้ตอนกดยกเลิกคิว)
     updateQueueStatus: (state, action: PayloadAction<{ id: string; status: string }>) => {
       const ticket = state.allTickets.find((t: any) => t.id === action.payload.id);
       if (ticket) {

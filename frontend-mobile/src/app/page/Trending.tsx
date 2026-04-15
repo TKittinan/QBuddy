@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, SafeAreaView, Platform, StatusBar, Alert, FlatList, ActivityIndicator, ScrollView, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, SafeAreaView, Platform, StatusBar, FlatList, ActivityIndicator, ScrollView, TextInput } from 'react-native';
 import { ArrowLeft, MapPin, Flame, Search, Users } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useAppSelector } from '../../hooks/useRedux';
@@ -9,32 +9,25 @@ export default function Trending() {
   const allPlaces = useAppSelector(state => state.places.places);
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeTag, setActiveTag] = useState<string>('ทั้งหมด');
   const [displayedCount, setDisplayedCount] = useState(8); 
   const [loadingMore, setLoadingMore] = useState(false);
 
-  useEffect(() => {
-    // =========================================================================
-    // 🗄️ [SUPABASE DB CONNECTION MOCKUP] - ดึงยอดจองจริงจากอดีต 1 เดือน
-    // =========================================================================
-    /*
-      อธิบาย Logic สำหรับฐานข้อมูลจริง:
-      เราจะสร้าง Database Function (RPC) ใน Supabase เพื่อให้มันนับจำนวนคิว
-      เฉพาะที่สถานะเป็น 'Completed' และเวลาไม่เกิน 30 วันที่ผ่านมา
-      
-      const { data, error } = await supabase.rpc('get_trending_places_last_30_days');
-      if(data) { dispatch(setTrendingPlaces(data)) }
-    */
-    // =========================================================================
-  }, []);
+  const filterTags = ['ทั้งหมด', 'ร้านอาหาร', 'คาเฟ่', 'เสริมสวยอื่นๆ'];
 
   const processedPlaces = useMemo(() => {
     let result = [...allPlaces];
+
+    if (activeTag !== 'ทั้งหมด') {
+      result = result.filter((place: any) => place.tags?.includes(activeTag));
+    }
+
     if (searchQuery) {
       result = result.filter((place: any) => place.name.toLowerCase().includes(searchQuery.toLowerCase()));
     }
-    // เรียงจากยอดจอง 1 เดือนล่าสุด (ที่สมมติว่าดึงมาจาก DB สำเร็จ)
+    
     return result.sort((a: any, b: any) => b.monthlyBookings - a.monthlyBookings);
-  }, [searchQuery, allPlaces]);
+  }, [searchQuery, activeTag, allPlaces]);
 
   const displayedPlaces = useMemo(() => processedPlaces.slice(0, displayedCount), [processedPlaces, displayedCount]);
 
@@ -44,9 +37,12 @@ export default function Trending() {
     setTimeout(() => { setDisplayedCount(prev => prev + 8); setLoadingMore(false); }, 1000); 
   }, [loadingMore, displayedCount, processedPlaces.length]);
 
-  const handleViewDetail = (id: string) => Alert.alert('ดูรายละเอียด', `ร้าน ID: ${id}`);
-  const goBackHome = () => router.replace('/(tabs)/Home');
-  const goToRestaurant = () => router.replace('/page/Restaurant'); 
+  const handleViewDetail = (id: string) => {
+    router.push({
+      pathname: '/page/PlaceDetail',
+      params: { id }
+    });
+  };
 
   const renderTrendCard = ({ item: place }: { item: any }) => (
     <TouchableOpacity style={styles.card} activeOpacity={0.9} onPress={() => handleViewDetail(place.id)}>
@@ -60,12 +56,11 @@ export default function Trending() {
       <View style={styles.cardContent}>
         <Text style={styles.placeName}>{place.name}</Text>
         <View style={styles.infoRow}>
-          {/* 🌟 เอา Rating ออกเหลือแค่ระยะทาง */}
           <MapPin size={14} color="#DD6B20" style={{ marginRight: 4 }} />
           <Text style={styles.distanceText}>{place.distance}</Text>
         </View>
         <View style={styles.tagsRow}>
-          {place.tags.map((tag: string, idx: number) => (
+          {place.tags?.map((tag: string, idx: number) => (
             <Text key={idx} style={styles.tagText}>{tag}{idx < place.tags.length - 1 ? '    ' : ''}</Text>
           ))}
         </View>
@@ -76,7 +71,7 @@ export default function Trending() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={goBackHome} style={{ padding: 4 }}><ArrowLeft size={24} color="#1F2937" /></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.back()} style={{ padding: 4 }}><ArrowLeft size={24} color="#1F2937" /></TouchableOpacity>
         <Text style={styles.headerTitle}>กำลังมาแรง</Text>
         <View style={{ width: 24 }} />
       </View>
@@ -90,8 +85,16 @@ export default function Trending() {
 
       <View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
-          <TouchableOpacity style={styles.chipInactive} onPress={goToRestaurant}><MapPin size={14} color="#4A5568" style={{ marginRight: 6 }} /><Text style={styles.chipTextInactive}>ร้านอาหาร</Text></TouchableOpacity>
-          <TouchableOpacity style={styles.chipActive}><Flame size={14} color="#FFFFFF" style={{ marginRight: 6 }} /><Text style={styles.chipTextActive}>กำลังมาแรง</Text></TouchableOpacity>
+          {filterTags.map((tag) => (
+            <TouchableOpacity 
+              key={tag}
+              style={activeTag === tag ? styles.chipActive : styles.chipInactive} 
+              onPress={() => setActiveTag(tag)}
+            >
+              {activeTag === tag ? <Flame size={14} color="#FFFFFF" style={{ marginRight: 6 }} /> : null}
+              <Text style={activeTag === tag ? styles.chipTextActive : styles.chipTextInactive}>{tag}</Text>
+            </TouchableOpacity>
+          ))}
         </ScrollView>
       </View>
 
@@ -138,10 +141,10 @@ const styles = StyleSheet.create({
   bookingBadge: { position: 'absolute', top: 12, left: 12, flexDirection: 'row', alignItems: 'center', backgroundColor: '#DD6B20', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20 },
   bookingBadgeText: { color: '#FFF', fontSize: 11, fontWeight: '800' },
   cardContent: { padding: 16 },
-  placeName: { fontSize: 18, fontWeight: '800', color: '#2D3748', marginBottom: 6 },
+  placeName: { fontSize: 18, fontWeight: '800', color: '#2D3748', marginBottom: 8 },
   infoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   distanceText: { fontSize: 13, color: '#718096' },
-  tagsRow: { flexDirection: 'row' },
-  tagText: { fontSize: 13, color: '#DD6B20', fontWeight: '500' },
+  tagsRow: { flexDirection: 'row', flexWrap: 'wrap' },
+  tagText: { fontSize: 13, color: '#DD6B20', fontWeight: '500', marginBottom: 4 },
   emptyText: { textAlign: 'center', marginTop: 40, color: '#A0AEC0', fontSize: 16 },
 });
