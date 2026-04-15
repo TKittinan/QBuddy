@@ -22,7 +22,7 @@ const Sidebar = () => {
   const { user } = useAppSelector((state) => state.auth);
   
   // เช็คสิทธิ์ Admin จากข้อมูลใน Redux (ตรวจสอบให้แน่ใจว่า field ชื่อ role หรือ admin.role)
-  const isAdmin = user?.role === "ADMIN";
+  const isAdmin = user?.role === "admin";
 
   const handleLogout = () => {
     // 1. ล้างสถานะใน Redux และ LocalStorage ผ่าน Slice
