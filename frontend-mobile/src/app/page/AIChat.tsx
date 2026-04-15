@@ -1,19 +1,35 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, TextInput, ScrollView, SafeAreaView, Platform, StatusBar, KeyboardAvoidingView, Alert } from 'react-native';
-import { ArrowLeft, Mic, Send, MapPin } from 'lucide-react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, TextInput, ScrollView, SafeAreaView, Platform, KeyboardAvoidingView, StatusBar } from 'react-native';
+import { ArrowLeft, Send, MapPin } from 'lucide-react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
-// 🌟 ดึงข้อมูลจาก Redux
 import { useAppSelector, useAppDispatch } from '../../hooks/useRedux';
 import { addMessage } from '../../redux/slices/aichatSlice';
+
+interface PlaceCardType {
+  name: string;
+  distance: string;
+  category: string;
+  image: string;
+}
+
+interface AIMessage {
+  id: string;
+  type: 'user' | 'ai';
+  text: string;
+  placeCard?: PlaceCardType;
+}
+
+interface AIRootState {
+  aichat: { messages: AIMessage[] }; 
+}
 
 export default function AIChatScreen() {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const { initialMessage } = useLocalSearchParams();
   
-  // 🌟 ใส่ (state: any) แก้ TS Error
-  const messages = useAppSelector((state: any) => state.chat?.messages || []);
+  const messages = useAppSelector((state: AIRootState) => state.aichat?.messages || []);
   const [inputText, setInputText] = useState('');
 
   useEffect(() => {
@@ -47,7 +63,7 @@ export default function AIChatScreen() {
       </View>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.chatContainer}>
-          {messages.map((msg: any) => (
+          {messages.map((msg: AIMessage) => (
             <View key={msg.id} style={msg.type === 'user' ? styles.userMsgRow : styles.aiMsgRow}>
               {msg.type === 'ai' && <Image source={{ uri: 'https://cdn-icons-png.flaticon.com/512/4712/4712027.png' }} style={styles.avatarAi} />}
               <View style={{ flex: 1 }}>
@@ -87,7 +103,6 @@ export default function AIChatScreen() {
   );
 }
 
-// 🌟 เติมก้อน Stylesheet ให้ครบถ้วนด้านล่างสุดของไฟล์
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#F7FAFC' },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 16, paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 16 : 16, backgroundColor: '#F7FAFC' },

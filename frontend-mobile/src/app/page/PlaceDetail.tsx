@@ -131,8 +131,9 @@ export default function PlaceDetail() {
             ))}
           </View>
 
+          {/* ดึง Description จาก Redux มาแสดง */}
           <Text style={styles.description}>
-            สัมผัสประสบการณ์ความอร่อยระดับพรีเมียมกับ {place.name} ที่คัดสรรวัตถุดิบชั้นดี สดใหม่ทุกวัน พร้อมบรรยากาศร้านที่ตอบโจทย์ทุกไลฟ์สไตล์ของคุณ
+            {place.description || 'ไม่มีข้อมูลรายละเอียดสำหรับสถานที่นี้'}
           </Text>
 
           <View style={styles.aiBox}>

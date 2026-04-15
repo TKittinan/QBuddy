@@ -1,17 +1,21 @@
 import { configureStore } from '@reduxjs/toolkit';
 import authReducer from './slices/authSlice';
-import placesReducer from './slices/placeSlice';
+import placeReducer from './slices/placeSlice';
 import queueReducer from './slices/queueSlice';
-import friendsReducer from './slices/friendSlice'; 
-import chatReducer from './slices/aichatSlice';
+import friendReducer from './slices/friendSlice';
+import aichatReducer from './slices/aichatSlice';
+import chatReducer from './slices/chatSlice';
+import savedPlacesReducer from './slices/savedPlacesSlice';
 
 export const store = configureStore({
   reducer: {
     auth: authReducer,
-    places: placesReducer,
+    places: placeReducer,
     queue: queueReducer,
-    friends: friendsReducer,
-    chat: chatReducer,
+    friends: friendReducer,
+    aichat: aichatReducer, 
+    chat: chatReducer, 
+    savedPlaces: savedPlacesReducer,
   },
 });
 

@@ -1,16 +1,16 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
-import { MapPin, Users, Store, Flag } from 'lucide-react-native';
+import { MapPin, Users, Store } from 'lucide-react-native';
+import { SaveButton } from './SaveButton'; 
+import { Place } from '../../redux/slices/placeSlice'; // 🌟 นำเข้า Type Place
 
 interface CardProps {
-  place: any;
-  isSaved: boolean;
+  place: Place; // 🌟 เลิกใช้ any
   onPress: (id: string) => void;
-  onSavePress: (id: string) => void;
-  showBookingBadge?: boolean; // สำหรับหน้า Trending ที่มีป้ายยอดจอง
+  showBookingBadge?: boolean; 
 }
 
-export const Card: React.FC<CardProps> = ({ place, isSaved, onPress, onSavePress, showBookingBadge }) => {
+export const Card: React.FC<CardProps> = ({ place, onPress, showBookingBadge }) => {
   return (
     <TouchableOpacity style={styles.card} activeOpacity={0.9} onPress={() => onPress(place.id)}>
       <View style={styles.imageWrapper}>
@@ -23,9 +23,7 @@ export const Card: React.FC<CardProps> = ({ place, isSaved, onPress, onSavePress
           </View>
         )}
         
-        <TouchableOpacity style={styles.saveButton} onPress={() => onSavePress(place.id)}>
-          <Flag size={20} color={isSaved ? "#6FA4A1" : "#FFFFFF"} fill={isSaved ? "#6FA4A1" : "rgba(0,0,0,0.3)"} />
-        </TouchableOpacity>
+        <SaveButton placeId={place.id} style={styles.saveButton} />
       </View>
       <View style={styles.cardContent}>
         <Text style={styles.placeName}>{place.name}</Text>
@@ -55,7 +53,7 @@ const styles = StyleSheet.create({
   cardImage: { width: '100%', height: '100%' },
   bookingBadge: { position: 'absolute', top: 12, left: 12, flexDirection: 'row', alignItems: 'center', backgroundColor: '#DD6B20', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20 },
   bookingBadgeText: { color: '#FFF', fontSize: 11, fontWeight: '800' },
-  saveButton: { position: 'absolute', top: 12, right: 12, backgroundColor: 'rgba(255,255,255,0.9)', padding: 8, borderRadius: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2 },
+  saveButton: { position: 'absolute', top: 12, right: 12 },
   cardContent: { padding: 16 },
   placeName: { fontSize: 18, fontWeight: '800', color: '#2D3748', marginBottom: 8 },
   branchRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },

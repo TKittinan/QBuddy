@@ -1,11 +1,14 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 
-export interface JoinedGuest {
+// 🌟 สร้าง Interface เพื่อบอก TypeScript ว่า Guest หน้าตาเป็นยังไง
+export interface Guest {
   userId: string;
   userName: string;
   pax: number;
+  status: 'pending' | 'confirmed';
 }
 
+// 🌟 สร้าง Interface สำหรับ Activity เพื่อป้องกัน Error never[]
 export interface Activity {
   id: string;
   hostId: string;
@@ -26,10 +29,11 @@ export interface Activity {
     tableCapacity: number;
     hostPax: number;
   };
-  joinedGuests: JoinedGuest[];
+  joinedGuests: Guest[]; // 🌟 ระบุชัดเจนว่าเป็นอาร์เรย์ของ Guest
   status: 'open' | 'closed';
 }
 
+// 🌟 ใส่ Type Activity[] เข้าไปที่ MOCK_USERS
 const MOCK_USERS: Activity[] = [
   {
     id: 'act_1',
@@ -44,43 +48,21 @@ const MOCK_USERS: Activity[] = [
     sharedInterests: 2,
     linkedTicket: { 
       shopId: '1', 
-      shopName: 'Copper Beyond Buffet',
+      shopName: 'Copper Beyond Buffet (The Sense Pinklao)',
       bookTime: '12:00', 
       bookDate: new Date().toISOString(),
-      tableType: 't2',
-      tableCapacity: 4,
-      hostPax: 2
+      tableType: 't3',
+      tableCapacity: 8,
+      hostPax: 4
     },
-    joinedGuests: [],
-    status: 'open'
-  },
-  {
-    id: 'act_2',
-    hostId: 'u2',
-    name: 'พรพิชัย',
-    activity: 'ไปตี้ชาบูกัน ขาดอีก 1 คน',
-    category: 'ร้านอาหาร',
-    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150',
-    lat: 13.7500,
-    lng: 100.5300,
-    successRate: 70,
-    sharedInterests: 1,
-    linkedTicket: { 
-      shopId: '2', 
-      shopName: 'Shabushi Premium',
-      bookTime: '14:30', 
-      bookDate: new Date().toISOString(),
-      tableType: 't2',
-      tableCapacity: 4,
-      hostPax: 3
-    },
-    joinedGuests: [],
+    joinedGuests: [], // ตอนนี้ TypeScript จะรู้แล้วว่านี่คือ Guest[] ที่ว่างเปล่า
     status: 'open'
   }
 ];
 
 const initialState = {
   allActivities: MOCK_USERS,
+  joinedActivities: [] as string[],
 };
 
 const friendSlice = createSlice({
@@ -90,20 +72,35 @@ const friendSlice = createSlice({
     addActivity: (state, action: PayloadAction<Activity>) => {
       state.allActivities.unshift(action.payload);
     },
-    joinActivity: (state, action: PayloadAction<{ activityId: string, guest: JoinedGuest }>) => {
+    joinActivity: (state, action: PayloadAction<{activityId: string, guest: Omit<Guest, 'status'>}>) => {
       const act = state.allActivities.find(a => a.id === action.payload.activityId);
       if (act) {
-        act.joinedGuests.push(action.payload.guest);
+        act.joinedGuests.push({ ...action.payload.guest, status: 'pending' });
       }
+      if (!state.joinedActivities.includes(action.payload.activityId)) {
+        state.joinedActivities.push(action.payload.activityId);
+      }
+    },
+    confirmGuest: (state, action: PayloadAction<{activityId: string, userId: string}>) => {
+      const act = state.allActivities.find(a => a.id === action.payload.activityId);
+      if (act) {
+        const guest = act.joinedGuests.find(g => g.userId === action.payload.userId);
+        if (guest) guest.status = 'confirmed';
+      }
+    },
+    removeGuest: (state, action: PayloadAction<{activityId: string, userId: string}>) => {
+      const act = state.allActivities.find(a => a.id === action.payload.activityId);
+      if (act) {
+        act.joinedGuests = act.joinedGuests.filter(g => g.userId !== action.payload.userId);
+      }
+      state.joinedActivities = state.joinedActivities.filter(id => id !== action.payload.activityId);
     },
     closeActivity: (state, action: PayloadAction<string>) => {
       const act = state.allActivities.find(a => a.id === action.payload);
-      if (act) {
-        act.status = 'closed';
-      }
+      if (act) act.status = 'closed';
     }
   },
 });
 
-export const { addActivity, joinActivity, closeActivity } = friendSlice.actions;
+export const { addActivity, joinActivity, confirmGuest, removeGuest, closeActivity } = friendSlice.actions;
 export default friendSlice.reducer;

@@ -3,28 +3,26 @@ import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Platform, Statu
 import { ArrowLeft, Search } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
-import { useAppSelector, useAppDispatch } from '../../hooks/useRedux';
-import { toggleSavePlace } from '../../redux/slices/savedPlacesSlice';
+import { useAppSelector } from '../../hooks/useRedux';
 import { Card } from '../../components/ui/Card';
 import { CategoryChips } from '../../components/ui/CategoryChips';
+import { Place } from '../../redux/slices/placeSlice'; // 🌟 1. นำเข้า Type
 
-export default function Cafe() {
+export default function Cafe() { // 🌟 เปลี่ยนชื่อ Function ให้ตรงกับไฟล์ (Cafe, Beauty)
   const router = useRouter();
-  const dispatch = useAppDispatch();
-  const activeCategoryTag = 'คาเฟ่'; 
+  const activeCategoryTag = 'คาเฟ่'; // 🌟 เปลี่ยนคำนี้ตามหมวดหมู่ (คาเฟ่, เสริมสวยอื่นๆ)
 
   const allPlaces = useAppSelector(state => state.places.places);
-  const user = useAppSelector((state: any) => state.auth?.user) || { name: 'Taggsh' };
-  const savedPlaces = useAppSelector((state: any) => state.savedPlaces?.savedByUser[user.name] || []);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [displayedCount, setDisplayedCount] = useState(10); 
   const [loadingMore, setLoadingMore] = useState(false);
 
   const filteredPlaces = useMemo(() => {
-    const basePlaces = allPlaces.filter((place: any) => place.tags?.includes(activeCategoryTag));
+    // 🌟 2. ระบุ Type เป็น Place แทน any
+    const basePlaces = allPlaces.filter((place: Place) => place.tags?.includes(activeCategoryTag));
     if (!searchQuery) return basePlaces;
-    return basePlaces.filter((place: any) => 
+    return basePlaces.filter((place: Place) => 
       place.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       place.tags?.some((tag: string) => tag.includes(searchQuery))
     );
@@ -63,13 +61,12 @@ export default function Cafe() {
 
       <FlatList
         data={displayedPlaces}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
+        keyExtractor={(item: Place) => item.id}
+        // 🌟 3. ระบุ Type ให้ item และ id ให้ชัดเจน
+        renderItem={({ item }: { item: Place }) => (
           <Card 
             place={item}
-            isSaved={savedPlaces.includes(item.id)}
-            onPress={(id) => router.push({ pathname: '/page/PlaceDetail', params: { id } })}
-            onSavePress={(id) => dispatch(toggleSavePlace({ username: user.name, placeId: id }))}
+            onPress={(id: string) => router.push({ pathname: '/page/PlaceDetail', params: { id } })}
           />
         )}
         contentContainerStyle={styles.listContainer}
