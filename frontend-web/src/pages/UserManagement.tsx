@@ -2,7 +2,6 @@ import { useState, useMemo, useEffect } from "react";
 import { useOutletContext } from "react-router-dom"; 
 import { useDispatch, useSelector } from "react-redux";
 import type { RootState, AppDispatch } from "../redux/Reduxindex";
-// นำเข้า Async Actions ที่สร้างไว้ใน userSlice
 import { fetchUsers, addUserAsync, updateUserAsync, deleteUserAsync } from "../redux/userSlice";
 import { Plus, MoreHorizontal, Edit, Trash2, Mail, Shield, Calendar, CheckCircle2, User as UserIcon, Upload, Image as ImageIcon, Loader2 } from "lucide-react";
 import { Table } from "../components/ui/Table/Table";
@@ -26,17 +25,14 @@ const userSchema = z.object({
 type UserFormData = z.infer<typeof userSchema>;
 
 export default function UserManagement() {
-  // ใช้ AppDispatch เพื่อให้ TypeScript ไม่ฟ้องเวลา dispatch Thunk
   const dispatch = useDispatch<AppDispatch>();
   
-  // ดึงสถานะมาจาก Redux Store
   const { users, loading, error } = useSelector((state: RootState) => state.users);
   const { searchQuery } = useOutletContext<{ searchQuery: string }>();
   
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isAddPanelOpen, setIsAddPanelOpen] = useState(false);
 
-  // 1. ดึงข้อมูลจาก API เมื่อ Component โหลด
   useEffect(() => {
     dispatch(fetchUsers());
   }, [dispatch]);
@@ -52,7 +48,6 @@ export default function UserManagement() {
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    // หมายเหตุ: ในระบบจริงควร upload ขึ้น Cloud Storage แล้วเอา URL มาใช้
     const tempLocalUrl = URL.createObjectURL(file);
     setValue("avatarUrl", tempLocalUrl, { shouldValidate: true, shouldDirty: true });
   };
@@ -77,36 +72,48 @@ export default function UserManagement() {
     reset({ name: user.name, email: user.email, avatarUrl: user.avatarUrl || "" });
   };
 
-  // 2. ปรับการ Submit เพื่อส่งข้อมูลไป Backend
+  // ฟังก์ชันปิด Panel แบบล้างค่า (ช่วยลดโอกาสหน้าจอขาว)
+  const handleClosePanel = () => {
+    setIsAddPanelOpen(false);
+    setEditingUser(null);
+    reset({ name: "", email: "", avatarUrl: "" });
+  };
+
+  // แก้ไขส่วน onSubmit ให้เสถียรขึ้น
   const onSubmit = async (data: UserFormData) => {
     try {
+      // 1. เพิ่มสถานะการเช็คว่ากำลังโหลดหรือไม่ เพื่อป้องกันการกดซ้ำ
+      if (loading) return; 
+
       if (isAddPanelOpen) {
-        // สำหรับการสร้าง User ใหม่ (id จะถูกเจนจาก Backend)
         const newUser: Partial<User> = {
           name: data.name,
           email: data.email,
           role: "CUSTOMER", 
-          avatarUrl: data.avatarUrl?.trim() 
+          avatarUrl: data.avatarUrl?.trim() || "" 
         };
         await dispatch(addUserAsync(newUser)).unwrap();
-        setIsAddPanelOpen(false);
       } else if (editingUser) {
-        // สำหรับการแก้ไข
         await dispatch(updateUserAsync({ 
           ...editingUser, 
           name: data.name, 
           email: data.email, 
-          avatarUrl: data.avatarUrl?.trim() 
+          avatarUrl: data.avatarUrl?.trim() || "" 
         })).unwrap();
-        setEditingUser(null);
       }
-      reset();
+      
+      // 2. ใช้ setTimeout ช่วยหน่วงจังหวะปิดเล็กน้อย (50-100ms) 
+      // เพื่อให้ Redux อัปเดตข้อมูลเสร็จก่อนที่ Modal จะหายไป
+      setTimeout(() => {
+        handleClosePanel();
+      }, 50);
+
     } catch (err) {
-      console.error("Failed to save user:", err);
+      console.error("Save error:", err);
+      // ถ้า Error ห้ามสั่งปิดหน้าต่าง เพื่อให้ user เห็น error message
     }
   };
 
-  // 3. ปรับการ Delete
   const handleDeleteUser = async (id: string) => {
     if (confirm("Are you sure you want to delete this user?")) { 
       try {
@@ -117,25 +124,65 @@ export default function UserManagement() {
     }
   };
 
-  const columns: Column<User>[] = [
-    { header: "USER INFO", key: "name", render: (user) => (
+const columns: Column<User>[] = [
+    { 
+      header: "USER INFO", 
+      key: "name", 
+      render: (user) => (
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold uppercase overflow-hidden shrink-0 border border-indigo-200">
-            {user.avatarUrl ? <img src={user.avatarUrl} alt={user.name} className="w-full h-full object-cover" /> : user.name.charAt(0)}
+            {/* ใส่ ? หลัง user และตรวจสอบว่ามีชื่อไหมก่อนใช้ charAt */}
+            {user?.avatarUrl ? (
+              <img src={user.avatarUrl} alt={user?.name} className="w-full h-full object-cover" />
+            ) : (
+              user?.name?.charAt(0) || "U"
+            )}
           </div>
-          <div><p className="font-medium text-slate-800">{user.name}</p><p className="text-xs text-slate-500">{user.email}</p></div>
+          <div>
+            <p className="font-medium text-slate-800">{user?.name || "Unknown"}</p>
+            <p className="text-xs text-slate-500">{user?.email || ""}</p>
+          </div>
         </div>
-      )},
-    { header: "ROLE", key: "role" },
-    { header: "STATUS", key: "status", render: (user) => <Status status={user.status} /> },
-    { header: "ACTIONS", key: "id", className: "text-right", render: (user) => (
-        <Dropdown trigger={<button className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors"><MoreHorizontal size={18} /></button>}
+      )
+    },
+    { 
+      header: "ROLE", 
+      key: "role",
+      render: (user) => <span>{user?.role || "CUSTOMER"}</span> // เพิ่ม render เพื่อความปลอดภัย
+    },
+    { 
+      header: "STATUS", 
+      key: "status", 
+      render: (user) => <Status status={user?.status || "INACTIVE"} /> 
+    },
+    { 
+      header: "ACTIONS", 
+      key: "id", 
+      className: "text-right", 
+      render: (user) => (
+        <Dropdown 
+          trigger={
+            <button className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors">
+              <MoreHorizontal size={18} />
+            </button>
+          }
           items={[
-            { label: "Edit User", icon: <Edit size={16} />, onClick: () => handleEditClick(user) },
-            { label: "Delete User", icon: <Trash2 size={16} />, className: "text-red-600", divider: true, onClick: () => handleDeleteUser(user.id) },
+            { 
+              label: "Edit User", 
+              icon: <Edit size={16} />, 
+              onClick: () => user && handleEditClick(user) // เช็คว่ามี user ก่อนส่งไปฟังก์ชัน edit
+            },
+            { 
+              label: "Delete User", 
+              icon: <Trash2 size={16} />, 
+              className: "text-red-600", 
+              divider: true, 
+              onClick: () => user?.id && handleDeleteUser(user.id) // เช็ค id ก่อนสั่งลบ
+            },
           ]}
         />
-      )},
+      )
+    },
   ];
 
   return (
@@ -147,7 +194,6 @@ export default function UserManagement() {
         </Button>
       </div>
 
-      {/* แสดง Error ถ้าดึงข้อมูลไม่สำเร็จ */}
       {error && (
         <div className="bg-red-50 text-red-600 p-4 rounded-xl border border-red-100 text-sm">
           {error}
@@ -155,7 +201,6 @@ export default function UserManagement() {
       )}
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-4 relative min-h-[200px]">
-        {/* แสดง Loading Spinner ระหว่างรอข้อมูล */}
         {loading && (
           <div className="absolute inset-0 bg-white/60 flex items-center justify-center z-10 rounded-xl">
             <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
@@ -171,10 +216,11 @@ export default function UserManagement() {
 
       <SidePanelEdit 
         isOpen={isAddPanelOpen || !!editingUser} 
-        onClose={() => { setIsAddPanelOpen(false); setEditingUser(null); }} 
+        onClose={handleClosePanel} 
         title={editingUser ? "Edit User" : "Add New User"}
         footer={
           <button 
+            type="button"
             onClick={handleSubmit(onSubmit)} 
             disabled={loading}
             className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-indigo-600 rounded-2xl text-sm font-bold text-white hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 active:scale-[0.98] disabled:opacity-50"

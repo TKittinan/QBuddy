@@ -58,7 +58,7 @@ const Sidebar = () => {
         {isAdmin && (
           <>
             <div className="border-t border-white/10 my-4 mx-2" />
-            <SidebarItem to="/usermanage" icon={<PersonIcon />} label="UserManage" />
+            <SidebarItem to="/usermanage" icon={<PersonIcon />} label="UserManagement" />
             <SidebarItem to="/staffmanagement" icon={<GroupIcon size={18} />} label="StaffManagement" />
           </>
         )}
