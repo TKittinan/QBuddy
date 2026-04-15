@@ -8,23 +8,30 @@ import {
   EnvelopeClosedIcon
 } from "@radix-ui/react-icons";
 import { NavLink, useNavigate } from "react-router-dom";
-import { useAuth } from "../../../context/auth/use.Auth";
 import { GroupIcon, MessageSquare } from "lucide-react";
+
+// นำเข้า Hooks จาก Redux แทน Context เดิม
+import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
+import { logout } from "../../../redux/authSlice";
 
 const Sidebar = () => {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const dispatch = useAppDispatch();
+  
+  // ดึงข้อมูล User จาก Redux Store
+  const { user } = useAppSelector((state) => state.auth);
+  
+  // เช็คสิทธิ์ Admin จากข้อมูลใน Redux (ตรวจสอบให้แน่ใจว่า field ชื่อ role หรือ admin.role)
   const isAdmin = user?.role === "ADMIN";
 
   const handleLogout = () => {
-    if (user) {
-      const savedStaffs = JSON.parse(localStorage.getItem("system_staffs") || "[]");
-      const updatedStaffs = savedStaffs.map((staff: any) => 
-        staff.email === user.email ? { ...staff, status: "OFFLINE" } : staff
-      );
-      localStorage.setItem("system_staffs", JSON.stringify(updatedStaffs));
-    }
-    logout();
+    // 1. ล้างสถานะใน Redux และ LocalStorage ผ่าน Slice
+    dispatch(logout());
+    
+    // 2. ล้างข้อมูล mock เดิม (ถ้ายังมีค้างอยู่)
+    localStorage.removeItem("system_staffs");
+    
+    // 3. กลับหน้า Login
     navigate("/login");
   };
 
@@ -47,6 +54,7 @@ const Sidebar = () => {
         <SidebarItem to="/bookingManagement" icon={<BarChartIcon />} label="BookingManagement" />
         <SidebarItem to="/postmanagement" icon={<MessageSquare size={18} />} label="PostManagement" />
 
+        {/* เมนูจะโชว์เมื่อ isAdmin เป็น true เท่านั้น */}
         {isAdmin && (
           <>
             <div className="border-t border-white/10 my-4 mx-2" />
