@@ -1,8 +1,8 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useOutletContext } from "react-router-dom"; 
 import { useDispatch, useSelector } from "react-redux";
-import type { RootState } from "../redux/Reduxindex";
-import { addStaff, updateStaff, deleteStaff } from "../redux/staffSlice";
+import type { RootState, AppDispatch } from "../redux/Reduxindex";
+import { fetchStaffs, addStaffAsync, updateStaffAsync, deleteStaffAsync } from "../redux/staffSlice";
 import { Plus, MoreHorizontal, Edit, Trash2, Mail, Shield, Calendar, User as UserIcon, CheckCircle2, Lock } from "lucide-react";
 import { Table } from "../components/ui/Table/Table";
 import { Dropdown } from "../components/ui/Dropdown";
@@ -14,12 +14,10 @@ import { Status } from "../components/ui/Status";
 import type { User, Column } from "../types";
 import { useAuth } from "../context/auth/use.Auth"; 
 
-// 🌟 นำเข้า useForm และ Zod
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 
-// 🌟 Schema สำหรับเพิ่มพนักงาน (บังคับรหัสผ่าน)
 const addStaffSchema = z.object({
   name: z.string().min(1, "กรุณากรอกชื่อ"),
   email: z.string().email("รูปแบบอีเมลไม่ถูกต้อง"),
@@ -27,7 +25,6 @@ const addStaffSchema = z.object({
   role: z.enum(["ADMIN", "STAFF"])
 });
 
-// 🌟 Schema สำหรับแก้ไข (ไม่มีรหัสผ่าน)
 const editStaffSchema = z.object({
   name: z.string().min(1, "กรุณากรอกชื่อ"),
   email: z.string().email("รูปแบบอีเมลไม่ถูกต้อง"),
@@ -38,8 +35,9 @@ type AddStaffFormData = z.infer<typeof addStaffSchema>;
 type EditStaffFormData = z.infer<typeof editStaffSchema>;
 
 export default function StaffManagement() {
-  const dispatch = useDispatch();
-  const staffs = useSelector((state: RootState) => state.staffs.staffs);
+  // ต้องระบุประเภทเป็น AppDispatch เพื่อให้ใช้ AsyncThunk ได้
+  const dispatch = useDispatch<AppDispatch>();
+  const { staffs, loading } = useSelector((state: RootState) => state.staffs);
 
   const { searchQuery } = useOutletContext<{ searchQuery: string }>();
   const { user: currentUser, login, token } = useAuth(); 
@@ -50,14 +48,17 @@ export default function StaffManagement() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isAddPanelOpen, setIsAddPanelOpen] = useState(false);
 
-  // 🌟 Form สำหรับ Add
+  // ดึงข้อมูลพนักงานเมื่อเปิดหน้าเว็บ
+  useEffect(() => {
+    dispatch(fetchStaffs());
+  }, [dispatch]);
+
   const addForm = useForm<AddStaffFormData>({
     resolver: zodResolver(addStaffSchema),
     defaultValues: { name: "", email: "", password: "", role: "STAFF" },
     mode: "onChange"
   });
 
-  // 🌟 Form สำหรับ Edit
   const editForm = useForm<EditStaffFormData>({
     resolver: zodResolver(editStaffSchema),
     defaultValues: { name: "", email: "", role: "STAFF" },
@@ -68,9 +69,13 @@ export default function StaffManagement() {
     let result = [...staffs];
     if (searchQuery) {
       const lowerQuery = searchQuery.toLowerCase();
-      result = result.filter(user => user.name.toLowerCase().includes(lowerQuery) || user.email.toLowerCase().includes(lowerQuery));
+      result = result.filter(user => 
+        user?.name?.toLowerCase().includes(lowerQuery) || 
+        user?.email?.toLowerCase().includes(lowerQuery)
+      );
     }
-    result.sort((a, b) => b.id.localeCompare(a.id));
+    // ใช้เครื่องหมาย ? เพื่อกัน Error เวลา id เป็น null
+    result.sort((a, b) => (b?.id || "").localeCompare(a?.id || ""));
     return result;
   }, [staffs, searchQuery]);
 
@@ -82,58 +87,98 @@ export default function StaffManagement() {
     setIsAddPanelOpen(true);
   };
 
-  const onAddSubmit = (data: AddStaffFormData) => {
-    const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    const newStaff: User = {
-      id: `staff_${Date.now()}`,
-      name: data.name,
-      email: data.email,
-      password: data.password,
-      role: data.role, 
-      status: "UNVERIFIED", 
-      createdAt: today, 
-    };
-
-    dispatch(addStaff(newStaff));
-    addForm.reset();
-    setIsAddPanelOpen(false);
+  const onAddSubmit = async (data: AddStaffFormData) => {
+    try {
+      await dispatch(addStaffAsync(data)).unwrap();
+      addForm.reset();
+      setIsAddPanelOpen(false);
+    } catch (err) {
+      console.error("Failed to add staff:", err);
+    }
   };
 
   const handleEditClick = (user: User) => {
     setEditingUser(user); 
-    editForm.reset({ name: user.name, email: user.email, role: user.role as "ADMIN" | "STAFF" });
+    editForm.reset({ 
+      name: user.name, 
+      email: user.email, 
+      role: (user.role as "ADMIN" | "STAFF") || "STAFF" 
+    });
   };
 
-  const onEditSubmit = (data: EditStaffFormData) => {
+  const onEditSubmit = async (data: EditStaffFormData) => {
     if (!editingUser) return;
-    dispatch(updateStaff({ ...editingUser, name: data.name, email: data.email, role: data.role }));
+    try {
+      const updatedStaff = { ...editingUser, ...data };
+      await dispatch(updateStaffAsync(updatedStaff)).unwrap();
 
-    if (currentUser && currentUser.id === editingUser.id) {
-        login({ id: currentUser.id, name: data.name, email: data.email, role: data.role }, token || "");
+      if (currentUser && currentUser.id === editingUser.id) {
+          login({ ...currentUser, name: data.name, email: data.email, role: data.role }, token || "");
+      }
+      setEditingUser(null);
+    } catch (err) {
+      console.error("Failed to update staff:", err);
     }
-    setEditingUser(null);
   };
 
   const handleDeleteUser = async (id: string) => {
-    if (confirm("Are you sure you want to delete this staff member?")) { dispatch(deleteStaff(id)); }
+    if (window.confirm("Are you sure you want to delete this staff member?")) { 
+      try {
+        await dispatch(deleteStaffAsync(id)).unwrap();
+      } catch (err) {
+        console.error("Failed to delete staff:", err);
+      }
+    }
   };
 
   const columns: Column<User>[] = [
-    { header: "STAFF INFO", key: "name", className: "w-[40%] text-left", render: (user) => (
-        <div className="flex items-center gap-3"><div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold uppercase ${user.role === 'ADMIN' ? 'bg-rose-100 text-rose-700' : 'bg-indigo-100 text-indigo-700'}`}>{user.name.charAt(0)}</div><div><p className="font-medium text-slate-800">{user.name}</p><p className="text-xs text-slate-500">{user.email}</p></div></div>
-      )},
-    { header: "ROLE", key: "role", className: "w-[20%] text-left", render: (user) => (
-        <span className={`px-2 py-1 rounded border text-[10px] font-bold ${user.role === 'ADMIN' ? 'border-rose-200 text-rose-600 bg-rose-50' : 'border-indigo-200 text-indigo-600 bg-indigo-50'}`}>{user.role}</span>
-      )},
-    { header: "STATUS", key: "status", className: "w-[20%] text-center", render: (user) => <div className="flex justify-center"><Status status={user.status} /></div> },
-    { header: "ACTIONS", key: "id", className: "text-right w-[20%]", render: (user) => (
-        <Dropdown align="right" trigger={<button className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors"><MoreHorizontal size={18} /></button>}
+    { 
+      header: "STAFF INFO", 
+      key: "name", 
+      className: "w-[40%] text-left", 
+      render: (user) => (
+        <div className="flex items-center gap-3">
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold uppercase shrink-0 ${user?.role === 'ADMIN' ? 'bg-rose-100 text-rose-700' : 'bg-indigo-100 text-indigo-700'}`}>
+            {user?.name?.charAt(0) || "?"}
+          </div>
+          <div className="min-w-0">
+            <p className="font-medium text-slate-800 truncate">{user?.name || "N/A"}</p>
+            <p className="text-xs text-slate-500 truncate">{user?.email || ""}</p>
+          </div>
+        </div>
+      )
+    },
+    { 
+      header: "ROLE", 
+      key: "role", 
+      className: "w-[20%] text-left", 
+      render: (user) => (
+        <span className={`px-2 py-1 rounded border text-[10px] font-bold ${user?.role === 'ADMIN' ? 'border-rose-200 text-rose-600 bg-rose-50' : 'border-indigo-200 text-indigo-600 bg-indigo-50'}`}>
+          {user?.role || "STAFF"}
+        </span>
+      )
+    },
+    { 
+      header: "STATUS", 
+      key: "status", 
+      className: "w-[20%] text-center", 
+      render: (user) => <div className="flex justify-center"><Status status={user?.status || "OFFLINE"} /></div> 
+    },
+    { 
+      header: "ACTIONS", 
+      key: "id", 
+      className: "text-right w-[20%]", 
+      render: (user) => (
+        <Dropdown 
+          align="right" 
+          trigger={<button className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors"><MoreHorizontal size={18} /></button>}
           items={[
             { label: "Edit Staff", icon: <Edit size={16} />, onClick: () => handleEditClick(user) },
-            { label: "Delete", icon: <Trash2 size={16} />, className: "text-red-600", divider: true, onClick: () => handleDeleteUser(user.id) },
+            { label: "Delete", icon: <Trash2 size={16} />, className: "text-red-600", divider: true, onClick: () => user?.id && handleDeleteUser(user.id) },
           ]}
         />
-      )},
+      )
+    },
   ];
 
   return (
@@ -143,12 +188,22 @@ export default function StaffManagement() {
         <Button className="bg-[#5AB2A8] hover:bg-[#4a968d] text-white shadow-lg flex items-center gap-2" onClick={handleOpenAdd}><Plus size={18} /> Add New Staff</Button>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4">
-        <Table data={paginatedData} columns={columns} />
-        <Pagination currentPage={currentPage} totalPages={totalPages} totalItems={filteredStaffs.length} itemsPerPage={itemsPerPage} onChange={setCurrentPage} />
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 min-h-[400px]">
+        {loading ? (
+          <div className="flex items-center justify-center h-64 text-slate-400">Loading staffs...</div>
+        ) : (
+          <>
+            <Table data={paginatedData} columns={columns} />
+            <Pagination currentPage={currentPage} totalPages={totalPages} totalItems={filteredStaffs.length} itemsPerPage={itemsPerPage} onChange={setCurrentPage} />
+          </>
+        )}
       </div>
 
-      <SidePanelEdit isOpen={isAddPanelOpen} onClose={() => setIsAddPanelOpen(false)} title="Add New Staff"
+      {/* Add Staff SidePanel */}
+      <SidePanelEdit 
+        isOpen={isAddPanelOpen} 
+        onClose={() => setIsAddPanelOpen(false)} 
+        title="Add New Staff"
         footer={<button onClick={addForm.handleSubmit(onAddSubmit)} className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-[#5AB2A8] rounded-2xl text-sm font-bold text-white hover:bg-[#4a968d] transition-all shadow-lg shadow-teal-100 active:scale-[0.98]"><Plus size={18} /> Create Account</button>}
       >
         <div className="space-y-6">
@@ -176,18 +231,21 @@ export default function StaffManagement() {
                 </div>
               )}/>
             </div>
-            <div className="pt-2"><DetailItem icon={<Shield size={18} />} label="Initial Status" value="UNVERIFIED (Awaiting First Login)" /></div>
           </div>
         </div>
       </SidePanelEdit>
 
-      <SidePanelEdit isOpen={!!editingUser} onClose={() => setEditingUser(null)} title="Edit Staff"
+      {/* Edit Staff SidePanel */}
+      <SidePanelEdit 
+        isOpen={!!editingUser} 
+        onClose={() => setEditingUser(null)} 
+        title="Edit Staff"
         footer={<button onClick={editForm.handleSubmit(onEditSubmit)} className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-[#5AB2A8] rounded-2xl text-sm font-bold text-white hover:bg-[#4a968d] transition-all shadow-lg shadow-teal-100 active:scale-[0.98]"><CheckCircle2 size={18} /> Update Details</button>}
       >
         {editingUser && (
           <>
             <div className="flex flex-col items-center text-center mb-10">
-              <div className={`w-24 h-24 rounded-3xl flex items-center justify-center text-white font-bold text-4xl shadow-xl mb-4 uppercase ${editingUser.role === 'ADMIN' ? 'bg-rose-500 shadow-rose-100' : 'bg-indigo-500 shadow-indigo-100'}`}>{editingUser.name.charAt(0)}</div>
+              <div className={`w-24 h-24 rounded-3xl flex items-center justify-center text-white font-bold text-4xl shadow-xl mb-4 uppercase ${editingUser.role === 'ADMIN' ? 'bg-rose-500 shadow-rose-100' : 'bg-indigo-500 shadow-indigo-100'}`}>{editingUser.name?.charAt(0) || "?"}</div>
               <h3 className="text-2xl font-bold text-slate-800">{editingUser.name}</h3>
               <p className="text-slate-500 text-sm mt-1">{editingUser.email}</p>
               <div className="mt-4"><Status status={editingUser.status} /></div>
@@ -215,7 +273,7 @@ export default function StaffManagement() {
                   )}/>
                 </div>
 
-                <div className="pt-2"><DetailItem icon={<Calendar size={18} />} label="Account Created" value={editingUser.createdAt} /></div>
+                <div className="pt-2"><DetailItem icon={<Calendar size={18} />} label="Account Created" value={editingUser.createdAt || "N/A"} /></div>
               </div>
             </div>
           </>
@@ -228,7 +286,11 @@ export default function StaffManagement() {
 function DetailItem({ icon, label, value }: { icon: React.ReactNode, label: string, value: string }) {
   return (
     <div className="flex items-start gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100">
-      <div className="text-slate-400 mt-1">{icon}</div><div><p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider leading-none mb-1">{label}</p><p className="text-sm font-bold text-slate-700">{value}</p></div>
+      <div className="text-slate-400 mt-1">{icon}</div>
+      <div>
+        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider leading-none mb-1">{label}</p>
+        <p className="text-sm font-bold text-slate-700">{value}</p>
+      </div>
     </div>
   );
 }

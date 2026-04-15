@@ -1,19 +1,17 @@
 import { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import type { RootState } from "../redux/Reduxindex";
+import type { RootState, AppDispatch } from "../redux/Reduxindex";
 import { updateSettings } from "../redux/settingSlice";
-import { updateStaff } from "../redux/staffSlice";
+import { updateStaffAsync } from "../redux/staffSlice"; 
 import { Building2, SlidersHorizontal, ShieldCheck, Save, Phone, Mail, Clock, Lock } from "lucide-react";
 import { Input } from "../components/ui/Input";
 import { Button } from "../components/ui/Button";
 import { useAuth } from "../context/auth/use.Auth"; 
 
-// 🌟 นำเข้า useForm และ Zod
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 
-// 🌟 Schema สำหรับเช็คการเปลี่ยนรหัสผ่านโดยเฉพาะ (ตรวจ 2 ช่องให้ตรงกัน)
 const securitySchema = z.object({
   current: z.string().min(1, "กรุณากรอกรหัสผ่านปัจจุบัน"),
   newPass: z.string().min(6, "รหัสผ่านใหม่ต้องมีอย่างน้อย 6 ตัวอักษร"),
@@ -32,7 +30,8 @@ type SecurityFormData = z.infer<typeof securitySchema>;
 type Tab = "general" | "queue" | "security";
 
 export default function Settings() {
-  const dispatch = useDispatch();
+  // ใช้ AppDispatch เพื่อให้รองรับการ Dispatch Async Thunk
+  const dispatch = useDispatch<AppDispatch>(); 
   const { user } = useAuth(); 
   const settings = useSelector((state: RootState) => state.settings);
   const staffs = useSelector((state: RootState) => state.staffs.staffs);
@@ -40,7 +39,6 @@ export default function Settings() {
   const [activeTab, setActiveTab] = useState<Tab>("general");
   const [formData, setFormData] = useState(settings);
 
-  // 🌟 ติดตั้ง Form สำหรับ Security
   const secForm = useForm<SecurityFormData>({
     resolver: zodResolver(securitySchema),
     defaultValues: { current: "", newPass: "", confirm: "" },
@@ -63,16 +61,29 @@ export default function Settings() {
     alert("Settings saved successfully!");
   };
 
-  const handleSaveSecurity = (data: SecurityFormData) => {
-    setPassError(""); setPassSuccess("");
+  const handleSaveSecurity = async (data: SecurityFormData) => {
+    setPassError(""); 
+    setPassSuccess("");
+    
+    // ค้นหาข้อมูล Staff ปัจจุบันจากอีเมล
     const currentUserData = staffs.find((s: any) => s.email === user?.email);
 
-    if (currentUserData && currentUserData.password === data.current) {
-      dispatch(updateStaff({ ...currentUserData, password: data.newPass }));
-      setPassSuccess("Password updated successfully!");
-      secForm.reset(); 
+    if (currentUserData) {
+      // ตรวจสอบรหัสผ่านปัจจุบัน (ในระบบจริงควรตรวจสอบที่ Backend)
+      if (currentUserData.password === data.current) {
+        try {
+          // เรียกใช้ updateStaffAsync และใช้ .unwrap() เพื่อรอผลลัพธ์
+          await dispatch(updateStaffAsync({ ...currentUserData, password: data.newPass })).unwrap();
+          setPassSuccess("Password updated successfully!");
+          secForm.reset(); 
+        } catch (err: any) {
+          setPassError(err || "Failed to update password");
+        }
+      } else {
+        setPassError("Incorrect current password.");
+      }
     } else {
-      setPassError("Incorrect current password.");
+      setPassError("User profile not found.");
     }
   };
 
@@ -140,7 +151,10 @@ export default function Settings() {
           )}
 
           <div className="mt-10 pt-6 border-t flex justify-end">
-            <Button onClick={activeTab === "security" ? secForm.handleSubmit(handleSaveSecurity) : handleSaveGeneral} className="bg-[#5AB2A8] hover:bg-[#4a968d] text-white px-8 py-2.5 flex items-center gap-2 shadow-lg shadow-teal-100">
+            <Button 
+              onClick={activeTab === "security" ? secForm.handleSubmit(handleSaveSecurity) : handleSaveGeneral} 
+              className="bg-[#5AB2A8] hover:bg-[#4a968d] text-white px-8 py-2.5 flex items-center gap-2 shadow-lg shadow-teal-100"
+            >
               <Save size={18} /> {activeTab === "security" ? "Update Password" : "Save Changes"}
             </Button>
           </div>

@@ -1,36 +1,85 @@
-import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
+import { createSlice, createAsyncThunk, type PayloadAction } from "@reduxjs/toolkit";
+import axios from "axios";
 import type { User } from "../types";
 
-const initialStaffs: User[] = [
-  { id: "admin_1", name: "admin1", email: "admin1@qbuddy.com", password: "admin123", role: "ADMIN", status: "OFFLINE", createdAt: "Oct 01, 2023" },
-  { id: "staff_1", name: "staff1", email: "staff1@qbuddy.com", password: "staff123", role: "STAFF", status: "ONLINE", createdAt: "Sep 20, 2023" },
-];
+interface StaffState {
+  staffs: User[];
+  loading: boolean;
+  error: string | null;
+}
 
-const initialState = {
-  staffs: JSON.parse(localStorage.getItem("system_staffs") || "null") || initialStaffs,
+const initialState: StaffState = {
+  staffs: [],
+  loading: false,
+  error: null,
 };
+
+// --- Async Thunks ---
+export const fetchStaffs = createAsyncThunk("staffs/fetchStaffs", async (_, { rejectWithValue }) => {
+  try {
+    const response = await axios.get("http://localhost:5000/api/admin");
+    return response.data;
+  } catch (err: any) {
+    return rejectWithValue(err.response?.data?.message || "Failed to fetch staffs");
+  }
+});
+
+export const addStaffAsync = createAsyncThunk("staffs/addStaff", async (newStaff: Partial<User>, { rejectWithValue }) => {
+  try {
+    const response = await axios.post("http://localhost:5000/api/admin", newStaff);
+    return response.data;
+  } catch (err: any) {
+    return rejectWithValue(err.response?.data?.message || "Failed to add staff");
+  }
+});
+
+export const updateStaffAsync = createAsyncThunk("staffs/updateStaff", async (staff: User, { rejectWithValue }) => {
+  try {
+    const response = await axios.put(`http://localhost:5000/api/admin/${staff.id}`, staff);
+    return response.data;
+  } catch (err: any) {
+    return rejectWithValue(err.response?.data?.message || "Failed to update staff");
+  }
+});
+
+export const deleteStaffAsync = createAsyncThunk("staffs/deleteStaff", async (id: string, { rejectWithValue }) => {
+  try {
+    await axios.delete(`http://localhost:5000/api/admin/${id}`);
+    return id;
+  } catch (err: any) {
+    return rejectWithValue(err.response?.data?.message || "Failed to delete staff");
+  }
+});
 
 const staffSlice = createSlice({
   name: "staffs",
   initialState,
-  reducers: {
-    addStaff: (state, action: PayloadAction<User>) => {
-      state.staffs.push(action.payload);
-      localStorage.setItem("system_staffs", JSON.stringify(state.staffs));
-    },
-    updateStaff: (state, action: PayloadAction<User>) => {
-      const index = state.staffs.findIndex((s: User) => s.id === action.payload.id);
-      if (index !== -1) {
-        state.staffs[index] = action.payload;
-        localStorage.setItem("system_staffs", JSON.stringify(state.staffs));
-      }
-    },
-    deleteStaff: (state, action: PayloadAction<string>) => {
-      state.staffs = state.staffs.filter((s: User) => s.id !== action.payload);
-      localStorage.setItem("system_staffs", JSON.stringify(state.staffs));
-    }
-  }
+  reducers: {}, // ถ้ายังไม่มี reducer ปกติ ให้ใส่ {} ไว้ครับ
+  extraReducers: (builder) => {
+    builder
+      .addCase(fetchStaffs.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchStaffs.fulfilled, (state, action: PayloadAction<User[]>) => {
+        state.loading = false;
+        state.staffs = action.payload;
+      })
+      .addCase(fetchStaffs.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload as string;
+      })
+      .addCase(addStaffAsync.fulfilled, (state, action: PayloadAction<User>) => {
+        state.staffs.push(action.payload);
+      })
+      .addCase(updateStaffAsync.fulfilled, (state, action: PayloadAction<User>) => {
+        const index = state.staffs.findIndex((s) => s.id === action.payload.id);
+        if (index !== -1) state.staffs[index] = action.payload;
+      })
+      .addCase(deleteStaffAsync.fulfilled, (state, action: PayloadAction<string>) => {
+        state.staffs = state.staffs.filter((s) => s.id !== action.payload);
+      });
+  },
 });
 
-export const { addStaff, updateStaff, deleteStaff } = staffSlice.actions;
 export default staffSlice.reducer;
