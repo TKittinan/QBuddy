@@ -6,7 +6,7 @@ const API_URL = "http://localhost:3000/api/users";
 
 // Helper function สำหรับดึง Token และตั้งค่า Header
 const getAuthConfig = () => {
-  const token = localStorage.getItem("token"); // ดึง token ที่เซฟไว้ตอน login
+  const token = localStorage.getItem("token");
   return {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -15,26 +15,23 @@ const getAuthConfig = () => {
 };
 
 // 1. Actions สำหรับเรียก API (Async Thunks)
-// ดึงข้อมูลทั้งหมด
 export const fetchUsers = createAsyncThunk("users/fetchUsers", async () => {
   const response = await axios.get(API_URL, getAuthConfig());
   return response.data;
 });
 
-// เพิ่ม User
 export const addUserAsync = createAsyncThunk("users/addUser", async (newUser: Partial<User>) => {
   const response = await axios.post(API_URL, newUser, getAuthConfig());
   return response.data;
 });
 
-// แก้ไข User
 export const updateUserAsync = createAsyncThunk("users/updateUser", async (updatedUser: User) => {
   const response = await axios.put(`${API_URL}/${updatedUser.id}`, updatedUser, getAuthConfig());
   return response.data;
 });
 
-// ลบ User
-export const deleteUserAsync = createAsyncThunk("users/deleteUser", async (userId: string) => {
+// เปลี่ยน userId จาก string เป็น number | string เพื่อความยืดหยุ่น
+export const deleteUserAsync = createAsyncThunk("users/deleteUser", async (userId: number | string) => {
   await axios.delete(`${API_URL}/${userId}`, getAuthConfig());
   return userId;
 });
@@ -53,7 +50,6 @@ const initialState: UserState = {
 };
 
 // 3. Slice
-
 const userSlice = createSlice({
   name: "users",
   initialState,
@@ -71,8 +67,6 @@ const userSlice = createSlice({
       })
       .addCase(fetchUsers.rejected, (state, action) => {
         state.loading = false;
-        
-        // ถ้าขึ้น 401 อาจจะแปลว่า Token หมดอายุ
         state.error = action.error.message || "Failed to fetch users";
       })
 
@@ -90,8 +84,9 @@ const userSlice = createSlice({
       })
 
       // Delete User
-      .addCase(deleteUserAsync.fulfilled, (state, action: PayloadAction<string>) => {
-        state.users = state.users.filter((u) => u.id !== action.payload);
+      .addCase(deleteUserAsync.fulfilled, (state, action: PayloadAction<number | string>) => {
+        // ใช้ != เพื่อให้เปรียบเทียบข้าม Type ได้กรณีที่ตัวหนึ่งเป็น string อีกตัวเป็น number
+        state.users = state.users.filter((u) => u.id != action.payload);
       });
   },
 });

@@ -28,7 +28,7 @@ export const login = async (req: Request, res: Response) => {
     // เปลี่ยน userId เป็น adminId เพื่อให้ตรงกับโครงสร้างใหม่
     const token = jwt.sign(
       { 
-        adminId: admin.admin_id, 
+        adminId: admin.id, 
         role: admin.role 
       },
       "secret", // ต้องตรงกับใน auth_middleware.ts
@@ -39,7 +39,7 @@ export const login = async (req: Request, res: Response) => {
     res.json({
       token,
       user: {
-        id: admin.admin_id,
+        id: admin.id,
         email: admin.email,
         name: admin.name,
         role: admin.role // ค่าจะเป็น "admin" หรือ "staff" ตามที่คุณใส่ใน DB

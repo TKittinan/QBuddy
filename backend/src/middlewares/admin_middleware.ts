@@ -16,7 +16,7 @@ export const adminMiddleware = async (
     // 2. ค้นหาข้อมูลในตาราง Admin โดยใช้ adminId
     const admin = await prisma.admin.findUnique({
       where: {
-        admin_id: req.adminId, // เปลี่ยนจาก user_id เป็น admin_id
+        id: req.adminId, // เปลี่ยนจาก user_id เป็น admin_id
       },
     });
 

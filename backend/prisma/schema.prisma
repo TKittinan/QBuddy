@@ -29,11 +29,11 @@ model User {
 
 // Table Admin (สำหรับ Staff และ Admin เท่านั้น)
 model Admin {
-  admin_id   Int      @id @default(autoincrement())
-  name       String   // เพิ่มชื่อเพื่อให้แสดงในระบบได้
+  id         Int      @id @default(autoincrement()) // เปลี่ยนจาก admin_id เป็น id
+  name       String   
   email      String   @unique
   password   String
-  role       String   // เก็บเป็น "admin" หรือ "staff"
+  role       String   // "ADMIN" หรือ "STAFF"
   created_at DateTime @default(now())
 }
 

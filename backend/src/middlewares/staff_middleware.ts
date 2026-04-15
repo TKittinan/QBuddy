@@ -16,7 +16,7 @@ export const staffMiddleware = async (
     // 2. ค้นหาเจ้าหน้าที่ในตาราง Admin
     const admin = await prisma.admin.findUnique({
       where: {
-        admin_id: req.adminId, // เปลี่ยนจาก user_id เป็น admin_id ตาม Schema ใหม่
+        id: req.adminId, // เปลี่ยนจาก user_id เป็น admin_id ตาม Schema ใหม่
       },
     });
 
@@ -27,7 +27,7 @@ export const staffMiddleware = async (
 
     // 4. ตรวจสอบสิทธิ์: อนุญาตทั้งคนที่เป็น 'admin' และ 'staff'
     // (เพราะโดยปกติหน้าทั่วไป Staff ควรเข้าถึงได้ แต่หน้าตั้งค่าระบบอาจกั้นไว้ให้แค่ Admin)
-    
+
     if (admin.role !== "admin" && admin.role !== "staff") {
       return res.status(403).json({ message: "Access denied: Staff/Admin only" });
     }

@@ -14,37 +14,56 @@ const initialState: StaffState = {
   error: null,
 };
 
+// --- Helper สำหรับดึง Token มาทำเป็น Header ---
+const getAuthConfig = () => {
+  const token = localStorage.getItem("token");
+  return {
+    headers: {
+      Authorization: `Bearer ${token}`, //  ส่ง Token ไปให้ Middleware ตรวจสอบ
+    },
+  };
+};
+
 // --- Async Thunks ---
+
+// 1. ดึงข้อมูลพนักงานทั้งหมด
 export const fetchStaffs = createAsyncThunk("staffs/fetchStaffs", async (_, { rejectWithValue }) => {
   try {
-    const response = await axios.get("http://localhost:5000/api/admin");
+    // เพิ่ม getAuthConfig() เป็น argument ที่ 2
+    const response = await axios.get("http://localhost:3000/api/admin", getAuthConfig());
     return response.data;
   } catch (err: any) {
     return rejectWithValue(err.response?.data?.message || "Failed to fetch staffs");
   }
 });
 
+// 2. เพิ่มพนักงานใหม่
 export const addStaffAsync = createAsyncThunk("staffs/addStaff", async (newStaff: Partial<User>, { rejectWithValue }) => {
   try {
-    const response = await axios.post("http://localhost:5000/api/admin", newStaff);
+    // สำหรับ POST ต้องใส่ config เป็น argument ที่ 3 (data อยู่ที่ 2)
+    const response = await axios.post("http://localhost:3000/api/admin", newStaff, getAuthConfig());
     return response.data;
   } catch (err: any) {
     return rejectWithValue(err.response?.data?.message || "Failed to add staff");
   }
 });
 
+// 3. แก้ไขข้อมูลพนักงาน
 export const updateStaffAsync = createAsyncThunk("staffs/updateStaff", async (staff: User, { rejectWithValue }) => {
   try {
-    const response = await axios.put(`http://localhost:5000/api/admin/${staff.id}`, staff);
+    // สำหรับ PUT ต้องใส่ config เป็น argument ที่ 3
+    const response = await axios.put(`http://localhost:3000/api/admin/${staff.id}`, staff, getAuthConfig());
     return response.data;
   } catch (err: any) {
     return rejectWithValue(err.response?.data?.message || "Failed to update staff");
   }
 });
 
-export const deleteStaffAsync = createAsyncThunk("staffs/deleteStaff", async (id: string, { rejectWithValue }) => {
+// 4. ลบพนักงาน
+export const deleteStaffAsync = createAsyncThunk("staffs/deleteStaff", async (id: number | string, { rejectWithValue }) => {
   try {
-    await axios.delete(`http://localhost:5000/api/admin/${id}`);
+    // สำหรับ DELETE ต้องใส่ config เป็น argument ที่ 2
+    await axios.delete(`http://localhost:3000/api/admin/${id}`, getAuthConfig());
     return id;
   } catch (err: any) {
     return rejectWithValue(err.response?.data?.message || "Failed to delete staff");
@@ -54,9 +73,10 @@ export const deleteStaffAsync = createAsyncThunk("staffs/deleteStaff", async (id
 const staffSlice = createSlice({
   name: "staffs",
   initialState,
-  reducers: {}, // ถ้ายังไม่มี reducer ปกติ ให้ใส่ {} ไว้ครับ
+  reducers: {},
   extraReducers: (builder) => {
     builder
+      // Fetch Staffs
       .addCase(fetchStaffs.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -69,15 +89,40 @@ const staffSlice = createSlice({
         state.loading = false;
         state.error = action.payload as string;
       })
+      
+      // Add Staff
+      .addCase(addStaffAsync.pending, (state) => {
+        state.loading = true;
+      })
       .addCase(addStaffAsync.fulfilled, (state, action: PayloadAction<User>) => {
-        state.staffs.push(action.payload);
+        state.loading = false;
+        state.staffs.unshift(action.payload);
+      })
+      .addCase(addStaffAsync.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload as string;
+      })
+
+      // Update Staff
+      .addCase(updateStaffAsync.pending, (state) => {
+        state.loading = true;
       })
       .addCase(updateStaffAsync.fulfilled, (state, action: PayloadAction<User>) => {
+        state.loading = false;
         const index = state.staffs.findIndex((s) => s.id === action.payload.id);
-        if (index !== -1) state.staffs[index] = action.payload;
+        if (index !== -1) {
+          state.staffs[index] = action.payload;
+        }
       })
-      .addCase(deleteStaffAsync.fulfilled, (state, action: PayloadAction<string>) => {
-        state.staffs = state.staffs.filter((s) => s.id !== action.payload);
+
+      // Delete Staff
+      .addCase(deleteStaffAsync.fulfilled, (state, action: PayloadAction<number | string>) => {
+        state.loading = false;
+        state.staffs = state.staffs.filter((s) => s.id != action.payload); // ✅ ใช้ != เพื่อรองรับทั้ง string/number
+      })
+      .addCase(deleteStaffAsync.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload as string;
       });
   },
 });

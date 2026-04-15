@@ -35,7 +35,6 @@ type AddStaffFormData = z.infer<typeof addStaffSchema>;
 type EditStaffFormData = z.infer<typeof editStaffSchema>;
 
 export default function StaffManagement() {
-  // ต้องระบุประเภทเป็น AppDispatch เพื่อให้ใช้ AsyncThunk ได้
   const dispatch = useDispatch<AppDispatch>();
   const { staffs, loading } = useSelector((state: RootState) => state.staffs);
 
@@ -48,7 +47,7 @@ export default function StaffManagement() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isAddPanelOpen, setIsAddPanelOpen] = useState(false);
 
-  // ดึงข้อมูลพนักงานเมื่อเปิดหน้าเว็บ
+  // ดึงข้อมูลพนักงานจาก DB จริงเมื่อ Component mount
   useEffect(() => {
     dispatch(fetchStaffs());
   }, [dispatch]);
@@ -74,8 +73,7 @@ export default function StaffManagement() {
         user?.email?.toLowerCase().includes(lowerQuery)
       );
     }
-    // ใช้เครื่องหมาย ? เพื่อกัน Error เวลา id เป็น null
-    result.sort((a, b) => (b?.id || "").localeCompare(a?.id || ""));
+    result.sort((a, b) => (b?.id || 0) - (a?.id || 0));
     return result;
   }, [staffs, searchQuery]);
 
@@ -87,13 +85,15 @@ export default function StaffManagement() {
     setIsAddPanelOpen(true);
   };
 
+  // ฟังก์ชันเพิ่มข้อมูลพนักงานลง DB จริง
   const onAddSubmit = async (data: AddStaffFormData) => {
     try {
       await dispatch(addStaffAsync(data)).unwrap();
+      alert("สร้างบัญชีพนักงานสำเร็จ!");
       addForm.reset();
       setIsAddPanelOpen(false);
-    } catch (err) {
-      console.error("Failed to add staff:", err);
+    } catch (err: any) {
+      alert("เกิดข้อผิดพลาด: " + err);
     }
   };
 
@@ -106,27 +106,31 @@ export default function StaffManagement() {
     });
   };
 
+  // ฟังก์ชันอัปเดตข้อมูลพนักงานลง DB จริง
   const onEditSubmit = async (data: EditStaffFormData) => {
     if (!editingUser) return;
     try {
       const updatedStaff = { ...editingUser, ...data };
       await dispatch(updateStaffAsync(updatedStaff)).unwrap();
 
-      if (currentUser && currentUser.id === editingUser.id) {
+      // ถ้าคนที่เราแก้คือตัวเราเอง ให้ทำการ Update Auth Context ด้วย
+      if (currentUser && Number(currentUser.id) === editingUser.id) {
           login({ ...currentUser, name: data.name, email: data.email, role: data.role }, token || "");
       }
       setEditingUser(null);
-    } catch (err) {
-      console.error("Failed to update staff:", err);
+      alert("อัปเดตข้อมูลสำเร็จ");
+    } catch (err: any) {
+      alert("เกิดข้อผิดพลาด: " + err);
     }
   };
 
-  const handleDeleteUser = async (id: string) => {
-    if (window.confirm("Are you sure you want to delete this staff member?")) { 
+  // ฟังก์ชันลบข้อมูลพนักงานจาก DB จริง
+  const handleDeleteUser = async (id: number) => {
+    if (window.confirm("คุณแน่ใจหรือไม่ว่าต้องการลบพนักงานคนนี้?")) { 
       try {
         await dispatch(deleteStaffAsync(id)).unwrap();
-      } catch (err) {
-        console.error("Failed to delete staff:", err);
+      } catch (err: any) {
+        alert("ไม่สามารถลบได้: " + err);
       }
     }
   };

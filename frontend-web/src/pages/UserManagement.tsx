@@ -114,7 +114,7 @@ export default function UserManagement() {
     }
   };
 
-  const handleDeleteUser = async (id: string) => {
+  const handleDeleteUser = async (id: number) => {
     if (confirm("Are you sure you want to delete this user?")) { 
       try {
         await dispatch(deleteUserAsync(id)).unwrap();

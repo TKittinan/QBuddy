@@ -32,7 +32,7 @@ export const createAdmin = async (data: any) => {
 // 3. แก้ไขข้อมูลเจ้าหน้าที่
 export const updateAdmin = async (id: number, data: any) => {
   return await prisma.admin.update({
-    where: { admin_id: id },
+    where: { id: id },
     data: {
       email: data.email,
       name: data.name,
@@ -44,6 +44,6 @@ export const updateAdmin = async (id: number, data: any) => {
 // 4. ลบเจ้าหน้าที่
 export const deleteAdmin = async (id: number) => {
   return await prisma.admin.delete({
-    where: { admin_id: id },
+    where: { id: id },
   });
 };
