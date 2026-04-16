@@ -2,7 +2,7 @@ import React from "react";
 
 export type RoleType = "ADMIN" | "STAFF" | "CUSTOMER";
 export type TicketStatus = "Waiting" | "Serving" | "Completed" | "Skipped" | "Cancelled";
-export type PlaceStatus = "Active" | "Inactive"; // 🌟 ลบ Disabled ออกแล้ว
+export type PlaceStatus = "Active" | "Inactive"; 
 export type ActivityStatus = "Open" | "Closed" | "Completed" | "Cancelled";
 
 export interface User {
@@ -50,6 +50,7 @@ export interface Place {
   createdAt?: string;
 }
 
+// 🌟 Ticket ของระบบคิวและจอง
 export interface Ticket {
   id: string;
   shopId: string;
@@ -96,6 +97,35 @@ export interface PartyActivity {
   status: ActivityStatus;
   createdAt: string;
 }
+
+// 🌟 Type ใหม่สำหรับ Inbox (Support)
+export type Message = {
+  id: string;
+  senderId: string;
+  senderName: string;
+  text: string;
+  timestamp: string;
+};
+
+// เปลี่ยนชื่อเป็น SupportTicket เพื่อไม่ให้ซ้ำกับ Ticket ด้านบน
+export type SupportTicket = {
+  id: string;
+  userName: string;
+  subject: string;
+  category: "Bug" | "Shop Issue" | "General";
+  status: "Pending" | "Resolved";
+  createdAt: string;
+  messages: Message[];
+};
+
+// 🌟 Type ใหม่สำหรับหน้า Settings
+export type SettingsState = {
+  businessName: string;
+  phone: string;
+  email: string;
+  maxQueuePerDay: string;
+  autoCancelMins: string;
+};
 
 export type Column<T> = {
   header: string;

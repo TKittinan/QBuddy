@@ -9,6 +9,11 @@ const queueSlice = createSlice({
   name: "queue",
   initialState,
   reducers: {
+    // 🌟 เพิ่ม setQueues สำหรับรับข้อมูลเริ่มต้นจาก DB
+    setQueues: (state, action: PayloadAction<Ticket[]>) => {
+      state.tickets = action.payload;
+      localStorage.setItem("live_queue_tickets", JSON.stringify(state.tickets));
+    },
     addQueue: (state, action: PayloadAction<Ticket>) => {
       state.tickets.push(action.payload);
       localStorage.setItem("live_queue_tickets", JSON.stringify(state.tickets));
@@ -19,9 +24,13 @@ const queueSlice = createSlice({
         ticket.status = action.payload.status;
         localStorage.setItem("live_queue_tickets", JSON.stringify(state.tickets));
       }
+    },
+    deleteQueue: (state, action: PayloadAction<string>) => {
+      state.tickets = state.tickets.filter(t => t.id !== action.payload);
+      localStorage.setItem("live_queue_tickets", JSON.stringify(state.tickets));
     }
   }
 });
 
-export const { addQueue, updateQueueStatus } = queueSlice.actions;
+export const { setQueues, addQueue, updateQueueStatus, deleteQueue } = queueSlice.actions;
 export default queueSlice.reducer;

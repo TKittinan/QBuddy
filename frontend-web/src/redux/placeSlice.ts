@@ -9,6 +9,11 @@ const placeSlice = createSlice({
   name: "places",
   initialState,
   reducers: {
+    // 🌟 เพิ่ม setPlaces
+    setPlaces: (state, action: PayloadAction<Place[]>) => {
+      state.places = action.payload;
+      localStorage.setItem("local_shops_db", JSON.stringify(state.places));
+    },
     addPlace: (state, action: PayloadAction<Place>) => {
       state.places.push(action.payload);
       localStorage.setItem("local_shops_db", JSON.stringify(state.places));
@@ -27,5 +32,5 @@ const placeSlice = createSlice({
   }
 });
 
-export const { addPlace, updatePlace, deletePlace } = placeSlice.actions;
+export const { setPlaces, addPlace, updatePlace, deletePlace } = placeSlice.actions;
 export default placeSlice.reducer;

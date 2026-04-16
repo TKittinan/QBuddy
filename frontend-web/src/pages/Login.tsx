@@ -4,11 +4,12 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import { useAuth } from "../context/auth/use.Auth";
-import type { User } from "../types"; // 🌟 Import Type 
-
+import type { User } from "../types"; 
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+
+const API_BASE_URL = "http://localhost:5000/api";
 
 const loginSchema = z.object({
   email: z.string().min(1, "Email is required").email("Invalid email format"),
@@ -16,11 +17,6 @@ const loginSchema = z.object({
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;
-
-const defaultStaffs: User[] = [
-  { id: "admin_1", name: "admin1", email: "admin1@qbuddy.com", password: "admin123", role: "ADMIN", status: "OFFLINE", createdAt: "Oct 01, 2023" },
-  { id: "staff_1", name: "staff1", email: "staff1@qbuddy.com", password: "staff123", role: "STAFF", status: "OFFLINE", createdAt: "Sep 20, 2023" },
-];
 
 export default function Login() {
   const navigate = useNavigate();
@@ -35,36 +31,29 @@ export default function Login() {
   });
 
   useEffect(() => {
-    if (user) {
-      navigate("/dashboard");
-    }
+    if (user) navigate("/dashboard");
   }, [user, navigate]);
 
   const onLoginSubmit = async (data: LoginFormData) => {
     setGeneralError("");
+    try {
+      // 🟢 โครงสร้าง API: POST สำหรับ Login
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      });
 
-    let savedStaffs: User[] = JSON.parse(localStorage.getItem("system_staffs") || "null");
-    if (!savedStaffs || savedStaffs.length === 0) {
-      savedStaffs = defaultStaffs;
-      localStorage.setItem("system_staffs", JSON.stringify(defaultStaffs)); 
-    }
-
-    // 🌟 เลิกใช้ any 
-    const foundUser = savedStaffs.find((staff: User) => staff.email.toLowerCase() === data.email.toLowerCase());
-
-    if (foundUser) {
-      if (foundUser.password === data.password) {
-        const mockToken = "mock_jwt_" + Math.random().toString(36).substring(2) + Date.now().toString(36);
-        const updatedStaffs = savedStaffs.map((s: User) => s.email === foundUser.email ? { ...s, status: "ONLINE" } : s);
-        localStorage.setItem("system_staffs", JSON.stringify(updatedStaffs));
-
-        login({ id: foundUser.id, name: foundUser.name, role: foundUser.role, email: foundUser.email }, mockToken);
-        navigate("/dashboard");
-      } else {
-        setGeneralError("Incorrect password. Please try again.");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Invalid credentials");
       }
-    } else {
-      setGeneralError("Access Denied: This email is not registered in the system.");
+
+      const result = await response.json(); // คาดหวังรับ { user: User, token: string }
+      login(result.user, result.token);
+      navigate("/dashboard");
+    } catch (error: any) {
+      setGeneralError(error.message);
     }
   };
 
@@ -72,9 +61,6 @@ export default function Login() {
     <div className="min-h-screen w-full flex items-center justify-center bg-slate-50 p-4">
       <div className="w-full max-w-xl bg-white rounded-2xl shadow-xl overflow-hidden">
         <div className="h-52 bg-gradient-to-br from-[#5AB2A8] to-[#4a968d] flex flex-col items-center justify-center text-white relative">
-          <div className="absolute top-0 left-0 w-full h-full overflow-hidden opacity-10">
-             <svg viewBox="0 0 100 100" className="absolute top-[-20%] left-[-10%] w-[140%] h-[140%]"><circle cx="50" cy="50" r="40" fill="none" stroke="white" strokeWidth="2" opacity="0.3"/><circle cx="30" cy="30" r="20" fill="none" stroke="white" strokeWidth="1" opacity="0.2"/></svg>
-          </div>
           <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-lg mb-4 z-10">
             <span className="text-4xl font-black text-[#5AB2A8]">Q</span>
           </div>
@@ -91,16 +77,19 @@ export default function Login() {
             )}
             
             <Controller control={control} name="email" render={({ field: { onChange, value } }) => (
-              <div><Input label="Email Address" type="email" placeholder="name@company.com" icon={<EnvelopeClosedIcon />} value={value} onChange={onChange} className={errors.email ? "border-red-400" : ""} />
-              {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email.message}</p>}</div>
+              <div>
+                <Input label="Email Address" type="email" placeholder="name@company.com" icon={<EnvelopeClosedIcon />} value={value} onChange={onChange} className={errors.email ? "border-red-400" : ""} />
+                {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email.message}</p>}
+              </div>
             )}/>
 
             <div className="relative">
               <Controller control={control} name="password" render={({ field: { onChange, value } }) => (
-                <div><Input label="Password" type={showPassword ? "text" : "password"} placeholder="Enter your password" icon={<LockClosedIcon />} className={`pr-10 ${errors.password ? "border-red-400" : ""}`} value={value} onChange={onChange} />
-                {errors.password && <p className="text-xs text-red-500 mt-1">{errors.password.message}</p>}</div>
+                <div>
+                  <Input label="Password" type={showPassword ? "text" : "password"} placeholder="Enter your password" icon={<LockClosedIcon />} className={`pr-10 ${errors.password ? "border-red-400" : ""}`} value={value} onChange={onChange} />
+                  {errors.password && <p className="text-xs text-red-500 mt-1">{errors.password.message}</p>}
+                </div>
               )}/>
-
               <button type="button" onClick={() => setShowPassword((prev) => !prev)} className="absolute right-3 top-[38px] text-slate-400 hover:text-slate-600 transition-colors">
                 {showPassword ? <EyeNoneIcon /> : <EyeOpenIcon />}
               </button>
@@ -110,10 +99,6 @@ export default function Login() {
               Sign In to Admin Panel
             </Button>
           </form>
-
-          <div className="mt-8 text-center text-sm text-slate-500">
-            <p>Protected area for authorized personnel only.</p>
-          </div>
         </div>
       </div>
     </div>

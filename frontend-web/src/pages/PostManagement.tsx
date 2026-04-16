@@ -1,9 +1,9 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import type { RootState } from "../redux/Reduxindex";
-import { deletePost, updatePostStatus } from "../redux/postSlice";
-import { MapPin, Clock, Users, Trash2, MoreHorizontal, Eye, Ban } from "lucide-react";
+import { deletePost } from "../redux/postSlice";
+import { MapPin, Clock, Users, Trash2, MoreHorizontal, Eye } from "lucide-react";
 import { Table } from "../components/ui/Table/Table";
 import { Dropdown } from "../components/ui/Dropdown";
 import { Pagination } from "../components/ui/Pagination";
@@ -21,15 +21,36 @@ export default function PostManagement() {
   const [viewingPost, setViewingPost] = useState<PartyActivity | null>(null);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 6; // 🌟 แก้เป็น 6 แถวต่อหน้า
+  const itemsPerPage = 6; 
+
+  // 🟢 จุดเชื่อมต่อ API อ่านข้อมูล
+  const fetchPostsFromDB = async () => {
+    try {
+      // TODO: ลบ Comment ออกแล้วใส่ API ของคุณตรงนี้
+      // const response = await fetch('https://your-api.com/posts');
+      // const data = await response.json();
+      // dispatch(setPosts(data));
+      console.log("Fetching real-time Posts from DB...");
+    } catch (error) {
+      console.error("Failed to fetch posts:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchPostsFromDB();
+    const intervalId = setInterval(fetchPostsFromDB, 30000); // ดึงข้อมูลใหม่ทุก 30 วิ
+    return () => clearInterval(intervalId);
+  }, []);
 
   const displayPosts = useMemo(() => {
-    let result = [...posts];
+    let result = [...posts].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    
     if (searchQuery) {
+      const lowerQ = searchQuery.toLowerCase();
       result = result.filter(p => 
-        p.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-        p.hostName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.placeName.toLowerCase().includes(searchQuery.toLowerCase())
+        p.title.toLowerCase().includes(lowerQ) || 
+        p.hostName.toLowerCase().includes(lowerQ) ||
+        p.placeName.toLowerCase().includes(lowerQ)
       );
     }
     return result;
@@ -38,49 +59,59 @@ export default function PostManagement() {
   const totalPages = Math.ceil(displayPosts.length / itemsPerPage);
   const currentData = displayPosts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
+  useEffect(() => { setCurrentPage(1); }, [searchQuery]);
+
   const handleView = (post: PartyActivity) => {
     setViewingPost(post);
     setIsPanelOpen(true);
   };
 
-  const handleStatusChange = (id: string, status: PartyActivity["status"]) => {
-    dispatch(updatePostStatus({ id, status }));
-    setIsPanelOpen(false);
-  };
-
-  const handleDelete = (id: string) => {
-    if (window.confirm("Are you sure you want to delete this post?")) {
-      dispatch(deletePost(id));
-      setIsPanelOpen(false);
+  // 🟢 จุดเชื่อมต่อ API ลบข้อมูล
+  const handleDelete = async (id: string) => {
+    if (window.confirm("คุณแน่ใจหรือไม่ว่าต้องการลบโพสต์นี้ออกจากระบบถาวร?")) {
+      try {
+        // TODO: ลบ Comment ออกแล้วใส่ API ลบข้อมูลของคุณตรงนี้
+        // await fetch(`https://your-api.com/posts/${id}`, { method: 'DELETE' });
+        
+        dispatch(deletePost(id));
+        setIsPanelOpen(false);
+        console.log(`Deleted Post ${id} from Database...`);
+      } catch (error) {
+        console.error("Failed to delete post:", error);
+      }
     }
   };
 
+  // 🌟 กำหนดความกว้าง Column ให้ชัดเจน
   const columns: Column<PartyActivity>[] = [
     { 
-      header: "Party Host", key: "host",
+      header: "PARTY HOST", key: "host", className: "w-[20%] text-left",
       render: (row) => (<div><p className="font-bold text-slate-800">{row.hostName}</p><p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1">{row.hostPhone || "No Phone"}</p></div>)
     },
     { 
-      header: "Post Title & Place", key: "title",
+      header: "POST TITLE & PLACE", key: "title", className: "w-[30%] text-left",
       render: (row) => (<div><p className="font-semibold text-slate-700 truncate max-w-[200px]">{row.title}</p><div className="flex items-center gap-1 text-xs text-slate-500 mt-1"><MapPin size={12} className="text-indigo-400" /><span className="truncate max-w-[180px]">{row.placeName}</span></div></div>)
     },
     { 
-      header: "Meeting Time", key: "time",
+      header: "MEETING TIME", key: "time", className: "w-[20%] text-left",
       render: (row) => (<div className="flex items-center gap-1.5 text-sm font-medium text-slate-600"><Clock size={14} className="text-amber-500" />{row.meetingDate} • {row.meetingTime}</div>)
     },
     {
-      header: "Guests", key: "guests",
-      render: (row) => (<div className="flex items-center gap-1.5"><Users size={14} className="text-slate-400" /><span className="text-sm font-bold text-slate-700">{row.joinedGuests.filter((g: Guest) => g.status === 'confirmed').length} / {row.maxGuests}</span></div>)
+      header: "GUESTS", key: "guests", className: "w-[10%] text-center",
+      render: (row) => (<div className="flex items-center justify-center gap-1.5"><Users size={14} className="text-slate-400" /><span className="text-sm font-bold text-slate-700">{row.joinedGuests.filter((g: Guest) => g.status === 'confirmed').length} / {row.maxGuests}</span></div>)
     },
-    { header: "Status", key: "status", render: (row) => <StatusBadge status={row.status} /> },
+    { 
+      header: "STATUS", key: "status", className: "w-[10%] text-center", 
+      render: (row) => <div className="flex justify-center"><StatusBadge status={row.status} /></div> 
+    },
     {
-      header: "Actions", key: "actions", className: "text-right",
+      header: "ACTIONS", key: "actions", className: "w-[10%] text-right",
       render: (row) => (
+        // 🌟 Dropdown เหลือแค่ View กับ Delete
         <Dropdown align="right" trigger={<button className="p-2 text-slate-400 hover:bg-slate-100 rounded-lg transition-colors"><MoreHorizontal size={18} /></button>}
           items={[
             { label: "View Details", icon: <Eye size={16} />, onClick: () => handleView(row) },
             { divider: true, label: "" },
-            { label: "Force Close", icon: <Ban size={16} />, onClick: () => handleStatusChange(row.id, "Closed"), className: "text-amber-600" },
             { label: "Delete Post", icon: <Trash2 size={16} />, onClick: () => handleDelete(row.id), className: "text-rose-600" }
           ]}
         />
@@ -90,15 +121,19 @@ export default function PostManagement() {
 
   return (
     <div className="p-4 lg:p-8 max-w-[1600px] mx-auto w-full pt-10">
-      <Table data={currentData} columns={columns} emptyMessage="No posts found." />
-      <Pagination currentPage={currentPage} totalPages={totalPages} onChange={setCurrentPage} />
+      
+      {/* 🌟 ไม่มี Filter ไม่มี Add (หน้าต่างแสดงผลล้วนๆ) */}
+      <Table data={currentData} columns={columns} emptyMessage={searchQuery ? "No posts match your search." : "No posts found."} />
+      <div className="mt-4">
+        <Pagination currentPage={currentPage} totalPages={totalPages} onChange={setCurrentPage} />
+      </div>
 
       <SidePanelEdit isOpen={isPanelOpen} onClose={() => setIsPanelOpen(false)} title="Post Details">
         {viewingPost && (
           <div className="p-6 space-y-6">
             <div className="flex items-center gap-4 border-b border-slate-100 pb-6">
               <div className="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden">
-                {viewingPost.avatarUrl ? <img src={viewingPost.avatarUrl} alt="avatar" /> : <Users className="text-slate-400" size={24} />}
+                {viewingPost.avatarUrl ? <img src={viewingPost.avatarUrl} alt="avatar" className="w-full h-full object-cover" /> : <Users className="text-slate-400" size={24} />}
               </div>
               <div>
                 <h3 className="text-lg font-bold text-slate-800">{viewingPost.hostName}</h3>
@@ -137,8 +172,11 @@ export default function PostManagement() {
             </div>
 
             <div className="pt-4 mt-2 border-t border-slate-100 flex gap-3">
-              <button onClick={() => handleStatusChange(viewingPost.id, "Closed")} className="flex-1 py-3.5 flex flex-row items-center justify-center gap-2 bg-amber-50 text-amber-600 font-bold rounded-xl hover:bg-amber-100 transition-colors whitespace-nowrap"><Ban size={16} /><span>Force Close</span></button>
-              <button onClick={() => handleDelete(viewingPost.id)} className="flex-1 py-3.5 flex flex-row items-center justify-center gap-2 bg-rose-50 text-rose-600 font-bold rounded-xl hover:bg-rose-100 transition-colors whitespace-nowrap"><Trash2 size={16} /><span>Delete Post</span></button>
+              {/* 🌟 ปุ่มล่างสุดเหลือแค่ Delete Post เท่านั้น */}
+              <button onClick={() => handleDelete(viewingPost.id)} className="w-full py-3.5 flex flex-row items-center justify-center gap-2 bg-rose-50 text-rose-600 font-bold rounded-xl hover:bg-rose-100 transition-colors whitespace-nowrap">
+                <Trash2 size={16} />
+                <span>Delete Post</span>
+              </button>
             </div>
           </div>
         )}

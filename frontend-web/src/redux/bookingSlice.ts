@@ -1,7 +1,6 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import type { Ticket, TicketStatus } from "../types";
 
-// 🌟 เปลี่ยนมารับ Data แบบ Ticket 100% เหมือนฝั่ง Mobile
 const initialState: { bookings: Ticket[] } = {
   bookings: JSON.parse(localStorage.getItem("booking_db") || "[]")
 };
@@ -10,6 +9,11 @@ const bookingSlice = createSlice({
   name: "booking",
   initialState,
   reducers: {
+    // 🌟 เพิ่ม setBookings สำหรับรับข้อมูลจาก DB
+    setBookings: (state, action: PayloadAction<Ticket[]>) => {
+      state.bookings = action.payload;
+      localStorage.setItem("booking_db", JSON.stringify(state.bookings));
+    },
     addBooking: (state, action: PayloadAction<Ticket>) => {
       state.bookings.push(action.payload);
       localStorage.setItem("booking_db", JSON.stringify(state.bookings));
@@ -35,5 +39,5 @@ const bookingSlice = createSlice({
   }
 });
 
-export const { addBooking, updateBookingStatus, updateBookingDetails, deleteBooking } = bookingSlice.actions;
+export const { setBookings, addBooking, updateBookingStatus, updateBookingDetails, deleteBooking } = bookingSlice.actions;
 export default bookingSlice.reducer;

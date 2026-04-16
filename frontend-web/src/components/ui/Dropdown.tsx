@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 
 export interface DropdownItem {
   label: React.ReactNode;
@@ -17,11 +18,43 @@ export interface DropdownProps {
 
 export function Dropdown({ trigger, items, className = "w-48", align = "right" }: DropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  
+  // เก็บพิกัดของปุ่ม เพื่อให้เมนูลอยตามได้เป๊ะๆ
+  const [coords, setCoords] = useState({ top: 0, left: 0, right: 0, center: 0 });
+
+  const updatePosition = () => {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setCoords({
+        top: rect.bottom + 6, // เว้นระยะห่างจากปุ่ม 6px
+        left: rect.left,
+        right: document.documentElement.clientWidth - rect.right,
+        center: rect.left + rect.width / 2,
+      });
+    }
+  };
+
+  // อัปเดตตำแหน่งเมื่อเปิดเมนู มีการย่อขยายจอ หรือมีการเลื่อน Scroll หน้าจอ
+  useEffect(() => {
+    if (isOpen) {
+      updatePosition();
+      window.addEventListener("resize", updatePosition);
+      window.addEventListener("scroll", updatePosition, true); // true = อัปเดตตลอดเวลาแม้เลื่อนตาราง
+    }
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [isOpen]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (ref.current && !ref.current.contains(event.target as Node)) {
+      if (
+        triggerRef.current && !triggerRef.current.contains(event.target as Node) &&
+        menuRef.current && !menuRef.current.contains(event.target as Node)
+      ) {
         setIsOpen(false);
       }
     }
@@ -29,20 +62,36 @@ export function Dropdown({ trigger, items, className = "w-48", align = "right" }
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const alignmentClass = align === "right" ? "right-0" : align === "center" ? "left-1/2 -translate-x-1/2" : "left-0";
+  // คำนวณสไตล์การจัดตำแหน่ง (ชิดซ้าย/ขวา/กลาง)
+  const getMenuStyle = (): React.CSSProperties => {
+    const style: React.CSSProperties = { top: coords.top };
+    if (align === "right") {
+      style.right = coords.right;
+    } else if (align === "center") {
+      style.left = coords.center;
+      style.transform = "translateX(-50%)";
+    } else {
+      style.left = coords.left;
+    }
+    return style;
+  };
 
   return (
-    <div className="relative inline-block text-left" ref={ref}>
-      <div onClick={() => setIsOpen(!isOpen)} className="cursor-pointer">
+    <>
+      <div ref={triggerRef} onClick={() => setIsOpen(!isOpen)} className="inline-block cursor-pointer">
         {trigger}
       </div>
       
-      {isOpen && (
-        <div className={`absolute top-full mt-1.5 z-[9999] bg-white rounded-xl shadow-lg border border-slate-100 py-1 overflow-hidden animate-in fade-in zoom-in-95 duration-100 ${alignmentClass} ${className}`}>
+      {/* 🌟 พระเอกของงาน: createPortal จะย้ายเมนูนี้ออกไปลอยอยู่นอกสุดของจอ (document.body) ไม่มีทางโดนกรอบใดๆ ตัดอีกต่อไป */}
+      {isOpen && typeof document !== "undefined" && createPortal(
+        <div 
+          ref={menuRef}
+          style={getMenuStyle()}
+          className={`fixed z-[9999] bg-white rounded-xl shadow-lg border border-slate-100 py-1 overflow-hidden animate-in fade-in zoom-in-95 duration-100 ${className}`}
+        >
           {items.map((item, index) => (
             <div key={index}>
               {item.divider && <div className="border-t border-slate-100 my-1" />}
-              {/* 🌟 บังคับว่าถ้าไม่มี label จะไม่สร้างปุ่มเปล่าๆ คั่นเด็ดขาด ช่องว่างหาย 100% */}
               {item.label && (
                 <button
                   onClick={() => { setIsOpen(false); item.onClick?.(); }}
@@ -54,8 +103,9 @@ export function Dropdown({ trigger, items, className = "w-48", align = "right" }
               )}
             </div>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   );
 }

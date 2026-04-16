@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import type { RootState } from "../redux/Reduxindex";
-import { addQueue, updateQueueStatus } from "../redux/queueSlice"; 
+import { setQueues, addQueue, updateQueueStatus, deleteQueue } from "../redux/queueSlice";
 import { Plus, Clock, PlayCircle, CheckCircle2, MoreHorizontal, User, Trash2, XCircle, Filter, ChevronDown } from "lucide-react";
 import { Table } from "../components/ui/Table/Table";
 import { Dropdown } from "../components/ui/Dropdown";
@@ -17,6 +17,9 @@ import { generateGlobalTicketId, getQueueDetails } from "../utils/queueUtils";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+
+// 🟢 ตัวแปรสำหรับ API Base URL (เปลี่ยนเป็นของจริงได้เลย เช่น .env)
+// const API_BASE_URL = "http://localhost:5000/api";
 
 const ticketSchema = z.object({
   customerName: z.string().min(1, "กรุณากรอกชื่อลูกค้า"),
@@ -36,7 +39,7 @@ export default function LiveQueue() {
   const tickets = useSelector((state: RootState) => state.queue.tickets);
   const places = useSelector((state: RootState) => state.places.places);
 
-  const [statusFilter, setStatusFilter] = useState<string>("Waiting");
+  const [statusFilter, setStatusFilter] = useState<string>("All");
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
@@ -46,24 +49,106 @@ export default function LiveQueue() {
     defaultValues: { customerName: "", pax: 1, selectedShopOption: undefined }
   });
 
+  // ==========================================
+  // 🟢 1. API: GET - ดึงข้อมูลคิวทั้งหมด
+  // ==========================================
   const fetchLiveQueueFromDB = async () => {
     try {
-      console.log("Fetching real-time Live Queue from DB...");
+      /* // 🚀 โค้ดสำหรับ Backend
+      const response = await fetch(`${API_BASE_URL}/queues`);
+      if (!response.ok) throw new Error("Network response was not ok");
+      const data = await response.json();
+      dispatch(setQueues(data)); // เอาข้อมูลที่ได้อัปเดตลง Redux
+      */
     } catch (error) {
       console.error("Failed to fetch live queue:", error);
     }
   };
 
+  // ==========================================
+  // 🟢 2. API: DELETE - ลบข้อมูลคิว
+  // ==========================================
   const deleteQueueTicketFromDB = async (id: string) => {
     if (window.confirm("คุณแน่ใจหรือไม่ว่าต้องการลบคิวนี้ออกจากระบบถาวร?")) {
       try {
-        console.log(`Deleting Ticket ${id} from Database...`);
+        /*
+        // 🚀 โค้ดสำหรับ Backend
+        const response = await fetch(`${API_BASE_URL}/queues/${id}`, {
+          method: 'DELETE'
+        });
+        if (!response.ok) throw new Error("Failed to delete ticket");
+        */
+        
+        dispatch(deleteQueue(id)); 
+        console.log(`Deleted Ticket ${id} from Database`);
       } catch (error) {
         console.error("Failed to delete ticket:", error);
+        alert("ไม่สามารถลบคิวได้ กรุณาลองใหม่อีกครั้ง");
       }
     }
   };
 
+  // ==========================================
+  // 🟢 3. API: PUT/PATCH - อัปเดตสถานะคิว
+  // ==========================================
+  const handleStatusChange = async (id: string, newStatus: TicketStatus) => { 
+    try {
+      /*
+      // 🚀 โค้ดสำหรับ Backend
+      const response = await fetch(`${API_BASE_URL}/queues/${id}/status`, {
+        method: 'PUT', // หรือ PATCH
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      });
+      if (!response.ok) throw new Error("Failed to update status");
+      */
+
+      dispatch(updateQueueStatus({ id, status: newStatus })); 
+    } catch (error) {
+      console.error("Failed to update status:", error);
+      alert("ไม่สามารถอัปเดตสถานะได้ กรุณาลองใหม่อีกครั้ง");
+    }
+  };
+
+  // ==========================================
+  // 🟢 4. API: POST - เพิ่มคิวใหม่
+  // ==========================================
+  const onSubmit = async (data: TicketFormData) => {
+    const shopId = data.selectedShopOption.id;
+    const currentTime = new Date().toISOString();
+    const shopData = data.selectedShopOption.originalData as Place;
+    
+    const newTicketId = generateGlobalTicketId(shopId, currentTime, places, tickets);
+
+    const newTicket: Ticket = {
+      id: newTicketId, name: data.customerName, service: shopData?.category || "General", shopId: shopId, guests: data.pax, waitTime: shopData?.avgServiceTime || 15, status: "Waiting", createdAt: currentTime, bookDate: currentTime, bookTime: new Date(currentTime).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+    };
+
+    try {
+      /*
+      // 🚀 โค้ดสำหรับ Backend
+      const response = await fetch(`${API_BASE_URL}/queues`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newTicket)
+      });
+      if (!response.ok) throw new Error("Failed to create ticket");
+      
+      // ถ้าระบบ Backend ทำการ Generate ID ใหม่มาให้ สามารถดึงมาใช้ได้เลย
+      // const createdTicket = await response.json();
+      // dispatch(addQueue(createdTicket));
+      */
+
+      dispatch(addQueue(newTicket));
+      reset();
+      setIsPanelOpen(false);
+    } catch (error) {
+      console.error("Failed to create ticket:", error);
+      alert("ไม่สามารถเพิ่มคิวได้ กรุณาลองใหม่อีกครั้ง");
+    }
+  };
+
+  // 🔄 ดึงข้อมูลอัตโนมัติ (Polling)
   useEffect(() => {
     fetchLiveQueueFromDB();
     const intervalId = setInterval(fetchLiveQueueFromDB, 15000); 
@@ -78,7 +163,11 @@ export default function LiveQueue() {
 
   const filteredTickets = useMemo(() => {
     let result = [...tickets].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    if (statusFilter !== "All") result = result.filter(t => t.status === statusFilter);
+    
+    if (statusFilter !== "All") {
+      result = result.filter(t => t.status === statusFilter);
+    }
+    
     if (searchQuery) {
       result = result.filter(t => 
         t.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -91,45 +180,23 @@ export default function LiveQueue() {
   const totalPages = Math.ceil(filteredTickets.length / itemsPerPage);
   const currentData = filteredTickets.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  const handleStatusChange = (id: string, newStatus: TicketStatus) => { 
-    dispatch(updateQueueStatus({ id, status: newStatus })); 
-  };
-
-  const onSubmit = (data: TicketFormData) => {
-    const shopId = data.selectedShopOption.id;
-    const currentTime = new Date().toISOString();
-    const shopData = data.selectedShopOption.originalData as Place;
-    const newTicketId = generateGlobalTicketId(shopId, currentTime, places, tickets);
-
-    const newTicket: Ticket = {
-      id: newTicketId, name: data.customerName, service: shopData?.category || "General", shopId: shopId, guests: data.pax, waitTime: shopData?.avgServiceTime || 15, status: "Waiting", createdAt: currentTime, bookDate: currentTime, bookTime: new Date(currentTime).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
-    };
-
-    dispatch(addQueue(newTicket));
-    reset();
-    setIsPanelOpen(false);
-  };
-
   useEffect(() => { setCurrentPage(1); }, [statusFilter, searchQuery]);
 
   const columns: Column<Ticket>[] = [
-    { header: "Queue No", key: "id", className: "font-bold text-indigo-600" },
-    { header: "Customer", key: "name", render: (row) => (<div className="flex items-center gap-3"><div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-400"><User size={14} /></div><div><p className="font-semibold text-slate-700">{row.name}</p><p className="text-xs text-slate-400">{row.guests} Pax</p></div></div>) },
-    { header: "Shop", key: "shopId", render: (row) => { const shop = places.find((p: Place) => p.id === row.shopId); return <span className="text-slate-600 font-medium">{shop ? shop.name : "Unknown"}</span>; } },
-    { header: "Est. Wait", key: "waitTime", render: (row) => { const { estimatedWaitTime } = getQueueDetails(row, places, tickets); return (<div className="flex items-center gap-1.5 text-slate-500"><Clock size={14} className={estimatedWaitTime > 30 ? "text-amber-500" : "text-emerald-500"} /><span>{estimatedWaitTime} mins</span></div>); } },
-    { header: "Status", key: "status", render: (row) => <StatusBadge status={row.status} /> },
+    { header: "QUEUE NO", key: "id", className: "w-[15%] text-left font-bold text-indigo-600 uppercase" },
+    { header: "CUSTOMER", key: "name", className: "w-[25%] text-left", render: (row) => (<div className="flex items-center gap-3"><div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-400"><User size={14} /></div><div><p className="font-bold text-slate-800 text-sm">{row.name}</p><p className="text-[11px] text-slate-400 font-medium">Guests: {row.guests}</p></div></div>) },
+    { header: "SHOP NAME", key: "shopId", className: "w-[20%] text-left text-slate-700 font-medium text-sm", render: (row) => { const shop = places.find((p: Place) => p.id === row.shopId); return <span>{shop ? shop.name : "Unknown"}</span>; } },
+    { header: "EST. WAIT", key: "waitTime", className: "w-[15%] text-left", render: (row) => { const { estimatedWaitTime } = getQueueDetails(row, places, tickets); return (<div className="flex items-center gap-2 text-slate-500 font-medium"><Clock size={14} className={estimatedWaitTime > 30 ? "text-amber-500 shrink-0" : "text-emerald-500 shrink-0"} /><span className="text-xs">{estimatedWaitTime} mins</span></div>); } },
+    { header: "STATUS", key: "status", className: "w-[15%] text-center", render: (row) => <div className="flex justify-center"><StatusBadge status={row.status} /></div> },
     {
-      header: "Actions", key: "actions", className: "text-right",
+      header: "ACTIONS", key: "actions", className: "w-[10%] text-right",
       render: (row) => (
-        <Dropdown align="right" 
-          className="w-44" 
-          trigger={<button className="p-2 text-slate-400 hover:bg-slate-100 rounded-lg transition-colors"><MoreHorizontal size={18} /></button>}
+        <Dropdown align="right" trigger={<button className="p-2 text-slate-400 hover:bg-slate-100 rounded-lg transition-colors"><MoreHorizontal size={18} /></button>}
           items={[
-            { label: "Call / Serving", icon: <PlayCircle size={16} />, onClick: () => handleStatusChange(row.id, "Serving"), className: "text-blue-600" },
-            { label: "Mark Completed", icon: <CheckCircle2 size={16} />, onClick: () => handleStatusChange(row.id, "Completed"), className: "text-emerald-600" },
-            // 🌟 แก้ไข: ลบ divider เปล่าๆ ออก และใส่เส้นคั่นที่ตัว Cancel แทนเพื่อความสวยงาม
-            { label: "Cancel Ticket", icon: <XCircle size={16} />, onClick: () => handleStatusChange(row.id, "Cancelled"), className: "text-amber-600", divider: true },
-            { label: "Delete Ticket", icon: <Trash2 size={16} />, onClick: () => deleteQueueTicketFromDB(row.id), className: "text-rose-600" },
+            { label: "Call / Serving", icon: <PlayCircle size={16} />, className: "text-blue-600", onClick: () => handleStatusChange(row.id, "Serving") },
+            { label: "Mark Completed", icon: <CheckCircle2 size={16} />, className: "text-emerald-600", onClick: () => handleStatusChange(row.id, "Completed") },
+            { label: "Cancel Ticket", icon: <XCircle size={16} />, className: "text-amber-600", divider: true, onClick: () => handleStatusChange(row.id, "Cancelled") },
+            { label: "Delete Ticket", icon: <Trash2 size={16} />, className: "text-rose-600", divider: true, onClick: () => deleteQueueTicketFromDB(row.id) },
           ]}
         />
       )
@@ -140,23 +207,19 @@ export default function LiveQueue() {
     <div className="p-4 lg:p-8 max-w-[1600px] mx-auto w-full pt-10">
       
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 w-full">
-        <div className="flex flex-wrap items-center gap-3">
-          <Dropdown align="left" trigger={<button className="bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 shadow-sm flex flex-row items-center justify-between min-w-[140px] whitespace-nowrap px-4 py-2.5 rounded-xl text-sm font-bold transition-all"><Filter size={14} className="text-slate-400 mr-2"/> <span>Status: {statusFilter}</span> <ChevronDown size={14} className="ml-2 text-slate-400 shrink-0"/></button>}
-            items={[
-              {label: "All Status", onClick: () => setStatusFilter("All")},
-              {label: "Waiting", onClick: () => setStatusFilter("Waiting")},
-              {label: "Completed", onClick: () => setStatusFilter("Completed")},
-              {label: "Cancelled", onClick: () => setStatusFilter("Cancelled")}
-            ]}
-          />
-        </div>
+        <Dropdown align="left" trigger={<button className="bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 shadow-sm flex flex-row items-center justify-between min-w-[140px] whitespace-nowrap px-4 py-2 rounded-xl text-sm font-bold transition-all"><Filter size={14} className="text-slate-400 mr-2"/> <span>Status: {statusFilter}</span> <ChevronDown size={14} className="ml-2 text-slate-400 shrink-0"/></button>}
+          items={[
+            {label: "All Status", onClick: () => setStatusFilter("All")},
+            {label: "Waiting", onClick: () => setStatusFilter("Waiting")},
+            {label: "Completed", onClick: () => setStatusFilter("Completed")},
+            {label: "Cancelled", onClick: () => setStatusFilter("Cancelled")}
+          ]}
+        />
 
-        <div className="flex items-center">
-          <button onClick={() => setIsPanelOpen(true)} className="bg-[#5AB2A8] hover:bg-[#4a968d] text-white shadow-lg shadow-teal-100 flex flex-row items-center justify-center gap-2 whitespace-nowrap px-6 py-2.5 rounded-xl text-sm font-bold transition-all">
-            <Plus size={16} /> 
-            <span>Add Walk-in</span>
-          </button>
-        </div>
+        <button onClick={() => setIsPanelOpen(true)} className="bg-[#5AB2A8] hover:bg-[#4a968d] text-white shadow-lg shadow-teal-100 flex flex-row items-center justify-center gap-2 whitespace-nowrap px-6 py-2.5 rounded-xl text-sm font-bold transition-all">
+          <Plus size={16} /> 
+          <span>Add Walk-in</span>
+        </button>
       </div>
 
       <Table data={currentData} columns={columns} emptyMessage={searchQuery ? "No tickets match your search." : `No ${statusFilter.toLowerCase()} tickets found.`} />
