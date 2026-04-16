@@ -2,39 +2,33 @@ import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import type { Ticket, TicketStatus } from "../types";
 
 const initialState: { bookings: Ticket[] } = {
-  bookings: JSON.parse(localStorage.getItem("booking_db") || "[]")
+  bookings: [] // 🌟 เริ่มต้นด้วยค่าว่าง รอรับจาก API
 };
 
 const bookingSlice = createSlice({
   name: "booking",
   initialState,
   reducers: {
-    // 🌟 เพิ่ม setBookings สำหรับรับข้อมูลจาก DB
     setBookings: (state, action: PayloadAction<Ticket[]>) => {
       state.bookings = action.payload;
-      localStorage.setItem("booking_db", JSON.stringify(state.bookings));
     },
     addBooking: (state, action: PayloadAction<Ticket>) => {
       state.bookings.push(action.payload);
-      localStorage.setItem("booking_db", JSON.stringify(state.bookings));
     },
     updateBookingStatus: (state, action: PayloadAction<{ id: string; status: TicketStatus }>) => {
       const booking = state.bookings.find(b => b.id === action.payload.id);
       if (booking) {
         booking.status = action.payload.status;
-        localStorage.setItem("booking_db", JSON.stringify(state.bookings));
       }
     },
     updateBookingDetails: (state, action: PayloadAction<Partial<Ticket> & { id: string }>) => {
       const index = state.bookings.findIndex(b => b.id === action.payload.id);
       if (index !== -1) {
         state.bookings[index] = { ...state.bookings[index], ...action.payload };
-        localStorage.setItem("booking_db", JSON.stringify(state.bookings));
       }
     },
     deleteBooking: (state, action: PayloadAction<string>) => {
       state.bookings = state.bookings.filter(b => b.id !== action.payload);
-      localStorage.setItem("booking_db", JSON.stringify(state.bookings));
     }
   }
 });

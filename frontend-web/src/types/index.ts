@@ -50,7 +50,6 @@ export interface Place {
   createdAt?: string;
 }
 
-// 🌟 Ticket ของระบบคิวและจอง
 export interface Ticket {
   id: string;
   shopId: string;
@@ -98,7 +97,6 @@ export interface PartyActivity {
   createdAt: string;
 }
 
-// 🌟 Type ใหม่สำหรับ Inbox (Support)
 export type Message = {
   id: string;
   senderId: string;
@@ -107,7 +105,6 @@ export type Message = {
   timestamp: string;
 };
 
-// เปลี่ยนชื่อเป็น SupportTicket เพื่อไม่ให้ซ้ำกับ Ticket ด้านบน
 export type SupportTicket = {
   id: string;
   userName: string;
@@ -118,7 +115,6 @@ export type SupportTicket = {
   messages: Message[];
 };
 
-// 🌟 Type ใหม่สำหรับหน้า Settings
 export type SettingsState = {
   businessName: string;
   phone: string;

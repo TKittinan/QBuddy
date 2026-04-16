@@ -17,6 +17,8 @@ export const store = configureStore({
     booking: bookingReducer,
     settings: settingsReducer,
     users: userReducer,
+    auth: authReducer,
+  }
 });
 
 export type RootState = ReturnType<typeof store.getState>;

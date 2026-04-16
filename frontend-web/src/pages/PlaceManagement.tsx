@@ -3,7 +3,7 @@ import { useOutletContext } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import type { RootState } from "../redux/Reduxindex";
 import { setPlaces, addPlace, updatePlace, deletePlace } from "../redux/placeSlice";
-import { Plus, MoreHorizontal, ChevronDown, Trash2, Edit, Clock, Image as ImageIcon, MapPin, Phone, FileText, ImagePlus, Filter } from "lucide-react";
+import { Plus, MoreHorizontal, ChevronDown, Trash2, Edit, Clock, Image as ImageIcon, MapPin, Phone, FileText, ImagePlus, TrendingUp } from "lucide-react";
 import { Table } from "../components/ui/Table/Table";
 import { Dropdown } from "../components/ui/Dropdown";
 import { Input } from "../components/ui/Input";
@@ -28,12 +28,16 @@ export default function PlaceManagement() {
   const itemsPerPage = 6;
 
   const { control, handleSubmit, reset } = useForm<Place>({
-    defaultValues: { status: "Active", openTime: "10:00", closeTime: "22:00", name: "", branch: "", tags: [], avgServiceTime: 15, lat: 13.7563, lng: 100.5018, category: "General" }
+    defaultValues: { 
+      status: "Active", openTime: "10:00", closeTime: "22:00", name: "", branch: "", tags: [], 
+      avgServiceTime: 15, lat: 13.7563, lng: 100.5018, category: "General", 
+      monthlyBookings: 0
+    }
   });
 
   const fetchPlacesFromDB = async () => {
     try {
-      /* 🟢 สำหรับ Backend
+      /*
       const response = await fetch(`${API_BASE_URL}/places`);
       const data = await response.json();
       dispatch(setPlaces(data));
@@ -48,8 +52,7 @@ export default function PlaceManagement() {
       const method = editingPlace ? "PUT" : "POST";
       const url = editingPlace ? `${API_BASE_URL}/places/${editingPlace.id}` : `${API_BASE_URL}/places`;
       
-      /* 🟢 สำหรับ Backend
-      const response = await fetch(url, { method, headers: { \"Content-Type\": \"application/json\" }, body: JSON.stringify(data) });
+      /* const response = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
       const result = await response.json();
       if (editingPlace) dispatch(updatePlace(result));
       else dispatch(addPlace(result));
@@ -75,6 +78,9 @@ export default function PlaceManagement() {
         <div><p className="font-bold text-slate-800">{row.name}</p><p className="text-xs text-slate-400">{row.branch}</p></div>
       </div>
     )},
+    { header: "Trending Score", key: "trending", className: "w-[15%]", render: (row) => (
+      <div className="flex items-center gap-1.5"><TrendingUp size={14} className="text-amber-500"/><span className="text-sm font-bold text-slate-700">{row.monthlyBookings || 0}</span></div>
+    )},
     { header: "Status", key: "status", className: "w-[15%]", render: (row) => <StatusBadge status={row.status} /> },
     { header: "Actions", key: "actions", className: "text-right w-[10%]", render: (row) => (
       <Dropdown align="right" trigger={<button className="p-2 text-slate-400 hover:bg-slate-100 rounded-lg transition-colors"><MoreHorizontal size={18} /></button>}
@@ -90,7 +96,7 @@ export default function PlaceManagement() {
     <div className="p-4 lg:p-8 max-w-[1600px] mx-auto w-full pt-10">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-bold text-slate-800">Place Management</h2>
-        <button onClick={() => { setEditingPlace(null); reset(); setIsPanelOpen(true); }} className="bg-[#5AB2A8] text-white px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 shadow-lg hover:bg-[#4a968d] transition-all"><Plus size={16}/> New Place</button>
+        <button onClick={() => { setEditingPlace(null); reset(); setIsPanelOpen(true); }} className="bg-[#5AB2A8] hover:bg-[#4a968d] text-white px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 shadow-lg transition-all"><Plus size={16}/> New Place</button>
       </div>
 
       <Table data={places.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)} columns={columns} emptyMessage="No places found." />
@@ -104,13 +110,17 @@ export default function PlaceManagement() {
               <Controller control={control} name="branch" render={({ field }) => <Input label="Branch" icon={<MapPin size={16}/>} {...field} />} />
             </div>
 
-            {/* 🌟 แยก Label ออกจาก Component เนื่องจาก CategorySelect ไม่รับ label prop */}
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Main Category</label>
               <Controller control={control} name="category" render={({ field }) => (
                 <CategorySelect value={field.value} onChange={field.onChange} />
               )} />
             </div>
+
+            {/* 🌟 เพิ่มช่องรับยอดจองรายเดือนสำหรับระบบ Trending ของแอป */}
+            <Controller control={control} name="monthlyBookings" render={({ field }) => (
+              <Input label="Monthly Bookings (ยอดจองรายเดือน - นำไปแสดงร้านฮิต)" type="number" icon={<TrendingUp size={16}/>} value={field.value} onChange={e => field.onChange(parseInt(e.target.value) || 0)} />
+            )} />
 
             <div className="grid grid-cols-2 gap-4">
               <Controller control={control} name="openTime" render={({ field }) => <Input label="Open" type="time" icon={<Clock size={16}/>} {...field} />} />
@@ -122,7 +132,8 @@ export default function PlaceManagement() {
             </div>
             <Controller control={control} name="phone" render={({ field }) => <Input label="Contact Phone" icon={<Phone size={16}/>} {...field} />} />
             <Controller control={control} name="logoUrl" render={({ field }) => <Input label="Logo Image URL" icon={<ImagePlus size={16}/>} {...field} value={field.value || ""} />} />
-            <button type="submit" className="w-full py-3.5 bg-[#5AB2A8] text-white font-bold rounded-xl shadow-lg mt-4 active:scale-[0.98] transition-all">Save Information</button>
+            
+            <button type="submit" className="w-full py-3.5 bg-[#5AB2A8] hover:bg-[#4a968d] text-white font-bold rounded-xl shadow-lg mt-4 active:scale-[0.98] transition-all">Save Information</button>
           </form>
         </div>
       </SidePanelEdit>

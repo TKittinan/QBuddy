@@ -1,7 +1,7 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import type { SettingsState } from "../types"; 
 
-const defaultSettings: SettingsState = {
+const initialState: SettingsState = {
   businessName: "",
   phone: "",
   email: "",
@@ -9,21 +9,15 @@ const defaultSettings: SettingsState = {
   autoCancelMins: ""
 };
 
-const initialState: SettingsState = JSON.parse(localStorage.getItem("system_settings") || "null") || defaultSettings;
-
 const settingsSlice = createSlice({
   name: "settings",
   initialState,
   reducers: {
     setSettings: (_state, action: PayloadAction<SettingsState>) => {
-      const newState = { ...action.payload };
-      localStorage.setItem("system_settings", JSON.stringify(newState));
-      return newState;
+      return { ...action.payload };
     },
     updateSettings: (state, action: PayloadAction<Partial<SettingsState>>) => {
-      const newState = { ...state, ...action.payload };
-      localStorage.setItem("system_settings", JSON.stringify(newState));
-      return newState;
+      return { ...state, ...action.payload };
     }
   }
 });
