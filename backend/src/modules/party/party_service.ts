@@ -13,7 +13,7 @@ export class PartyService {
     });
   }
 
-// สร้างปาร์ตี้ใหม่
+  // สร้างปาร์ตี้ใหม่
   async create_party(data: any) {
     return await prisma.partyActivity.create({
       data: {
