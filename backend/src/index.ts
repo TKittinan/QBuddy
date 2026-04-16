@@ -4,6 +4,7 @@ import place_routes from './modules/places/place_routes';
 import ticket_routes from './modules/tickets/ticket_routes';
 import party_routes from './modules/party/party_routes';
 import support_routes from './modules/support/support_routes';
+import settings from './modules/settings/settings_routes';
 
 const app = express();
 app.use(express.json()); 
@@ -14,6 +15,7 @@ app.use('/api/places', place_routes);
 app.use('/api/tickets', ticket_routes);
 app.use('/api/parties', party_routes);
 app.use('/api/support', support_routes);
+app.use('/api/settings', settings);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
