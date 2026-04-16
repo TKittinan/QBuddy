@@ -50,7 +50,6 @@ export class PartyService {
 
     if (!parties.length) return [];
 
-    // 🌟 ใส่ Type ป้องกัน implicit any
     const hostIds = [...new Set(parties.map((p: PartyActivity) => p.hostId))];
 
     const totalStats = await prisma.partyActivity.groupBy({ by: ['hostId'], where: { hostId: { in: hostIds } }, _count: { _all: true } });
@@ -58,7 +57,6 @@ export class PartyService {
 
     const successRateMap = new Map<string, number>();
     hostIds.forEach((hostId: string) => {
-      // 🌟 ใส่ Type ป้องกัน implicit any
       const total = totalStats.find((s: any) => s.hostId === hostId)?._count._all || 0;
       const completed = completedStats.find((s: any) => s.hostId === hostId)?._count._all || 0;
       const rate = total > 0 ? (completed / total) * 100 : 0;
