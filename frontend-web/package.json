@@ -21,6 +21,7 @@
     "@radix-ui/themes": "^3.3.0",
     "@reduxjs/toolkit": "^2.11.2",
     "add": "^2.0.6",
+    "axios": "^1.15.0",
     "clsx": "^2.1.1",
     "lucide-react": "^0.576.0",
     "react": "^19.2.0",

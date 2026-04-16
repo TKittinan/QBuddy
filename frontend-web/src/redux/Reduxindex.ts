@@ -6,6 +6,7 @@ import bookingReducer from "./bookingSlice";
 import settingsReducer from "./settingSlice";
 import userReducer from "./userSlice";
 import postReducer from './postSlice';
+import authReducer from "./authSlice";
 
 export const store = configureStore({
   reducer: {
@@ -16,7 +17,6 @@ export const store = configureStore({
     booking: bookingReducer,
     settings: settingsReducer,
     users: userReducer,
-  }
 });
 
 export type RootState = ReturnType<typeof store.getState>;

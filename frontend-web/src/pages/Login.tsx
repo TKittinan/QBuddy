@@ -8,9 +8,7 @@ import type { User } from "../types";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-
 const API_BASE_URL = "http://localhost:5000/api";
-
 const loginSchema = z.object({
   email: z.string().min(1, "Email is required").email("Invalid email format"),
   password: z.string().min(1, "Password is required")
@@ -20,9 +18,12 @@ type LoginFormData = z.infer<typeof loginSchema>;
 
 export default function Login() {
   const navigate = useNavigate();
-  const { login, user } = useAuth();
+  const dispatch = useAppDispatch();
+  
+  // ดึง State จาก Redux authSlice
+  const { user, loading, error } = useAppSelector((state) => state.auth);
+  
   const [showPassword, setShowPassword] = useState(false);
-  const [generalError, setGeneralError] = useState(""); 
 
   const { control, handleSubmit, formState: { errors } } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -30,6 +31,7 @@ export default function Login() {
     mode: "onSubmit"
   });
 
+  // ถ้ามี User (Login สำเร็จ) ให้เด้งไปหน้า Dashboard
   useEffect(() => {
     if (user) navigate("/dashboard");
   }, [user, navigate]);

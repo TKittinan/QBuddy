@@ -10,10 +10,19 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../../../context/auth/use.Auth";
 import { MessageSquare } from "lucide-react";
 
+// นำเข้า Hooks จาก Redux แทน Context เดิม
+import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
+import { logout } from "../../../redux/authSlice";
+
 const Sidebar = () => {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
-  const isAdmin = user?.role === "ADMIN";
+  const dispatch = useAppDispatch();
+  
+  // ดึงข้อมูล User จาก Redux Store
+  const { user } = useAppSelector((state) => state.auth);
+  
+  // เช็คสิทธิ์ Admin จากข้อมูลใน Redux (ตรวจสอบให้แน่ใจว่า field ชื่อ role หรือ admin.role)
+  const isAdmin = user?.role === "admin";
 
   const handleLogout = () => {
     logout();

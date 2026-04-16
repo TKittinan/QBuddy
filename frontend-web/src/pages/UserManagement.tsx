@@ -15,7 +15,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 
 const API_BASE_URL = "http://localhost:5000/api";
-
 const userSchema = z.object({
   name: z.string().min(1, "กรุณากรอกชื่อ"),
   email: z.string().email("รูปแบบอีเมลไม่ถูกต้อง"),
@@ -68,7 +67,6 @@ export default function UserManagement() {
     setEditingUser(user);
     reset({ name: user.name, email: user.email, role: user.role, password: "" });
     setIsPanelOpen(true);
-  };
 
   const columns: Column<User>[] = [
     { header: "User Profile", key: "name", render: (row) => (<div className="flex items-center gap-3"><div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center"><UserIcon size={20} className="text-slate-400"/></div><div><p className="font-bold text-slate-800">{row.name}</p><p className="text-xs text-slate-400">{row.email}</p></div></div>) },

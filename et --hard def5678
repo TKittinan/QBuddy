@@ -1,0 +1,75 @@
+[33m3249a88[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mDev[m[33m, [m[1;31morigin/Dev[m[33m)[m HEAD@{0}: checkout: moving from Tee to Dev
+[33m3e9bcb1[m[33m ([m[1;31morigin/Tee[m[33m, [m[1;32mTee[m[33m)[m HEAD@{1}: checkout: moving from Dev to Tee
+[33m3249a88[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mDev[m[33m, [m[1;31morigin/Dev[m[33m)[m HEAD@{2}: checkout: moving from Tee to Dev
+[33m3e9bcb1[m[33m ([m[1;31morigin/Tee[m[33m, [m[1;32mTee[m[33m)[m HEAD@{3}: checkout: moving from Dev to Tee
+[33m3249a88[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mDev[m[33m, [m[1;31morigin/Dev[m[33m)[m HEAD@{4}: pull --ff --recurse-submodules --progress origin: Merge made by the 'ort' strategy.
+[33m3e9bcb1[m[33m ([m[1;31morigin/Tee[m[33m, [m[1;32mTee[m[33m)[m HEAD@{5}: reset: moving to Tee
+[33mec44afc[m HEAD@{6}: checkout: moving from Tee to Dev
+[33m3e9bcb1[m[33m ([m[1;31morigin/Tee[m[33m, [m[1;32mTee[m[33m)[m HEAD@{7}: commit: Add Redux and Cofig Final Web
+[33m760f1f6[m HEAD@{8}: commit: Add Category and Place managemeny Drop Down filter
+[33mb61016c[m HEAD@{9}: checkout: moving from Tar to Tee
+[33m70c74fc[m[33m ([m[1;31morigin/Tar[m[33m, [m[1;32mTar[m[33m)[m HEAD@{10}: checkout: moving from Tee to Tar
+[33mb61016c[m HEAD@{11}: commit: Update Logic
+[33mdb1b6da[m HEAD@{12}: checkout: moving from Tar to Tee
+[33m70c74fc[m[33m ([m[1;31morigin/Tar[m[33m, [m[1;32mTar[m[33m)[m HEAD@{13}: checkout: moving from Dev to Tar
+[33mec44afc[m HEAD@{14}: checkout: moving from Tee to Dev
+[33mdb1b6da[m HEAD@{15}: commit: Update Logic and Table row filter
+[33m5adca23[m HEAD@{16}: checkout: moving from Tar to Tee
+[33m8bec87b[m HEAD@{17}: checkout: moving from Tee to Tar
+[33m5adca23[m HEAD@{18}: checkout: moving from Tar to Tee
+[33m8bec87b[m HEAD@{19}: checkout: moving from Tee to Tar
+[33m5adca23[m HEAD@{20}: checkout: moving from Tar to Tee
+[33m8bec87b[m HEAD@{21}: checkout: moving from Tee to Tar
+[33m5adca23[m HEAD@{22}: commit: Update
+[33m3ba38ba[m HEAD@{23}: commit: Config Staff Manage for add password in create Staff
+[33m582749e[m HEAD@{24}: commit: Add Profile Page And Async Data for update action Page
+[33mce6cf60[m HEAD@{25}: checkout: moving from Tar to Tee
+[33m705a2e6[m HEAD@{26}: checkout: moving from Tee to Tar
+[33mce6cf60[m HEAD@{27}: commit: Add FindFriend and Ai Discover and config data to conect
+[33m0ef53c0[m HEAD@{28}: checkout: moving from Tar to Tee
+[33m705a2e6[m HEAD@{29}: checkout: moving from Tee to Tar
+[33m0ef53c0[m HEAD@{30}: checkout: moving from Dev to Tee
+[33mec44afc[m HEAD@{31}: checkout: moving from Tee to Dev
+[33m0ef53c0[m HEAD@{32}: checkout: moving from Dev to Tee
+[33mec44afc[m HEAD@{33}: pull --ff --recurse-submodules --progress origin: Merge made by the 'ort' strategy.
+[33ma5c87ed[m HEAD@{34}: checkout: moving from Tee to Dev
+[33m0ef53c0[m HEAD@{35}: commit: Update Status component
+[33m2fcac03[m HEAD@{36}: commit: Config login and logic give permision
+[33m9293236[m HEAD@{37}: checkout: moving from Dev to Tee
+[33ma5c87ed[m HEAD@{38}: pull --ff --recurse-submodules --progress origin: Merge made by the 'ort' strategy.
+[33m74bb6d5[m HEAD@{39}: checkout: moving from Tee to Dev
+[33m9293236[m HEAD@{40}: checkout: moving from Tee to Tee
+[33m9293236[m HEAD@{41}: checkout: moving from Tee to Tee
+[33m9293236[m HEAD@{42}: checkout: moving from Dev to Tee
+[33m74bb6d5[m HEAD@{43}: checkout: moving from Tee to Dev
+[33m9293236[m HEAD@{44}: reset: moving to HEAD
+[33m9293236[m HEAD@{45}: checkout: moving from Tee to Tee
+[33m9293236[m HEAD@{46}: commit: Update Component and Config to local storage for test and get more page
+[33m7cc3d80[m HEAD@{47}: commit: config admin
+[33mea675c3[m HEAD@{48}: commit: config categoryitem
+[33m1979789[m HEAD@{49}: checkout: moving from Tar to Tee
+[33m103d203[m HEAD@{50}: checkout: moving from Tee to Tar
+[33m1979789[m HEAD@{51}: commit: config error login
+[33mff8b39b[m HEAD@{52}: commit: Config login regis to sync Home page
+[33m2183ca4[m HEAD@{53}: commit: config version react
+[33m65ca194[m HEAD@{54}: checkout: moving from Dev to Tee
+[33m74bb6d5[m HEAD@{55}: checkout: moving from Tee to Dev
+[33m65ca194[m HEAD@{56}: commit: Add login mobile
+[33m14e5ba1[m HEAD@{57}: commit: Add component mobile
+[33m43ff04f[m HEAD@{58}: checkout: moving from Tar to Tee
+[33md7dc7a2[m HEAD@{59}: checkout: moving from Tee to Tar
+[33m43ff04f[m HEAD@{60}: commit: Update
+[33m59da801[m HEAD@{61}: commit: Update
+[33m57fa6cf[m HEAD@{62}: commit: Update
+[33m313d23a[m HEAD@{63}: checkout: moving from main to Tee
+[33mfab94c6[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mmain[m[33m)[m HEAD@{64}: checkout: moving from Tee to main
+[33m313d23a[m HEAD@{65}: checkout: moving from Dev to Tee
+[33m74bb6d5[m HEAD@{66}: pull --ff --recurse-submodules --progress origin: Fast-forward
+[33mec74862[m HEAD@{67}: checkout: moving from Tee to Dev
+[33mb9ba814[m HEAD@{68}: commit: Update
+[33m27a68e9[m HEAD@{69}: commit: Update
+[33mec74862[m HEAD@{70}: pull --ff --recurse-submodules --progress origin: Fast-forward
+[33me365b89[m HEAD@{71}: commit: Update
+[33m335d6ac[m HEAD@{72}: checkout: moving from main to Tee
+[33me28d985[m HEAD@{73}: commit: Update
+[33m8a9956e[m HEAD@{74}: clone: from https://github.com/TKittinan/QBuddy.git
