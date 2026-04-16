@@ -8,6 +8,7 @@ export class PartyController {
     try {
       // Extract user location from query parameters
       const { lat, lng, userId } = req.query;
+      const userLat = lat ? parseFloat(lat as string) : undefined;
       const userLng = lng ? parseFloat(lng as string) : undefined;
 
       const parties = await party_service.get_all_parties(userLat, userLng, userId as string | undefined);
