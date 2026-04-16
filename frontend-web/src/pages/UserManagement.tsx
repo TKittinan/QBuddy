@@ -14,7 +14,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 
-const API_BASE_URL = "http://localhost:5000/api";
+const API_BASE_URL = "http://localhost:3000/api";
 
 const userSchema = z.object({
   name: z.string().min(1, "กรุณากรอกชื่อ"),
@@ -43,11 +43,10 @@ export default function UserManagement() {
 
   const fetchUsersFromDB = async () => {
     try {
-      /*
+      
       const response = await fetch(`${API_BASE_URL}/users`);
       const data = await response.json();
       dispatch(setUsers(data));
-      */
     } catch (error) { console.error(error); }
   };
 
@@ -56,14 +55,14 @@ export default function UserManagement() {
   const onSubmit = async (data: UserFormData) => {
     try {
       const url = editingUser ? `${API_BASE_URL}/users/${editingUser.id}` : `${API_BASE_URL}/users`;
-      /*
+
       const response = await fetch(url, { method: editingUser ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
       const result = await response.json();
       if (editingUser) dispatch(updateUser(result));
       else dispatch(addUser(result));
-      */
       setIsPanelOpen(false);
       reset();
+      
     } catch (error) { alert("Error"); }
   };
 

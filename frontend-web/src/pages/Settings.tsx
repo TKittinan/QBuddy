@@ -6,7 +6,7 @@ import { Building2, ShieldCheck, Save, Phone, Mail, Clock, Hash } from "lucide-r
 import { Input } from "../components/ui/Input";
 import { Button } from "../components/ui/Button";
 
-const API_BASE_URL = "http://localhost:5000/api";
+const API_BASE_URL = "http://localhost:3000/api";
 
 export default function Settings() {
   const dispatch = useDispatch();
@@ -18,10 +18,10 @@ export default function Settings() {
 
   const handleSaveGeneral = async () => {
     try {
-      /*
+      
       const response = await fetch(`${API_BASE_URL}/settings`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(formData) });
       if (!response.ok) throw new Error();
-      */
+      
       dispatch(updateSettings(formData));
       alert("Settings saved successfully!");
     } catch (error) { alert("Error saving settings"); }
