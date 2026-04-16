@@ -123,8 +123,6 @@ export default function UserManagement() {
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
             <Controller control={control} name="name" render={({ field }) => <Input label="Full Name" icon={<UserIcon size={16}/>} {...field} error={errors.name?.message} />} />
             <Controller control={control} name="email" render={({ field }) => <Input label="Email Address" icon={<Mail size={16}/>} {...field} error={errors.email?.message} />} />
-            
-            {/* 🌟 เพิ่ม Input สำหรับเบอร์โทรศัพท์ */}
             <Controller control={control} name="phone" render={({ field }) => <Input label="Phone Number" icon={<Phone size={16}/>} {...field} error={errors.phone?.message} />} />
 
             <Controller control={control} name="role" render={({ field: { onChange, value } }) => (
