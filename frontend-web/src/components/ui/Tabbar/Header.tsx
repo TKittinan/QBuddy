@@ -7,7 +7,8 @@ import {
   ExitIcon,
   Cross2Icon
 } from "@radix-ui/react-icons";
-import { useAuth } from "../../../context/auth/use.Auth";
+import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
+import { logout } from "../../../redux/authSlice";
 import { Dropdown } from "../Dropdown";
 import { useNavigate, Link } from "react-router-dom"; 
 
@@ -19,18 +20,23 @@ interface HeaderProps {
 }
 
 export default function Header({ title, onMenuClick, searchQuery, setSearchQuery }: HeaderProps) {
-  const { user, logout } = useAuth();
+  const { user } = useAppSelector((state) => state.auth);
+  const dispatch = useAppDispatch();
   const navigate = useNavigate(); 
-  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [hasPendingTickets, setHasPendingTickets] = useState(false);
 
   const checkPendingTickets = () => {
     const savedTickets = localStorage.getItem("support_tickets");
     if (savedTickets) {
-      const parsedTickets = JSON.parse(savedTickets);
-      const isPending = parsedTickets.some((t: any) => t.status === "Pending");
-      setHasPendingTickets(isPending);
+      try {
+        const parsedTickets = JSON.parse(savedTickets);
+        const isPending = parsedTickets.some((t: any) => t.status === "Pending");
+        setHasPendingTickets(isPending);
+      } catch (e) {
+        setHasPendingTickets(false);
+      }
     }
   };
 
@@ -41,7 +47,7 @@ export default function Header({ title, onMenuClick, searchQuery, setSearchQuery
   }, []);
 
   const handleLogout = () => {
-    logout();
+    dispatch(logout());
     navigate("/login");
   };
 
@@ -73,18 +79,19 @@ export default function Header({ title, onMenuClick, searchQuery, setSearchQuery
   const profileButtonUI = (
     <button className="flex items-center gap-3 hover:bg-slate-50 p-1 pr-2 rounded-xl transition-all cursor-pointer">
       <div className="w-9 h-9 lg:w-10 lg:h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-bold shadow-lg uppercase">
-        {user?.name ? user.name.charAt(0) : "A"}
+        {/* ดึงตัวแรกจากชื่อใน Redux */}
+        {user?.name ? user.name.charAt(0) : "U"}
       </div>
       <div className="text-left hidden xl:block">
-        <p className="text-sm font-bold text-slate-800 leading-none">{user?.name || "Admin User"}</p>
-        <p className="text-[10px] font-medium text-slate-400 uppercase mt-1">{user?.role || "ADMIN"}</p>
+        {/* แสดงชื่อจริงจาก Redux */}
+        <p className="text-sm font-bold text-slate-800 leading-none">{user?.name || "Unknown User"}</p>
+        <p className="text-[10px] font-medium text-slate-400 uppercase mt-1">{user?.role || "GUEST"}</p>
       </div>
     </button>
   );
 
   return (
     <header className="bg-white border-b border-slate-200 px-4 lg:px-8 py-3 lg:py-4 flex items-center justify-between z-40 sticky top-0 shadow-sm">
-      
       <div className="flex items-center gap-3">
         <button 
           onClick={onMenuClick}
@@ -132,7 +139,13 @@ export default function Header({ title, onMenuClick, searchQuery, setSearchQuery
         </div>
 
         <div className="hidden lg:block">
-          {profileButtonUI}
+          <Dropdown 
+            trigger={profileButtonUI}
+            items={[
+              { label: "Settings", icon: <GearIcon />, divider: true, onClick: () => navigate("/settings") },
+              { label: "Sign Out", icon: <ExitIcon />, className: "text-red-600 font-bold", onClick: handleLogout },
+            ]}
+          />
         </div>
       </div>
     </header>

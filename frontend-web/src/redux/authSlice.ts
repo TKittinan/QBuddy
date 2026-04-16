@@ -1,7 +1,6 @@
 import { createSlice, createAsyncThunk, type PayloadAction } from "@reduxjs/toolkit";
 import axios from "axios";
 
-// กำหนด URL ของ API Login
 const LOGIN_URL = "http://localhost:3000/api/auth/login";
 
 interface AuthState {
@@ -11,15 +10,20 @@ interface AuthState {
   error: string | null;
 }
 
-// ดึงค่าเริ่มต้นจาก localStorage (ถ้าเคย login ไว้แล้ว)
 const initialState: AuthState = {
-  user: JSON.parse(localStorage.getItem("user") || "null"),
+  user: (() => {
+    try {
+      const savedUser = localStorage.getItem("user");
+      return savedUser ? JSON.parse(savedUser) : null;
+    } catch {
+      return null;
+    }
+  })(),
   token: localStorage.getItem("token"),
   loading: false,
   error: null,
 };
 
-// Thunk สำหรับจัดการการ Login
 export const loginAsync = createAsyncThunk(
   "auth/login",
   async (credentials: { email: string; password: string }, { rejectWithValue }) => {
@@ -27,7 +31,8 @@ export const loginAsync = createAsyncThunk(
       const response = await axios.post(LOGIN_URL, credentials);
       const { token, user } = response.data;
 
-      // เซฟลงเครื่องทันทีที่ login สำเร็จ
+      localStorage.removeItem("user");
+      localStorage.removeItem("token");
       localStorage.setItem("token", token);
       localStorage.setItem("user", JSON.stringify(user));
 
@@ -42,12 +47,15 @@ const authSlice = createSlice({
   name: "auth",
   initialState,
   reducers: {
-    // สำหรับ Logout
     logout: (state) => {
       state.user = null;
       state.token = null;
+      state.loading = false;
+      state.error = null;
       localStorage.removeItem("token");
       localStorage.removeItem("user");
+      localStorage.removeItem("system_staffs"); 
+      localStorage.clear();
     },
   },
   extraReducers: (builder) => {
@@ -59,7 +67,8 @@ const authSlice = createSlice({
       .addCase(loginAsync.fulfilled, (state, action: PayloadAction<{ token: string; user: any }>) => {
         state.loading = false;
         state.token = action.payload.token;
-        state.user = action.payload.user;
+        state.user = action.payload.user; // ข้อมูล Tee จะถูกเก็บเข้า Redux ตรงนี้
+        state.error = null;
       })
       .addCase(loginAsync.rejected, (state, action) => {
         state.loading = false;

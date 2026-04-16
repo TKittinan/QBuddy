@@ -10,7 +10,7 @@ import {
 import { NavLink, useNavigate } from "react-router-dom";
 import { GroupIcon, MessageSquare } from "lucide-react";
 
-// นำเข้า Hooks จาก Redux แทน Context เดิม
+// นำเข้า Hooks จาก Redux
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { logout } from "../../../redux/authSlice";
 
@@ -21,14 +21,14 @@ const Sidebar = () => {
   // ดึงข้อมูล User จาก Redux Store
   const { user } = useAppSelector((state) => state.auth);
   
-  // เช็คสิทธิ์ Admin จากข้อมูลใน Redux (ตรวจสอบให้แน่ใจว่า field ชื่อ role หรือ admin.role)
-  const isAdmin = user?.role === "admin";
+  // ไม่ว่าใน DB จะเป็น "admin" หรือ "ADMIN" ก็จะผ่านเงื่อนไขนี้
+  const isAdmin = user?.role?.toUpperCase() === "ADMIN";
 
   const handleLogout = () => {
     // 1. ล้างสถานะใน Redux และ LocalStorage ผ่าน Slice
     dispatch(logout());
     
-    // 2. ล้างข้อมูล mock เดิม (ถ้ายังมีค้างอยู่)
+    // 2. ล้างข้อมูลขยะอื่นๆ (ถ้ามี)
     localStorage.removeItem("system_staffs");
     
     // 3. กลับหน้า Login

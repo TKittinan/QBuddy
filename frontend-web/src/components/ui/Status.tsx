@@ -1,12 +1,16 @@
 import React from "react";
 
 interface StatusProps {
-  status: string;
+  status?: string; 
 }
 
 export const Status: React.FC<StatusProps> = ({ status }) => {
-  // แปลงให้เป็นตัวพิมพ์ใหญ่ทั้งหมดเพื่อเช็คเงื่อนไขได้ง่าย
-  const normalizedStatus = status.toUpperCase();
+
+  // วิธีนี้จะช่วยป้องกัน Error: Cannot read properties of undefined
+  const currentStatus = status || "OFFLINE";
+
+  // แปลงให้เป็นตัวพิมพ์ใหญ่ทั้งหมดเพื่อเช็คเงื่อนไข
+  const normalizedStatus = currentStatus.toUpperCase();
 
   let badgeClass = "bg-slate-100 text-slate-600"; // สีเริ่มต้น (Default)
 
@@ -34,11 +38,10 @@ export const Status: React.FC<StatusProps> = ({ status }) => {
       badgeClass = "bg-slate-100 text-slate-600";
   }
 
-  // แปลงให้แสดงผลแบบ Title Case (เช่น WAITING -> Waiting)
-  const displayText = status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
+  const displayText = currentStatus.charAt(0).toUpperCase() + currentStatus.slice(1).toLowerCase();
 
   return (
-    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold tracking-wide ${badgeClass}`}>
+    <span className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold tracking-wide ${badgeClass}`}>
       {displayText}
     </span>
   );

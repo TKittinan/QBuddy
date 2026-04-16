@@ -47,7 +47,6 @@ export default function StaffManagement() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isAddPanelOpen, setIsAddPanelOpen] = useState(false);
 
-  // ดึงข้อมูลพนักงานจาก DB จริงเมื่อ Component mount
   useEffect(() => {
     dispatch(fetchStaffs());
   }, [dispatch]);
@@ -73,7 +72,7 @@ export default function StaffManagement() {
         user?.email?.toLowerCase().includes(lowerQuery)
       );
     }
-    result.sort((a, b) => (b?.id || 0) - (a?.id || 0));
+    result.sort((a, b) => Number(b?.id || 0) - Number(a?.id || 0));
     return result;
   }, [staffs, searchQuery]);
 
@@ -85,7 +84,6 @@ export default function StaffManagement() {
     setIsAddPanelOpen(true);
   };
 
-  // ฟังก์ชันเพิ่มข้อมูลพนักงานลง DB จริง
   const onAddSubmit = async (data: AddStaffFormData) => {
     try {
       await dispatch(addStaffAsync(data)).unwrap();
@@ -99,22 +97,21 @@ export default function StaffManagement() {
 
   const handleEditClick = (user: User) => {
     setEditingUser(user); 
+    // แก้ไข: ทำให้ role เป็นตัวพิมพ์ใหญ่เสมอเพื่อให้ตรงกับ Zod Schema
     editForm.reset({ 
       name: user.name, 
       email: user.email, 
-      role: (user.role as "ADMIN" | "STAFF") || "STAFF" 
+      role: (user.role?.toUpperCase() as "ADMIN" | "STAFF") || "STAFF" 
     });
   };
 
-  // ฟังก์ชันอัปเดตข้อมูลพนักงานลง DB จริง
   const onEditSubmit = async (data: EditStaffFormData) => {
     if (!editingUser) return;
     try {
       const updatedStaff = { ...editingUser, ...data };
       await dispatch(updateStaffAsync(updatedStaff)).unwrap();
 
-      // ถ้าคนที่เราแก้คือตัวเราเอง ให้ทำการ Update Auth Context ด้วย
-      if (currentUser && Number(currentUser.id) === editingUser.id) {
+      if (currentUser && Number(currentUser.id) === Number(editingUser.id)) {
           login({ ...currentUser, name: data.name, email: data.email, role: data.role }, token || "");
       }
       setEditingUser(null);
@@ -124,7 +121,6 @@ export default function StaffManagement() {
     }
   };
 
-  // ฟังก์ชันลบข้อมูลพนักงานจาก DB จริง
   const handleDeleteUser = async (id: number) => {
     if (window.confirm("คุณแน่ใจหรือไม่ว่าต้องการลบพนักงานคนนี้?")) { 
       try {
@@ -142,7 +138,8 @@ export default function StaffManagement() {
       className: "w-[40%] text-left", 
       render: (user) => (
         <div className="flex items-center gap-3">
-          <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold uppercase shrink-0 ${user?.role === 'ADMIN' ? 'bg-rose-100 text-rose-700' : 'bg-indigo-100 text-indigo-700'}`}>
+          {/*  แก้ไขเงื่อนไขการเช็คสี: ใช้ .toUpperCase() เพื่อความชัวร์ */}
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold uppercase shrink-0 ${user?.role?.toUpperCase() === 'ADMIN' ? 'bg-rose-100 text-rose-700' : 'bg-indigo-100 text-indigo-700'}`}>
             {user?.name?.charAt(0) || "?"}
           </div>
           <div className="min-w-0">
@@ -156,11 +153,14 @@ export default function StaffManagement() {
       header: "ROLE", 
       key: "role", 
       className: "w-[20%] text-left", 
-      render: (user) => (
-        <span className={`px-2 py-1 rounded border text-[10px] font-bold ${user?.role === 'ADMIN' ? 'border-rose-200 text-rose-600 bg-rose-50' : 'border-indigo-200 text-indigo-600 bg-indigo-50'}`}>
-          {user?.role || "STAFF"}
-        </span>
-      )
+      render: (user) => {
+        const role = user?.role?.toUpperCase() || "STAFF"; //  แปลงเป็นตัวพิมพ์ใหญ่ก่อนแสดงผล
+        return (
+          <span className={`px-2 py-1 rounded border text-[10px] font-bold ${role === 'ADMIN' ? 'border-rose-200 text-rose-600 bg-rose-50' : 'border-indigo-200 text-indigo-600 bg-indigo-50'}`}>
+            {role}
+          </span>
+        );
+      }
     },
     { 
       header: "STATUS", 
@@ -178,7 +178,7 @@ export default function StaffManagement() {
           trigger={<button className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors"><MoreHorizontal size={18} /></button>}
           items={[
             { label: "Edit Staff", icon: <Edit size={16} />, onClick: () => handleEditClick(user) },
-            { label: "Delete", icon: <Trash2 size={16} />, className: "text-red-600", divider: true, onClick: () => user?.id && handleDeleteUser(user.id) },
+            { label: "Delete", icon: <Trash2 size={16} />, className: "text-red-600", divider: true, onClick: () => user?.id && handleDeleteUser(Number(user.id)) },
           ]}
         />
       )
@@ -187,6 +187,7 @@ export default function StaffManagement() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
+      {/* ส่วนหัว และปุ่ม Add ยังเหมือนเดิม */}
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-bold text-slate-800">System Staffs & Admins</h2>
         <Button className="bg-[#5AB2A8] hover:bg-[#4a968d] text-white shadow-lg flex items-center gap-2" onClick={handleOpenAdd}><Plus size={18} /> Add New Staff</Button>
@@ -249,7 +250,8 @@ export default function StaffManagement() {
         {editingUser && (
           <>
             <div className="flex flex-col items-center text-center mb-10">
-              <div className={`w-24 h-24 rounded-3xl flex items-center justify-center text-white font-bold text-4xl shadow-xl mb-4 uppercase ${editingUser.role === 'ADMIN' ? 'bg-rose-500 shadow-rose-100' : 'bg-indigo-500 shadow-indigo-100'}`}>{editingUser.name?.charAt(0) || "?"}</div>
+              {/* แก้ไข: แสดงสี Avatar ให้ถูกตามตัวพิมพ์เล็ก/ใหญ่ */}
+              <div className={`w-24 h-24 rounded-3xl flex items-center justify-center text-white font-bold text-4xl shadow-xl mb-4 uppercase ${editingUser.role?.toUpperCase() === 'ADMIN' ? 'bg-rose-500 shadow-rose-100' : 'bg-indigo-500 shadow-indigo-100'}`}>{editingUser.name?.charAt(0) || "?"}</div>
               <h3 className="text-2xl font-bold text-slate-800">{editingUser.name}</h3>
               <p className="text-slate-500 text-sm mt-1">{editingUser.email}</p>
               <div className="mt-4"><Status status={editingUser.status} /></div>
@@ -271,8 +273,9 @@ export default function StaffManagement() {
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Update Role</label>
                   <Controller control={editForm.control} name="role" render={({ field: { onChange, value } }) => (
                     <div className="flex gap-3">
-                      <button type="button" onClick={() => onChange("STAFF")} className={`flex-1 flex flex-col items-center justify-center gap-1 py-3 px-4 rounded-xl border transition-all ${value === "STAFF" ? "border-indigo-500 bg-indigo-50 text-indigo-700 ring-2 ring-indigo-500/20" : "border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100"}`}><Shield size={20} className="mb-1" /><span className="text-xs font-bold">STAFF</span></button>
-                      <button type="button" onClick={() => onChange("ADMIN")} className={`flex-1 flex flex-col items-center justify-center gap-1 py-3 px-4 rounded-xl border transition-all ${value === "ADMIN" ? "border-rose-500 bg-rose-50 text-rose-700 ring-2 ring-rose-500/20" : "border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100"}`}><Shield size={20} className="mb-1" /><span className="text-xs font-bold">ADMIN</span></button>
+                      {/* แก้ไข: เช็ค value ตัวพิมพ์ใหญ่เสมอเพื่อให้สีปุ่มแสดงถูกต้อง */}
+                      <button type="button" onClick={() => onChange("STAFF")} className={`flex-1 flex flex-col items-center justify-center gap-1 py-3 px-4 rounded-xl border transition-all ${value?.toUpperCase() === "STAFF" ? "border-indigo-500 bg-indigo-50 text-indigo-700 ring-2 ring-indigo-500/20" : "border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100"}`}><Shield size={20} className="mb-1" /><span className="text-xs font-bold">STAFF</span></button>
+                      <button type="button" onClick={() => onChange("ADMIN")} className={`flex-1 flex flex-col items-center justify-center gap-1 py-3 px-4 rounded-xl border transition-all ${value?.toUpperCase() === "ADMIN" ? "border-rose-500 bg-rose-50 text-rose-700 ring-2 ring-rose-500/20" : "border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100"}`}><Shield size={20} className="mb-1" /><span className="text-xs font-bold">ADMIN</span></button>
                     </div>
                   )}/>
                 </div>
