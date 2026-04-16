@@ -4,7 +4,7 @@ import axios from "axios";
 
 const API_URL = "http://localhost:3000/api/users"; 
 
-// Helper function สำหรับดึง Token และตั้งค่า Header
+// Helper สำหรับตั้งค่า Header (แนะนำให้ใช้ Axios Interceptor แทนในระยะยาว)
 const getAuthConfig = () => {
   const token = localStorage.getItem("token");
   return {
@@ -14,27 +14,55 @@ const getAuthConfig = () => {
   };
 };
 
-// 1. Actions สำหรับเรียก API (Async Thunks)
-export const fetchUsers = createAsyncThunk("users/fetchUsers", async () => {
-  const response = await axios.get(API_URL, getAuthConfig());
-  return response.data;
-});
+// 1. Actions สำหรับเรียก API
+export const fetchUsers = createAsyncThunk(
+  "users/fetchUsers", 
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await axios.get(API_URL, getAuthConfig());
+      return response.data;
+    } catch (err: any) {
+      // ส่ง Error Message กลับไปแทนที่จะปล่อยให้พังจนเกิด Loop
+      return rejectWithValue(err.response?.data?.message || err.message || "Failed to fetch users");
+    }
+  }
+);
 
-export const addUserAsync = createAsyncThunk("users/addUser", async (newUser: Partial<User>) => {
-  const response = await axios.post(API_URL, newUser, getAuthConfig());
-  return response.data;
-});
+export const addUserAsync = createAsyncThunk(
+  "users/addUser", 
+  async (newUser: Partial<User>, { rejectWithValue }) => {
+    try {
+      const response = await axios.post(API_URL, newUser, getAuthConfig());
+      return response.data;
+    } catch (err: any) {
+      return rejectWithValue(err.response?.data?.message || "Failed to add user");
+    }
+  }
+);
 
-export const updateUserAsync = createAsyncThunk("users/updateUser", async (updatedUser: User) => {
-  const response = await axios.put(`${API_URL}/${updatedUser.id}`, updatedUser, getAuthConfig());
-  return response.data;
-});
+export const updateUserAsync = createAsyncThunk(
+  "users/updateUser", 
+  async (updatedUser: User, { rejectWithValue }) => {
+    try {
+      const response = await axios.put(`${API_URL}/${updatedUser.id}`, updatedUser, getAuthConfig());
+      return response.data;
+    } catch (err: any) {
+      return rejectWithValue(err.response?.data?.message || "Failed to update user");
+    }
+  }
+);
 
-// เปลี่ยน userId จาก string เป็น number | string เพื่อความยืดหยุ่น
-export const deleteUserAsync = createAsyncThunk("users/deleteUser", async (userId: number | string) => {
-  await axios.delete(`${API_URL}/${userId}`, getAuthConfig());
-  return userId;
-});
+export const deleteUserAsync = createAsyncThunk(
+  "users/deleteUser", 
+  async (userId: number | string, { rejectWithValue }) => {
+    try {
+      await axios.delete(`${API_URL}/${userId}`, getAuthConfig());
+      return userId;
+    } catch (err: any) {
+      return rejectWithValue(err.response?.data?.message || "Failed to delete user");
+    }
+  }
+);
 
 // 2. Initial State
 interface UserState {
@@ -53,7 +81,12 @@ const initialState: UserState = {
 const userSlice = createSlice({
   name: "users",
   initialState,
-  reducers: {},
+  reducers: {
+    // เพิ่ม action สำหรับล้าง error ทิ้ง
+    clearError: (state) => {
+      state.error = null;
+    }
+  },
   extraReducers: (builder) => {
     builder
       // Fetch Users
@@ -64,10 +97,11 @@ const userSlice = createSlice({
       .addCase(fetchUsers.fulfilled, (state, action: PayloadAction<User[]>) => {
         state.loading = false;
         state.users = action.payload;
+        state.error = null; // ล้าง error เมื่อโหลดสำเร็จ
       })
       .addCase(fetchUsers.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message || "Failed to fetch users";
+        state.error = action.payload as string || "Access Denied (403)";
       })
 
       // Add User
@@ -85,10 +119,10 @@ const userSlice = createSlice({
 
       // Delete User
       .addCase(deleteUserAsync.fulfilled, (state, action: PayloadAction<number | string>) => {
-        // ใช้ != เพื่อให้เปรียบเทียบข้าม Type ได้กรณีที่ตัวหนึ่งเป็น string อีกตัวเป็น number
         state.users = state.users.filter((u) => u.id != action.payload);
       });
   },
 });
 
+export const { clearError } = userSlice.actions; // Export ออกไปใช้ใน UI
 export default userSlice.reducer;

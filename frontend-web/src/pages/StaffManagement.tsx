@@ -18,6 +18,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 
+// Zod ยังคงใช้ตัวพิมพ์ใหญ่สำหรับ UI Validation
 const addStaffSchema = z.object({
   name: z.string().min(1, "กรุณากรอกชื่อ"),
   email: z.string().email("รูปแบบอีเมลไม่ถูกต้อง"),
@@ -86,7 +87,11 @@ export default function StaffManagement() {
 
   const onAddSubmit = async (data: AddStaffFormData) => {
     try {
-      await dispatch(addStaffAsync(data)).unwrap();
+      const finalData = {
+        ...data,
+        role: data.role.toLowerCase() as any // ส่ง "admin" หรือ "staff" ไป
+      };
+      await dispatch(addStaffAsync(finalData)).unwrap();
       alert("สร้างบัญชีพนักงานสำเร็จ!");
       addForm.reset();
       setIsAddPanelOpen(false);
@@ -97,7 +102,6 @@ export default function StaffManagement() {
 
   const handleEditClick = (user: User) => {
     setEditingUser(user); 
-    // แก้ไข: ทำให้ role เป็นตัวพิมพ์ใหญ่เสมอเพื่อให้ตรงกับ Zod Schema
     editForm.reset({ 
       name: user.name, 
       email: user.email, 
@@ -108,11 +112,13 @@ export default function StaffManagement() {
   const onEditSubmit = async (data: EditStaffFormData) => {
     if (!editingUser) return;
     try {
-      const updatedStaff = { ...editingUser, ...data };
+      const finalRole = data.role.toLowerCase() as any;
+      const updatedStaff = { ...editingUser, ...data, role: finalRole };
+      
       await dispatch(updateStaffAsync(updatedStaff)).unwrap();
 
       if (currentUser && Number(currentUser.id) === Number(editingUser.id)) {
-          login({ ...currentUser, name: data.name, email: data.email, role: data.role }, token || "");
+          login({ ...currentUser, name: data.name, email: data.email, role: finalRole }, token || "");
       }
       setEditingUser(null);
       alert("อัปเดตข้อมูลสำเร็จ");
@@ -138,8 +144,8 @@ export default function StaffManagement() {
       className: "w-[40%] text-left", 
       render: (user) => (
         <div className="flex items-center gap-3">
-          {/*  แก้ไขเงื่อนไขการเช็คสี: ใช้ .toUpperCase() เพื่อความชัวร์ */}
-          <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold uppercase shrink-0 ${user?.role?.toUpperCase() === 'ADMIN' ? 'bg-rose-100 text-rose-700' : 'bg-indigo-100 text-indigo-700'}`}>
+          {/* เช็คเงื่อนไขด้วยตัวพิมพ์เล็กเพื่อให้สี Avatar ตรงเสมอ */}
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold uppercase shrink-0 ${user?.role?.toLowerCase() === 'admin' ? 'bg-rose-100 text-rose-700' : 'bg-indigo-100 text-indigo-700'}`}>
             {user?.name?.charAt(0) || "?"}
           </div>
           <div className="min-w-0">
@@ -154,7 +160,8 @@ export default function StaffManagement() {
       key: "role", 
       className: "w-[20%] text-left", 
       render: (user) => {
-        const role = user?.role?.toUpperCase() || "STAFF"; //  แปลงเป็นตัวพิมพ์ใหญ่ก่อนแสดงผล
+        // บังคับแสดงผลในตารางเป็นตัวพิมพ์ใหญ่เพื่อความสวยงาม
+        const role = user?.role?.toUpperCase() || "STAFF";
         return (
           <span className={`px-2 py-1 rounded border text-[10px] font-bold ${role === 'ADMIN' ? 'border-rose-200 text-rose-600 bg-rose-50' : 'border-indigo-200 text-indigo-600 bg-indigo-50'}`}>
             {role}
@@ -166,7 +173,12 @@ export default function StaffManagement() {
       header: "STATUS", 
       key: "status", 
       className: "w-[20%] text-center", 
-      render: (user) => <div className="flex justify-center"><Status status={user?.status || "OFFLINE"} /></div> 
+      render: (user) => (
+  <div className="flex justify-center">
+    {/* ถ้ามันเป็น ONLINE จริงๆ ให้มันขึ้นจุดสีเขียว */}
+    <Status status={user?.status === "ONLINE" ? "ONLINE" : "OFFLINE"} />
+  </div> 
+)
     },
     { 
       header: "ACTIONS", 
@@ -187,7 +199,6 @@ export default function StaffManagement() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      {/* ส่วนหัว และปุ่ม Add ยังเหมือนเดิม */}
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-bold text-slate-800">System Staffs & Admins</h2>
         <Button className="bg-[#5AB2A8] hover:bg-[#4a968d] text-white shadow-lg flex items-center gap-2" onClick={handleOpenAdd}><Plus size={18} /> Add New Staff</Button>
@@ -204,7 +215,6 @@ export default function StaffManagement() {
         )}
       </div>
 
-      {/* Add Staff SidePanel */}
       <SidePanelEdit 
         isOpen={isAddPanelOpen} 
         onClose={() => setIsAddPanelOpen(false)} 
@@ -240,7 +250,6 @@ export default function StaffManagement() {
         </div>
       </SidePanelEdit>
 
-      {/* Edit Staff SidePanel */}
       <SidePanelEdit 
         isOpen={!!editingUser} 
         onClose={() => setEditingUser(null)} 
@@ -250,8 +259,7 @@ export default function StaffManagement() {
         {editingUser && (
           <>
             <div className="flex flex-col items-center text-center mb-10">
-              {/* แก้ไข: แสดงสี Avatar ให้ถูกตามตัวพิมพ์เล็ก/ใหญ่ */}
-              <div className={`w-24 h-24 rounded-3xl flex items-center justify-center text-white font-bold text-4xl shadow-xl mb-4 uppercase ${editingUser.role?.toUpperCase() === 'ADMIN' ? 'bg-rose-500 shadow-rose-100' : 'bg-indigo-500 shadow-indigo-100'}`}>{editingUser.name?.charAt(0) || "?"}</div>
+              <div className={`w-24 h-24 rounded-3xl flex items-center justify-center text-white font-bold text-4xl shadow-xl mb-4 uppercase ${editingUser.role?.toLowerCase() === 'admin' ? 'bg-rose-500 shadow-rose-100' : 'bg-indigo-500 shadow-indigo-100'}`}>{editingUser.name?.charAt(0) || "?"}</div>
               <h3 className="text-2xl font-bold text-slate-800">{editingUser.name}</h3>
               <p className="text-slate-500 text-sm mt-1">{editingUser.email}</p>
               <div className="mt-4"><Status status={editingUser.status} /></div>
@@ -273,7 +281,6 @@ export default function StaffManagement() {
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Update Role</label>
                   <Controller control={editForm.control} name="role" render={({ field: { onChange, value } }) => (
                     <div className="flex gap-3">
-                      {/* แก้ไข: เช็ค value ตัวพิมพ์ใหญ่เสมอเพื่อให้สีปุ่มแสดงถูกต้อง */}
                       <button type="button" onClick={() => onChange("STAFF")} className={`flex-1 flex flex-col items-center justify-center gap-1 py-3 px-4 rounded-xl border transition-all ${value?.toUpperCase() === "STAFF" ? "border-indigo-500 bg-indigo-50 text-indigo-700 ring-2 ring-indigo-500/20" : "border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100"}`}><Shield size={20} className="mb-1" /><span className="text-xs font-bold">STAFF</span></button>
                       <button type="button" onClick={() => onChange("ADMIN")} className={`flex-1 flex flex-col items-center justify-center gap-1 py-3 px-4 rounded-xl border transition-all ${value?.toUpperCase() === "ADMIN" ? "border-rose-500 bg-rose-50 text-rose-700 ring-2 ring-rose-500/20" : "border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100"}`}><Shield size={20} className="mb-1" /><span className="text-xs font-bold">ADMIN</span></button>
                     </div>

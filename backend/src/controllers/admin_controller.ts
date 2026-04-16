@@ -11,6 +11,7 @@ export const getAllAdmins = async (req: Request, res: Response) => {
         name: true,
         email: true,
         role: true,
+        status: true,
         created_at: true,
       },
       orderBy: { created_at: "desc" },
@@ -42,7 +43,7 @@ export const createAdmin = async (req: Request, res: Response) => {
         email,
         name,
         password: hashedPassword,
-        role: role ? role.toUpperCase() : "STAFF", //  ปรับเป็นตัวพิมพ์ใหญ่เพื่อให้ตรงกับ Logic หน้าบ้าน
+        role: role ? role.toLowerCase() : "staff", 
       },
     });
 
@@ -61,11 +62,11 @@ export const updateAdmin = async (req: Request, res: Response) => {
     const { name, email, role } = req.body;
 
     const updated = await prisma.admin.update({
-      where: { id: id }, //  แก้จาก admin_id เป็น id
+      where: { id: id }, // แก้จาก admin_id เป็น id
       data: { 
         name, 
         email, 
-        role: role ? role.toUpperCase() : undefined 
+        role: role ? role.toLowerCase() : undefined 
       },
     });
 
@@ -81,7 +82,7 @@ export const deleteAdmin = async (req: Request, res: Response) => {
     const id = Number(req.params.id);
 
     await prisma.admin.delete({
-      where: { id: id }, //  แก้จาก admin_id เป็น id
+      where: { id: id }, // แก้จาก admin_id เป็น id
     });
 
     res.json({ message: "Admin deleted successfully" });

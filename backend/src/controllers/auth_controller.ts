@@ -3,6 +3,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { prisma } from "../lib/prisma";
 
+// --- LOGIN ---
 export const login = async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
@@ -20,11 +21,17 @@ export const login = async (req: Request, res: Response) => {
       return res.status(401).json({ message: "Wrong password" });
     }
 
-    const adminRole = admin.role ? admin.role.toUpperCase() : "STAFF";
+    // อัปเดตสถานะเป็น ONLINE เมื่อ Login สำเร็จ
+    const updatedAdmin = await prisma.admin.update({
+      where: { id: admin.id },
+      data: { status: "ONLINE" },
+    });
+
+    const adminRole = updatedAdmin.role ? updatedAdmin.role.toLowerCase() : "staff";
 
     const token = jwt.sign(
       { 
-        adminId: admin.id, 
+        adminId: updatedAdmin.id, 
         role: adminRole 
       },
       "secret", 
@@ -34,10 +41,11 @@ export const login = async (req: Request, res: Response) => {
     res.json({
       token,
       user: {
-        id: admin.id, 
-        email: admin.email,
-        name: admin.name,
-        role: adminRole 
+        id: updatedAdmin.id, 
+        email: updatedAdmin.email,
+        name: updatedAdmin.name,
+        role: adminRole,
+        status: updatedAdmin.status
       }
     });
   } catch (error) {
@@ -46,6 +54,28 @@ export const login = async (req: Request, res: Response) => {
   }
 };
 
+export const logout = async (req: Request, res: Response) => {
+  try {
+    const { adminId } = req.body; // รับ ID จากหน้าบ้านตอนกด Sign Out
+
+    if (!adminId) {
+      return res.status(400).json({ message: "Admin ID is required for logout" });
+    }
+
+    // อัปเดตสถานะกลับเป็น OFFLINE ในฐานข้อมูล
+    await prisma.admin.update({
+      where: { id: Number(adminId) },
+      data: { status: "OFFLINE" },
+    });
+
+    res.status(200).json({ message: "Logged out successfully" });
+  } catch (error) {
+    console.error("Logout Error:", error);
+    res.status(500).json({ message: "Logout failed", error });
+  }
+};
+
+// --- REGISTER ---
 export const registerAdmin = async (req: Request, res: Response) => {
   try {
     const { email, password, name, role } = req.body;
@@ -60,13 +90,15 @@ export const registerAdmin = async (req: Request, res: Response) => {
         email,
         password: hash,
         name,
-        role: role ? role.toUpperCase() : "STAFF", // บังคับตัวใหญ่ตอนสมัคร
+        role: role ? role.toLowerCase() : "staff", 
+        status: "OFFLINE", // เริ่มต้นเป็น Offline เสมอ
       },
     });
 
     const { password: _, ...adminWithoutPassword } = newAdmin;
     res.status(201).json(adminWithoutPassword);
   } catch (error) {
+    console.error("Register Error:", error);
     res.status(500).json({ message: "Register failed", error });
   }
 };

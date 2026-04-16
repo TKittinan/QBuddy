@@ -118,7 +118,7 @@ const staffSlice = createSlice({
       // Delete Staff
       .addCase(deleteStaffAsync.fulfilled, (state, action: PayloadAction<number | string>) => {
         state.loading = false;
-        state.staffs = state.staffs.filter((s) => s.id != action.payload); // ✅ ใช้ != เพื่อรองรับทั้ง string/number
+        state.staffs = state.staffs.filter((s) => s.id != action.payload); 
       })
       .addCase(deleteStaffAsync.rejected, (state, action) => {
         state.loading = false;
