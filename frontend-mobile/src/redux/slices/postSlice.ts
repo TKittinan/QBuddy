@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 import axios from "axios";
-import { PartyActivity, Guest, ActivityStatus } from "../../types";
+import { PartyActivity, Guest, ActivityStatus } from "../../types"; // Note: PartyActivity type might need updates for new fields
 
 const API_URL = "http://192.168.1.X:5000/api/posts";
 
@@ -20,9 +20,17 @@ const initialState: PostState = {
 
 export const fetchPostsAsync = createAsyncThunk(
   "post/fetchPosts",
-  async (_, { rejectWithValue }) => {
+  async (params?: { lat?: number; lng?: number; userId?: string }, { rejectWithValue }) => {
     try {
-      const response = await axios.get(API_URL);
+      // Build the URL with query parameters if params are provided
+      const url = new URL(API_URL);
+      if (params) {
+        if (params.lat) url.searchParams.set('lat', String(params.lat));
+        if (params.lng) url.searchParams.set('lng', String(params.lng));
+        if (params.userId) url.searchParams.set('userId', params.userId);
+      }
+
+      const response = await axios.get(url.toString());
       return response.data;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || "Fetch error");

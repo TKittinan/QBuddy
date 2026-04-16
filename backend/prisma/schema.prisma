@@ -67,6 +67,7 @@ model User {
   status       UserStatus   @default(ACTIVE)
   aiConsented  Boolean      @default(false)
   createdAt    DateTime     @default(now())
+  interests    String[]
 
   // Relations
   hostedActivities PartyActivity[] @relation("HostRelation")

@@ -6,6 +6,6 @@ const party_controller = new PartyController();
 
 router.get('/', party_controller.list);
 router.post('/', party_controller.create);
-router.post('/join', party_controller.join); // API สำหรับกดขอเข้าร่วม
+router.post('/join', party_controller.join);
 
 export default router;

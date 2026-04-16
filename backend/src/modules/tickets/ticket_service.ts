@@ -1,22 +1,67 @@
 import { prisma } from '../../lib/prisma';
-import { TicketStatus } from '@prisma/client';
+// 🌟 Import Prisma เข้ามาช่วยทำ Type ให้ Transaction
+import { TicketStatus, Prisma } from '@prisma/client';
 
 export class TicketService {
-  // ดึงคิวทั้งหมดของร้านค้าหนึ่งๆ
   async get_tickets_by_place(place_id: string) {
     return await prisma.ticket.findMany({
       where: { placeId: place_id },
-      orderBy: { createdAt: 'asc' } // เรียงตามเวลาที่จอง
+      orderBy: { createdAt: 'asc' } 
     });
   }
 
-  // สร้างคิวใหม่ (Booking/Queueing)
+  private async generate_id(place_id: string, service_category: string) {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
+    const countToday = await prisma.ticket.count({
+      where: {
+        placeId: place_id,
+        createdAt: { gte: todayStart, lte: todayEnd },
+      },
+    });
+
+    const prefix = service_category === 'ร้านอาหาร' ? 'R' : service_category === 'คาเฟ่' ? 'C' : 'B';
+    const runningNumber = (countToday + 1).toString().padStart(3, '0');
+    return `${prefix}-${runningNumber}`;
+  }
+
+  async get_queue_status(ticket_id: string) {
+    const currentTicket = await prisma.ticket.findUnique({
+      where: { id: ticket_id },
+      include: { place: true }
+    });
+
+    if (!currentTicket) throw new Error('Ticket not found');
+
+    const queuesAhead = await prisma.ticket.count({
+      where: {
+        placeId: currentTicket.placeId,
+        status: 'Waiting',
+        createdAt: { lt: currentTicket.createdAt } 
+      }
+    });
+
+    const avgServiceTime = currentTicket.place?.avgServiceTime || 15;
+    
+    return {
+      ticketId: ticket_id,
+      status: currentTicket.status,
+      queuesAhead,
+      estimatedWaitTime: queuesAhead * avgServiceTime
+    };
+  }
+
   async create_ticket(data: any) {
-    // ใช้ Transaction เพื่อให้แน่ใจว่าถ้าสร้าง Ticket สำเร็จ ต้องอัปเดตจำนวนคิวในร้านด้วย
-    return await prisma.$transaction(async (tx) => {
-      // 1. สร้าง Ticket
+    const customId = await this.generate_id(data.place_id, data.service);
+
+    // 🌟 ใส่ Type ให้ tx
+    return await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const ticket = await tx.ticket.create({
         data: {
+          id: customId,
           name: data.name,
           service: data.service,
           guests: data.guests,
@@ -28,33 +73,27 @@ export class TicketService {
         }
       });
 
-      // 2. อัปเดตจำนวนคิวปัจจุบันใน Table ของ Place
       await tx.place.update({
         where: { id: data.place_id },
-        data: {
-          queueCount: { increment: 1 }
-        }
+        data: { queueCount: { increment: 1 } }
       });
 
       return ticket;
     });
   }
 
-  // อัปเดตสถานะคิว (เช่น เปลี่ยนจาก Waiting เป็น Serving หรือ Cancelled)
   async update_ticket_status(id: string, status: TicketStatus) {
-    return await prisma.$transaction(async (tx) => {
+    // 🌟 ใส่ Type ให้ tx
+    return await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const ticket = await tx.ticket.update({
         where: { id },
         data: { status }
       });
 
-      // ถ้าคิวเสร็จสิ้น หรือถูกยกเลิก ให้ลดจำนวนคิวในร้านลง
       if (status === 'Completed' || status === 'Cancelled' || status === 'Skipped') {
         await tx.place.update({
           where: { id: ticket.placeId },
-          data: {
-            queueCount: { decrement: 1 }
-          }
+          data: { queueCount: { decrement: 1 } }
         });
       }
 
