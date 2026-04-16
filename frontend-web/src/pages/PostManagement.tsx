@@ -21,7 +21,7 @@ export default function PostManagement() {
   const [viewingPost, setViewingPost] = useState<PartyActivity | null>(null);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 8;
+  const itemsPerPage = 6; // 🌟 แก้เป็น 6 แถวต่อหน้า
 
   const displayPosts = useMemo(() => {
     let result = [...posts];
@@ -57,65 +57,26 @@ export default function PostManagement() {
 
   const columns: Column<PartyActivity>[] = [
     { 
-      header: "Party Host", 
-      key: "host",
-      render: (row) => (
-        <div>
-          <p className="font-bold text-slate-800">{row.hostName}</p>
-          <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1">
-            {row.hostPhone || "No Phone"}
-          </p>
-        </div>
-      )
+      header: "Party Host", key: "host",
+      render: (row) => (<div><p className="font-bold text-slate-800">{row.hostName}</p><p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1">{row.hostPhone || "No Phone"}</p></div>)
     },
     { 
-      header: "Post Title & Place", 
-      key: "title",
-      render: (row) => (
-        <div>
-          <p className="font-semibold text-slate-700 truncate max-w-[200px]">{row.title}</p>
-          <div className="flex items-center gap-1 text-xs text-slate-500 mt-1">
-            <MapPin size={12} className="text-indigo-400" />
-            <span className="truncate max-w-[180px]">{row.placeName}</span>
-          </div>
-        </div>
-      )
+      header: "Post Title & Place", key: "title",
+      render: (row) => (<div><p className="font-semibold text-slate-700 truncate max-w-[200px]">{row.title}</p><div className="flex items-center gap-1 text-xs text-slate-500 mt-1"><MapPin size={12} className="text-indigo-400" /><span className="truncate max-w-[180px]">{row.placeName}</span></div></div>)
     },
     { 
-      header: "Meeting Time", 
-      key: "time",
-      render: (row) => (
-        <div className="flex items-center gap-1.5 text-sm font-medium text-slate-600">
-          <Clock size={14} className="text-amber-500" />
-          {row.meetingDate} • {row.meetingTime}
-        </div>
-      )
+      header: "Meeting Time", key: "time",
+      render: (row) => (<div className="flex items-center gap-1.5 text-sm font-medium text-slate-600"><Clock size={14} className="text-amber-500" />{row.meetingDate} • {row.meetingTime}</div>)
     },
     {
-      header: "Guests",
-      key: "guests",
-      render: (row) => (
-        <div className="flex items-center gap-1.5">
-          <Users size={14} className="text-slate-400" />
-          <span className="text-sm font-bold text-slate-700">
-            {row.joinedGuests.filter((g: Guest) => g.status === 'confirmed').length} / {row.maxGuests}
-          </span>
-        </div>
-      )
+      header: "Guests", key: "guests",
+      render: (row) => (<div className="flex items-center gap-1.5"><Users size={14} className="text-slate-400" /><span className="text-sm font-bold text-slate-700">{row.joinedGuests.filter((g: Guest) => g.status === 'confirmed').length} / {row.maxGuests}</span></div>)
     },
-    { 
-      header: "Status", 
-      key: "status",
-      render: (row) => <StatusBadge status={row.status} />
-    },
+    { header: "Status", key: "status", render: (row) => <StatusBadge status={row.status} /> },
     {
-      header: "Actions",
-      key: "actions",
-      className: "text-right",
+      header: "Actions", key: "actions", className: "text-right",
       render: (row) => (
-        <Dropdown 
-          align="right"
-          trigger={<button className="p-2 text-slate-400 hover:bg-slate-100 rounded-lg transition-colors"><MoreHorizontal size={18} /></button>}
+        <Dropdown align="right" trigger={<button className="p-2 text-slate-400 hover:bg-slate-100 rounded-lg transition-colors"><MoreHorizontal size={18} /></button>}
           items={[
             { label: "View Details", icon: <Eye size={16} />, onClick: () => handleView(row) },
             { divider: true, label: "" },
@@ -128,14 +89,7 @@ export default function PostManagement() {
   ];
 
   return (
-    <div className="p-4 lg:p-8 max-w-[1600px] mx-auto w-full">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-        <div>
-          <h1 className="text-2xl font-black text-slate-800 tracking-tight">Post Management</h1>
-          <p className="text-sm text-slate-500 mt-1">Monitor and moderate user party/activity posts</p>
-        </div>
-      </div>
-
+    <div className="p-4 lg:p-8 max-w-[1600px] mx-auto w-full pt-10">
       <Table data={currentData} columns={columns} emptyMessage="No posts found." />
       <Pagination currentPage={currentPage} totalPages={totalPages} onChange={setCurrentPage} />
 
@@ -182,9 +136,9 @@ export default function PostManagement() {
               </div>
             </div>
 
-            <div className="pt-6 mt-6 border-t border-slate-100 flex gap-3">
-              <button onClick={() => handleStatusChange(viewingPost.id, "Closed")} className="flex-1 py-3 bg-amber-50 text-amber-600 font-bold rounded-xl hover:bg-amber-100 transition-colors">Force Close</button>
-              <button onClick={() => handleDelete(viewingPost.id)} className="flex-1 py-3 bg-rose-50 text-rose-600 font-bold rounded-xl hover:bg-rose-100 transition-colors">Delete Post</button>
+            <div className="pt-4 mt-2 border-t border-slate-100 flex gap-3">
+              <button onClick={() => handleStatusChange(viewingPost.id, "Closed")} className="flex-1 py-3.5 flex flex-row items-center justify-center gap-2 bg-amber-50 text-amber-600 font-bold rounded-xl hover:bg-amber-100 transition-colors whitespace-nowrap"><Ban size={16} /><span>Force Close</span></button>
+              <button onClick={() => handleDelete(viewingPost.id)} className="flex-1 py-3.5 flex flex-row items-center justify-center gap-2 bg-rose-50 text-rose-600 font-bold rounded-xl hover:bg-rose-100 transition-colors whitespace-nowrap"><Trash2 size={16} /><span>Delete Post</span></button>
             </div>
           </div>
         )}

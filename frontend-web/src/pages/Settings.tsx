@@ -2,18 +2,17 @@ import { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import type { RootState } from "../redux/Reduxindex";
 import { updateSettings } from "../redux/settingSlice";
-import { updateStaff } from "../redux/staffSlice";
+import { updateUser } from "../redux/userSlice"; 
 import { Building2, SlidersHorizontal, ShieldCheck, Save, Phone, Mail, Clock, Lock } from "lucide-react";
 import { Input } from "../components/ui/Input";
 import { Button } from "../components/ui/Button";
 import { useAuth } from "../context/auth/use.Auth"; 
+import type { User } from "../types"; // 🌟 Import Type
 
-// 🌟 นำเข้า useForm และ Zod
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 
-// 🌟 Schema สำหรับเช็คการเปลี่ยนรหัสผ่านโดยเฉพาะ (ตรวจ 2 ช่องให้ตรงกัน)
 const securitySchema = z.object({
   current: z.string().min(1, "กรุณากรอกรหัสผ่านปัจจุบัน"),
   newPass: z.string().min(6, "รหัสผ่านใหม่ต้องมีอย่างน้อย 6 ตัวอักษร"),
@@ -35,12 +34,11 @@ export default function Settings() {
   const dispatch = useDispatch();
   const { user } = useAuth(); 
   const settings = useSelector((state: RootState) => state.settings);
-  const staffs = useSelector((state: RootState) => state.staffs.staffs);
+  const users = useSelector((state: RootState) => state.users.users);
 
   const [activeTab, setActiveTab] = useState<Tab>("general");
   const [formData, setFormData] = useState(settings);
 
-  // 🌟 ติดตั้ง Form สำหรับ Security
   const secForm = useForm<SecurityFormData>({
     resolver: zodResolver(securitySchema),
     defaultValues: { current: "", newPass: "", confirm: "" },
@@ -65,10 +63,11 @@ export default function Settings() {
 
   const handleSaveSecurity = (data: SecurityFormData) => {
     setPassError(""); setPassSuccess("");
-    const currentUserData = staffs.find((s: any) => s.email === user?.email);
+    // 🌟 เลิกใช้ any แล้วระบุเป็น User
+    const currentUserData = users.find((u: User) => u.email === user?.email);
 
     if (currentUserData && currentUserData.password === data.current) {
-      dispatch(updateStaff({ ...currentUserData, password: data.newPass }));
+      dispatch(updateUser({ ...currentUserData, password: data.newPass }));
       setPassSuccess("Password updated successfully!");
       secForm.reset(); 
     } else {

@@ -2,7 +2,7 @@ import React from "react";
 
 export type RoleType = "ADMIN" | "STAFF" | "CUSTOMER";
 export type TicketStatus = "Waiting" | "Serving" | "Completed" | "Skipped" | "Cancelled";
-export type PlaceStatus = "Active" | "Disabled" | "Inactive";
+export type PlaceStatus = "Active" | "Inactive"; // 🌟 ลบ Disabled ออกแล้ว
 export type ActivityStatus = "Open" | "Closed" | "Completed" | "Cancelled";
 
 export interface User {
@@ -64,7 +64,6 @@ export interface Ticket {
   createdAt: string;
 }
 
-// 🌟 เพิ่ม Type สำหรับระบบหาเพื่อนให้ตรงกับ Mobile
 export interface Guest {
   userId: string;
   userName: string;
@@ -89,11 +88,11 @@ export interface PartyActivity {
   meetingTime: string;    
   lat: number;            
   lng: number;            
-  distance?: string;      
-  successRate?: number;   
+  distance?: string;
+  successRate?: number;
   sharedInterests?: number; 
-  joinedGuests: Guest[];  
-  maxGuests: number;      
+  joinedGuests: Guest[];
+  maxGuests: number;
   status: ActivityStatus;
   createdAt: string;
 }

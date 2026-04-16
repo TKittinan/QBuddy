@@ -5,7 +5,6 @@ import queueReducer from "./queueSlice";
 import bookingReducer from "./bookingSlice";
 import settingsReducer from "./settingSlice";
 import userReducer from "./userSlice";
-import staffReducer from "./staffSlice";
 import postReducer from './postSlice';
 
 export const store = configureStore({
@@ -17,7 +16,6 @@ export const store = configureStore({
     booking: bookingReducer,
     settings: settingsReducer,
     users: userReducer,
-    staffs: staffReducer
   }
 });
 

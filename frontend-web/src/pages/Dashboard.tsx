@@ -5,7 +5,7 @@ import { Dropdown } from "../components/ui/Dropdown";
 import { Button } from "../components/ui/Button";
 import { RefreshCcw, Calendar, ChevronDown, Clock } from "lucide-react";
 import { StatusBadge } from "../components/ui/StatusBadge";
-import type { Column } from "../types";
+import type { Column, Ticket } from "../types"; // 🌟 ใช้แค่ Ticket เพราะเรายุบรวมข้อมูลหมดแล้ว
 
 type ActivityItem = {
   id: string;
@@ -45,23 +45,12 @@ export default function Dashboard() {
     return start.getTime(); 
   };
 
-  /*
-  const fetchDashboardDataFromDB = async (startTimeStamp: number) => {
-    try {
-      const response = await fetch(`/api/dashboard/summary?startDate=${startTimeStamp}`);
-      const data = await response.json();
-    } catch (error) {
-      console.error("Failed to fetch database:", error);
-    }
-  };
-  */
-
   const loadData = () => {
     setIsRefreshing(true);
 
     try {
-      const queues = JSON.parse(localStorage.getItem("live_queue_tickets") || "[]");
-      const bookings = JSON.parse(localStorage.getItem("booking_db") || "[]");
+      const queues: Ticket[] = JSON.parse(localStorage.getItem("live_queue_tickets") || "[]");
+      const bookings: Ticket[] = JSON.parse(localStorage.getItem("booking_db") || "[]");
 
       const startTime = getTimeBoundaries(range);
 
@@ -73,8 +62,9 @@ export default function Dashboard() {
 
       const combinedActivities: ActivityItem[] = [];
 
-      const processItems = (items: any[], type: "Queue" | "Booking") => {
-        items.forEach((item: any) => {
+      // 🌟 ใช้ Ticket[] เท่านั้น ไม่มีการใช้ any หรือ Partial อีกต่อไป
+      const processItems = (items: Ticket[], type: "Queue" | "Booking") => {
+        items.forEach((item) => {
           const itemDate = new Date(item.createdAt || Date.now());
           const itemTimestamp = itemDate.getTime();
 
@@ -92,8 +82,8 @@ export default function Dashboard() {
             }
 
             let displayDate = itemDate;
-            if (type === "Booking" && item.dateTime) {
-              displayDate = new Date(item.dateTime);
+            if (item.bookDate && item.bookTime) {
+              displayDate = new Date(`${item.bookDate}T${item.bookTime}`);
             }
 
             const formattedTime = displayDate.toLocaleString('en-US', { 
@@ -104,11 +94,9 @@ export default function Dashboard() {
               hour12: true 
             });
 
-            const customerName = type === "Queue" ? item.name : (item.user?.name || "Unknown");
-
             combinedActivities.push({
               id: item.id || Math.random().toString(),
-              user: customerName,
+              user: item.name || "Unknown",
               action: type === "Queue" ? "Joined Queue" : "Created Booking",
               time: formattedTime,
               status: status,
@@ -125,25 +113,22 @@ export default function Dashboard() {
 
       setActivities(combinedActivities);
       setStatsData({
-        totalVisitors: { value: totalCount, trend: totalCount > 0 ? 5 : 0 }, 
+        totalVisitors: { value: totalCount, trend: totalCount > 0 ? 5 : 0 },
         activeQueues: { value: activeCount, trend: activeCount > 0 ? 2 : 0 },
         avgWaitTime: { value: queueWithWaitTimeCount > 0 ? Math.floor(totalWaitTime / queueWithWaitTimeCount) : 0, trend: -1 },
         completed: { value: completedCount, trend: 0 }
       });
-
     } catch (error) {
       console.error("Error loading dashboard data:", error);
     } finally {
-      setTimeout(() => setIsRefreshing(false), 500); 
+      setTimeout(() => setIsRefreshing(false), 500);
     }
   };
 
   useEffect(() => {
     loadData();
-
     const handleStorageChange = () => loadData();
     window.addEventListener("storage", handleStorageChange);
-    
     const intervalId = setInterval(loadData, 60000);
 
     return () => {
@@ -153,59 +138,37 @@ export default function Dashboard() {
   }, [range]);
 
   const columns: Column<ActivityItem>[] = [
-    { 
-      header: "USER", 
-      key: "user", 
-      className: "w-[30%] text-left font-medium text-slate-700" 
-    },
-    { 
-      header: "ACTION", 
-      key: "action", 
-      className: "w-[30%] text-left text-slate-500" 
-    },
-    { 
-      header: "TIME", 
-      key: "time", 
-      className: "w-[25%] text-left",
-      render: (row) => (
+    { header: "USER", key: "user", className: "w-[30%] text-left font-medium text-slate-700" },
+    { header: "ACTION", key: "action", className: "w-[30%] text-left text-slate-500" },
+    { header: "TIME", key: "time", className: "w-[25%] text-left", render: (row) => (
         <div className="flex items-center gap-2 text-slate-500 font-medium">
           <Clock size={14} className="text-slate-400 shrink-0" />
           <span className="text-xs">{row.time}</span>
         </div>
       )
     },
-    { 
-      header: "STATUS", 
-      key: "status",
-      className: "w-[15%] text-center",
-      render: (row) => (
-        <div className="flex justify-center">
-          <StatusBadge status={row.status} />
-        </div>
-      )
-    },
+    { header: "STATUS", key: "status", className: "w-[15%] text-right", render: (row) => <div className="flex justify-end"><StatusBadge status={row.status} /></div> }
   ];
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h2 className="text-xl font-bold text-slate-800">Summary</h2>
-        <div className="flex items-center gap-3">
-          <Button 
-            variant="outline" 
-            className="flex items-center gap-2 bg-white"
-            onClick={loadData}
-            disabled={isRefreshing}
-          >
-            <RefreshCcw size={16} className={isRefreshing ? "animate-spin text-teal-500" : ""} /> 
-            {isRefreshing ? "Refreshing..." : "Refresh"}
+    <div className="space-y-6 animate-in fade-in duration-500">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+        <div>
+          <h1 className="text-2xl font-black text-slate-800 tracking-tight">Dashboard Overview</h1>
+          <p className="text-sm text-slate-500 mt-1">Real-time statistics and recent activities</p>
+        </div>
+        <div className="flex gap-3">
+          <Button variant="outline" onClick={loadData} disabled={isRefreshing} className="bg-white shadow-sm border-slate-200">
+            <RefreshCcw size={16} className={`mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+            {isRefreshing ? "Updating..." : "Refresh"}
           </Button>
           <Dropdown
             align="right"
             trigger={
-              <Button variant="outline" className="flex items-center gap-2 bg-white min-w-[120px] justify-between">
-                <div className="flex items-center gap-2"><Calendar size={16} /> {range}</div>
-                <ChevronDown size={16} className="text-slate-400" />
+              <Button variant="outline" className="bg-white shadow-sm border-slate-200 flex items-center justify-between min-w-[160px]">
+                <Calendar size={16} className="mr-2" />
+                <span>{range}</span>
+                <ChevronDown size={14} className="ml-2" />
               </Button>
             }
             items={[
@@ -225,10 +188,8 @@ export default function Dashboard() {
       </div>
 
       <div className="space-y-4 bg-white p-4 lg:p-6 rounded-2xl shadow-sm border border-slate-100">
-        <h2 className="text-lg font-bold text-slate-800 border-b pb-4">Recent Activity</h2>
-        <div className="pt-2">
-          <Table data={activities} columns={columns} emptyMessage="No recent activities found in this time range." />
-        </div>
+        <h2 className="text-lg font-bold text-slate-800 mb-2">Recent Activities</h2>
+        <Table data={activities} columns={columns} emptyMessage="No activities found." />
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import type { PartyActivity } from "../types";
+import type { PartyActivity, ActivityStatus } from "../types";
 
 const initialPosts: PartyActivity[] = [
   {
@@ -41,7 +41,7 @@ const postSlice = createSlice({
       state.posts.push(action.payload);
       localStorage.setItem("party_posts_db", JSON.stringify(state.posts));
     },
-    updatePostStatus: (state, action: PayloadAction<{ id: string; status: PartyActivity["status"] }>) => {
+    updatePostStatus: (state, action: PayloadAction<{ id: string; status: ActivityStatus }>) => {
       const post = state.posts.find(p => p.id === action.payload.id);
       if (post) {
         post.status = action.payload.status;

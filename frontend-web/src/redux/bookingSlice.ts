@@ -1,20 +1,8 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
+import type { Ticket, TicketStatus } from "../types";
 
-export type BookingStatus = "Waiting" | "Completed" | "Cancelled";
-
-export type Booking = {
-  id: string;
-  bookingId: string;
-  user: { name: string; email: string };
-  placeId: string;
-  placeName: string;
-  queueNo: string;
-  dateTime: string;
-  status: BookingStatus;
-  createdAt: string;
-};
-
-const initialState: { bookings: Booking[] } = {
+// 🌟 เปลี่ยนมารับ Data แบบ Ticket 100% เหมือนฝั่ง Mobile
+const initialState: { bookings: Ticket[] } = {
   bookings: JSON.parse(localStorage.getItem("booking_db") || "[]")
 };
 
@@ -22,26 +10,21 @@ const bookingSlice = createSlice({
   name: "booking",
   initialState,
   reducers: {
-    addBooking: (state, action: PayloadAction<Booking>) => {
+    addBooking: (state, action: PayloadAction<Ticket>) => {
       state.bookings.push(action.payload);
       localStorage.setItem("booking_db", JSON.stringify(state.bookings));
     },
-    updateBookingStatus: (state, action: PayloadAction<{ id: string; status: BookingStatus }>) => {
+    updateBookingStatus: (state, action: PayloadAction<{ id: string; status: TicketStatus }>) => {
       const booking = state.bookings.find(b => b.id === action.payload.id);
       if (booking) {
         booking.status = action.payload.status;
         localStorage.setItem("booking_db", JSON.stringify(state.bookings));
       }
     },
-    updateBookingDetails: (state, action: PayloadAction<{ id: string; user: { name: string; email: string }; dateTime: string; placeId?: string; placeName?: string; queueNo?: string; bookingId?: string }>) => {
-      const booking = state.bookings.find(b => b.id === action.payload.id);
-      if (booking) {
-        booking.user = action.payload.user;
-        booking.dateTime = action.payload.dateTime;
-        if (action.payload.placeId) booking.placeId = action.payload.placeId;
-        if (action.payload.placeName) booking.placeName = action.payload.placeName;
-        if (action.payload.queueNo) booking.queueNo = action.payload.queueNo;
-        if (action.payload.bookingId) booking.bookingId = action.payload.bookingId;
+    updateBookingDetails: (state, action: PayloadAction<Partial<Ticket> & { id: string }>) => {
+      const index = state.bookings.findIndex(b => b.id === action.payload.id);
+      if (index !== -1) {
+        state.bookings[index] = { ...state.bookings[index], ...action.payload };
         localStorage.setItem("booking_db", JSON.stringify(state.bookings));
       }
     },
