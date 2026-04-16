@@ -13,15 +13,14 @@ import type { User, Column } from "../types";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-
-const API_BASE_URL = "http://localhost:3000/api";
+import { API_BASE_URL } from "../config";
 
 const userSchema = z.object({
   name: z.string().min(1, "กรุณากรอกชื่อ"),
   email: z.string().email("รูปแบบอีเมลไม่ถูกต้อง"),
   phone: z.string().min(9, "เบอร์โทรศัพท์ไม่ถูกต้อง").optional(),
   role: z.enum(["ADMIN", "STAFF", "CUSTOMER"]),
-  password: z.string().min(6, "รหัสผ่านต้องมี 6 ตัวขึ้นไป").or(z.literal(""))
+  password: z.string().min(6, "...").or(z.literal(""))
 });
 
 type UserFormData = z.infer<typeof userSchema>;
@@ -41,30 +40,56 @@ export default function UserManagement() {
 
   const selectedRole = watch("role");
 
-  const fetchUsersFromDB = async () => {
-    try {
-      
-      const response = await fetch(`${API_BASE_URL}/users`);
-      const data = await response.json();
-      dispatch(setUsers(data));
-    } catch (error) { console.error(error); }
-  };
+// ตัวอย่างการแก้ฟังก์ชัน fetchUsers ในหน้า Frontend
+const fetchUsersFromDB = async () => {
+  try {
+    // ดึง token ที่เก็บไว้ตอน Login (สมมติเก็บใน localStorage)
+    const token = localStorage.getItem("token"); 
+
+    const response = await fetch(`${API_BASE_URL}/users`, {
+      headers: {
+        "Authorization": `Bearer ${token}` // ส่งตั๋วไปยืนยันตัวตน
+      }
+    });
+    const data = await response.json();
+    dispatch(setUsers(data));
+  } catch (error) { 
+    console.error("Fetch Error:", error); 
+  }
+};
 
   useEffect(() => { fetchUsersFromDB(); }, []);
 
   const onSubmit = async (data: UserFormData) => {
-    try {
-      const url = editingUser ? `${API_BASE_URL}/users/${editingUser.id}` : `${API_BASE_URL}/users`;
+  try {
+    const token = localStorage.getItem("token"); // ดึง token มาใช้
+    const url = editingUser ? `${API_BASE_URL}/users/${editingUser.id}` : `${API_BASE_URL}/users`;
 
-      const response = await fetch(url, { method: editingUser ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
-      const result = await response.json();
+    const response = await fetch(url, { 
+      method: editingUser ? "PUT" : "POST", 
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      }, 
+      body: JSON.stringify(data) 
+    });
+  
+  const result = await response.json(); // นี่คือการเรียกใช้ response แล้ว
+    
+    if (response.ok) { // เช็คว่าบันทึกสำเร็จไหม (status 200-299)
       if (editingUser) dispatch(updateUser(result));
       else dispatch(addUser(result));
+      
       setIsPanelOpen(false);
       reset();
-      
-    } catch (error) { alert("Error"); }
-  };
+    } else {
+      alert(result.message || "เกิดข้อผิดพลาด");
+    }
+  } catch (error) { 
+    console.error("Submit Error:", error);
+    alert("Error connecting to server"); 
+  }
+};
 
   const handleEdit = (user: User) => {
     setEditingUser(user);

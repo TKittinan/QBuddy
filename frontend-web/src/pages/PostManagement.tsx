@@ -23,13 +23,14 @@ export default function PostManagement() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6; 
 
-  // 🟢 จุดเชื่อมต่อ API อ่านข้อมูล
+  // จุดเชื่อมต่อ API อ่านข้อมูล
   const fetchPostsFromDB = async () => {
     try {
-      // TODO: ลบ Comment ออกแล้วใส่ API ของคุณตรงนี้
-      // const response = await fetch('https://your-api.com/posts');
-      // const data = await response.json();
-      // dispatch(setPosts(data));
+
+      const response = await fetch('http://localhost:3000/api/parties');
+      const data = await response.json();
+      dispatch(setPosts(data));
+
       console.log("Fetching real-time Posts from DB...");
     } catch (error) {
       console.error("Failed to fetch posts:", error);
@@ -66,12 +67,12 @@ export default function PostManagement() {
     setIsPanelOpen(true);
   };
 
-  // 🟢 จุดเชื่อมต่อ API ลบข้อมูล
+  // จุดเชื่อมต่อ API ลบข้อมูล
   const handleDelete = async (id: string) => {
     if (window.confirm("คุณแน่ใจหรือไม่ว่าต้องการลบโพสต์นี้ออกจากระบบถาวร?")) {
       try {
-        // TODO: ลบ Comment ออกแล้วใส่ API ลบข้อมูลของคุณตรงนี้
-        // await fetch(`https://your-api.com/posts/${id}`, { method: 'DELETE' });
+        
+        await fetch(`http://localhost:3000/api/parties/${id}`, { method: 'DELETE' });
         
         dispatch(deletePost(id));
         setIsPanelOpen(false);
@@ -82,7 +83,7 @@ export default function PostManagement() {
     }
   };
 
-  // 🌟 กำหนดความกว้าง Column ให้ชัดเจน
+  // กำหนดความกว้าง Column ให้ชัดเจน
   const columns: Column<PartyActivity>[] = [
     { 
       header: "PARTY HOST", key: "host", className: "w-[20%] text-left",
@@ -107,7 +108,7 @@ export default function PostManagement() {
     {
       header: "ACTIONS", key: "actions", className: "w-[10%] text-right",
       render: (row) => (
-        // 🌟 Dropdown เหลือแค่ View กับ Delete
+        // Dropdown เหลือแค่ View กับ Delete
         <Dropdown align="right" trigger={<button className="p-2 text-slate-400 hover:bg-slate-100 rounded-lg transition-colors"><MoreHorizontal size={18} /></button>}
           items={[
             { label: "View Details", icon: <Eye size={16} />, onClick: () => handleView(row) },
@@ -122,7 +123,7 @@ export default function PostManagement() {
   return (
     <div className="p-4 lg:p-8 max-w-[1600px] mx-auto w-full pt-10">
       
-      {/* 🌟 ไม่มี Filter ไม่มี Add (หน้าต่างแสดงผลล้วนๆ) */}
+      {/* ไม่มี Filter ไม่มี Add (หน้าต่างแสดงผลล้วนๆ) */}
       <Table data={currentData} columns={columns} emptyMessage={searchQuery ? "No posts match your search." : "No posts found."} />
       <div className="mt-4">
         <Pagination currentPage={currentPage} totalPages={totalPages} onChange={setCurrentPage} />
@@ -172,7 +173,7 @@ export default function PostManagement() {
             </div>
 
             <div className="pt-4 mt-2 border-t border-slate-100 flex gap-3">
-              {/* 🌟 ปุ่มล่างสุดเหลือแค่ Delete Post เท่านั้น */}
+              {/* ปุ่มล่างสุดเหลือแค่ Delete Post เท่านั้น */}
               <button onClick={() => handleDelete(viewingPost.id)} className="w-full py-3.5 flex flex-row items-center justify-center gap-2 bg-rose-50 text-rose-600 font-bold rounded-xl hover:bg-rose-100 transition-colors whitespace-nowrap">
                 <Trash2 size={16} />
                 <span>Delete Post</span>

@@ -5,8 +5,7 @@ import { updateSettings } from "../redux/settingSlice";
 import { Building2, ShieldCheck, Save, Phone, Mail, Clock, Hash } from "lucide-react";
 import { Input } from "../components/ui/Input";
 import { Button } from "../components/ui/Button";
-
-const API_BASE_URL = "http://localhost:3000/api";
+import { API_BASE_URL } from "../config";
 
 export default function Settings() {
   const dispatch = useDispatch();
