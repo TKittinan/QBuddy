@@ -56,13 +56,12 @@ export const login = async (req: Request, res: Response) => {
 
 export const logout = async (req: Request, res: Response) => {
   try {
-    const { adminId } = req.body; // รับ ID จากหน้าบ้านตอนกด Sign Out
+    const { adminId } = req.body; // รับ ID ของคนที่จะ Logout มาจากหน้าบ้าน
 
     if (!adminId) {
-      return res.status(400).json({ message: "Admin ID is required for logout" });
+      return res.status(400).json({ message: "Admin ID is required" });
     }
 
-    // อัปเดตสถานะกลับเป็น OFFLINE ในฐานข้อมูล
     await prisma.admin.update({
       where: { id: Number(adminId) },
       data: { status: "OFFLINE" },
@@ -71,7 +70,7 @@ export const logout = async (req: Request, res: Response) => {
     res.status(200).json({ message: "Logged out successfully" });
   } catch (error) {
     console.error("Logout Error:", error);
-    res.status(500).json({ message: "Logout failed", error });
+    res.status(500).json({ message: "Logout failed" });
   }
 };
 
