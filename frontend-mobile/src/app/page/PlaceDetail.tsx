@@ -9,7 +9,8 @@ export default function PlaceDetail() {
   const { id } = useLocalSearchParams();
 
   const allPlaces = useAppSelector((state: any) => state.places?.places || []);
-  const allTickets = useAppSelector((state: any) => state.queue?.allTickets || []);
+  // 🌟 เปลี่ยน allTickets เป็น tickets
+  const allTickets = useAppSelector((state: any) => state.queue?.tickets || []);
   const user = useAppSelector((state: any) => state.auth?.user) || { name: 'Taggsh' };
 
   const place = useMemo(() => allPlaces.find((p: any) => p.id === id), [allPlaces, id]);

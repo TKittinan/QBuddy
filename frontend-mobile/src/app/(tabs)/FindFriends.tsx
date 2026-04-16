@@ -5,7 +5,7 @@ import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 
 import { useAppSelector, useAppDispatch } from '../../hooks/useRedux';
-import { addActivity, joinActivity, closeActivity } from '../../redux/slices/friendSlice';
+import { addActivity, joinActivity, closeActivity } from '../../redux/slices/postSlice';
 import { useMatchCalc } from '../../hooks/useMatchCalc';
 
 export default function FindFriendsPage() {

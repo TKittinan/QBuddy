@@ -155,8 +155,7 @@ export default function BookingManagement() {
             <Controller control={control} name="email" render={({ field }) => <Input label="Email Address" icon={<Mail size={16}/>} {...field} error={errors.email?.message} />} />
             <Controller control={control} name="pax" render={({ field: { onChange, value } }) => <Input label="Number of Pax" type="number" icon={<Users size={16}/>} value={value} onChange={e => onChange(parseInt(e.target.value) || 1)} error={errors.pax?.message} />} />
             <Controller control={control} name="dateTime" render={({ field }) => <Input label="Date & Time" type="datetime-local" icon={<CalendarDays size={16}/>} {...field} error={errors.dateTime?.message} />} />
-            
-            {/* 🌟 ย้าย Error มาแสดงผลข้างนอก SearchSelect */}
+
             <div className="space-y-1">
               <Controller control={control} name="selectedShopOption" render={({ field }) => (
                 <SearchSelect label="Select Shop" options={shopOptions} value={field.value} onChange={field.onChange} onBlur={field.onBlur} />

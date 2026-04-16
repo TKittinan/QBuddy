@@ -14,7 +14,9 @@ export default function QueuePage() {
   
   const user = useAppSelector((state: any) => state.auth?.user) || { name: 'Taggsh' }; 
   const places = useAppSelector((state: any) => state.places?.places || []);
-  const allTickets = useAppSelector((state: any) => state.queue?.allTickets || []);
+  
+  // 🌟 เปลี่ยน allTickets เป็น tickets
+  const allTickets = useAppSelector((state: any) => state.queue?.tickets || []);
 
   const [activeFilter, setActiveFilter] = useState<FilterType>('active');
 
