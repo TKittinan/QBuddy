@@ -3,70 +3,101 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { prisma } from "../lib/prisma";
 
-export const register = async (req: Request, res: Response) => {
-  try {
-    const { email, password, name } = req.body;
-
-    // เช็คว่ามี email นี้หรือยัง
-    const existingUser = await prisma.user.findUnique({ where: { email } });
-    if (existingUser) return res.status(400).json({ message: "Email already exists" });
-
-    const hash = await bcrypt.hash(password, 10);
-
-    const user = await prisma.user.create({
-      data: {
-        email,
-        password: hash,
-        name,
-      },
-    });
-
-    // ไม่ควรส่ง password กลับไปที่ frontend
-    const { password: _, ...userWithoutPassword } = user;
-    res.status(201).json(userWithoutPassword);
-  } catch (error) {
-    res.status(500).json({ message: "Register failed", error });
-  }
-};
-
+// --- LOGIN ---
 export const login = async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
 
-    // ค้นหา user พร้อมข้อมูลในตาราง admin เพื่อเช็ค Role
-    const user = await prisma.user.findFirst({
+    const admin = await prisma.admin.findUnique({
       where: { email },
-      include: { admin: true } // ดึงข้อมูลจากตาราง admin มาด้วย
     });
 
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!admin) {
+      return res.status(404).json({ message: "Admin account not found" });
+    }
 
-    const ok = await bcrypt.compare(password, user.password);
-    if (!ok) return res.status(401).json({ message: "Wrong password" });
+    const isPasswordMatch = await bcrypt.compare(password, admin.password);
+    if (!isPasswordMatch) {
+      return res.status(401).json({ message: "Wrong password" });
+    }
 
-    // สร้าง Token ให้ตรงกับที่ authMiddleware ต้องการ (คีย์ userId)
-    // และใช้ "secret" ให้ตรงกับใน middleware
-    
+    // อัปเดตสถานะเป็น ONLINE เมื่อ Login สำเร็จ
+    const updatedAdmin = await prisma.admin.update({
+      where: { id: admin.id },
+      data: { status: "ONLINE" },
+    });
+
+    const adminRole = updatedAdmin.role ? updatedAdmin.role.toLowerCase() : "staff";
+
     const token = jwt.sign(
       { 
-        userId: user.user_id,
-        role: user.admin ? user.admin.role : "USER" 
+        adminId: updatedAdmin.id, 
+        role: adminRole 
       },
-      "secret",
-      { expiresIn: "1d" } // เพิ่มเวลาหมดอายุของ Token เพื่อความปลอดภัย
+      "secret", 
+      { expiresIn: "1d" }
     );
 
-    // ส่งทั้ง Token และข้อมูลพื้นฐานของ User กลับไป
     res.json({
       token,
       user: {
-        id: user.user_id,
-        email: user.email,
-        name: user.name,
-        role: user.admin ? user.admin.role : "USER"
+        id: updatedAdmin.id, 
+        email: updatedAdmin.email,
+        name: updatedAdmin.name,
+        role: adminRole,
+        status: updatedAdmin.status
       }
     });
   } catch (error) {
+    console.error("Login Error:", error);
     res.status(500).json({ message: "Login failed", error });
+  }
+};
+
+export const logout = async (req: Request, res: Response) => {
+  try {
+    const { adminId } = req.body; // รับ ID ของคนที่จะ Logout มาจากหน้าบ้าน
+
+    if (!adminId) {
+      return res.status(400).json({ message: "Admin ID is required" });
+    }
+
+    await prisma.admin.update({
+      where: { id: Number(adminId) },
+      data: { status: "OFFLINE" },
+    });
+
+    res.status(200).json({ message: "Logged out successfully" });
+  } catch (error) {
+    console.error("Logout Error:", error);
+    res.status(500).json({ message: "Logout failed" });
+  }
+};
+
+// --- REGISTER ---
+export const registerAdmin = async (req: Request, res: Response) => {
+  try {
+    const { email, password, name, role } = req.body;
+
+    const existingAdmin = await prisma.admin.findUnique({ where: { email } });
+    if (existingAdmin) return res.status(400).json({ message: "Email already exists" });
+
+    const hash = await bcrypt.hash(password, 10);
+
+    const newAdmin = await prisma.admin.create({
+      data: {
+        email,
+        password: hash,
+        name,
+        role: role ? role.toLowerCase() : "staff", 
+        status: "OFFLINE", // เริ่มต้นเป็น Offline เสมอ
+      },
+    });
+
+    const { password: _, ...adminWithoutPassword } = newAdmin;
+    res.status(201).json(adminWithoutPassword);
+  } catch (error) {
+    console.error("Register Error:", error);
+    res.status(500).json({ message: "Register failed", error });
   }
 };

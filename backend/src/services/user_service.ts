@@ -1,30 +1,30 @@
 import { prisma } from "../lib/prisma";
+import bcrypt from "bcrypt";
 
-// 1. ดึงข้อมูล User ทั้งหมดพร้อม Role
+// 1. ดึงข้อมูล User (ลูกค้า) ทั้งหมด
 export const getAllUsers = async () => {
+  // แก้ไข: ลบ include: { admin: true } ออก เพราะแยกตารางกันแล้ว
   const users = await prisma.user.findMany({
-    include: {
-      admin: true,
-    },
+    orderBy: {
+      user_id: 'desc' // ให้ข้อมูลใหม่ขึ้นก่อน
+    }
   });
 
   return users.map((u) => ({
-    id: u.user_id, // ปรับชื่อ key ให้ตรงกับ Frontend (id)
+    id: u.user_id,
     email: u.email,
     name: u.name,
-    role: u.admin ? u.admin.role : "CUSTOMER",
-    status: "ACTIVE", // หรือดึงจาก field ใน DB ถ้ามี
+    role: "CUSTOMER", // บังคับเป็น CUSTOMER ทันทีเพราะมาจากตาราง User
+    status: "ACTIVE",
     createdAt: new Date().toLocaleDateString(), 
   }));
 };
 
-// 2. ดึงข้อมูล User รายบุคคล
+// 2. ดึงข้อมูล User (ลูกค้า) รายบุคคล
 export const getUserById = async (id: number) => {
   const u = await prisma.user.findUnique({
     where: { user_id: id },
-    include: {
-      admin: true,
-    },
+    // แก้ไข: ลบ include admin ออก
   });
 
   if (!u) return null;
@@ -33,30 +33,32 @@ export const getUserById = async (id: number) => {
     id: u.user_id,
     email: u.email,
     name: u.name,
-    role: u.admin ? u.admin.role : "CUSTOMER",
+    role: "CUSTOMER",
   };
 };
 
-// 3. สร้าง User ใหม่ (เพิ่มเข้ามา)
+// 3. สร้าง User ใหม่ (สำหรับลูกค้า)
 export const createUser = async (data: any) => {
+  // เพิ่มการ Hash Password ก่อนบันทึกเพื่อความปลอดภัย
+  const hashedPassword = await bcrypt.hash(data.password || "123456", 10);
+  
   return await prisma.user.create({
     data: {
       email: data.email,
       name: data.name,
-      password: data.password || "123456", // ควรมีการ Hash password ก่อนบันทึก
-      // ถ้ามี field อื่นๆ เช่น avatarUrl ให้ใส่ตรงนี้
+      password: hashedPassword, // ใช้ password ที่ hash แล้ว
     },
   });
 };
 
-// 4. แก้ไขข้อมูล User (เพิ่มเข้ามา)
+// 4. แก้ไขข้อมูล User (ลูกค้า)
 export const updateUser = async (id: number, data: any) => {
   return await prisma.user.update({
     where: { user_id: id },
     data: {
       email: data.email,
       name: data.name,
-      // เพิ่ม field อื่นๆ ที่ต้องการอัปเดต
+      // ถ้ามีการเปลี่ยน password ให้ hash ใหม่ตรงนี้ด้วย
     },
   });
 };

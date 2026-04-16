@@ -6,14 +6,14 @@ datasource db {
   provider = "postgresql"
 }
 
-// Table User
+// Table User (สำหรับลูกค้า CUSTOMER เท่านั้น)
 model User {
   user_id  Int    @id @default(autoincrement())
   name     String
   email    String @unique
   password String
-
-  admin      Admin?
+  
+  // ลูกค้าจะมี Preference, Bookings, ฯลฯ
   preference User_Preference?
 
   bookings      Booking[]
@@ -23,18 +23,19 @@ model User {
   messages      Message[]
 
   conversation_participants Conversation_Participant[]
-  ai_recommendations        AI_Recommendation[]
+  ai_recommendations         AI_Recommendation[]
   locations                 UserLocation[]
 }
 
-// Table Admin
+// Table Admin (สำหรับ Staff และ Admin เท่านั้น)
 model Admin {
-  admin_id   Int      @id @default(autoincrement())
-  user_id    Int      @unique
-  role       String
+  id         Int      @id @default(autoincrement()) // เปลี่ยนจาก admin_id เป็น id
+  name       String   
+  email      String   @unique
+  password   String
+  role       String   
+  status     String   @default("OFFLINE")
   created_at DateTime @default(now())
-
-  user User @relation(fields: [user_id], references: [user_id])
 }
 
 // Table User_Preference

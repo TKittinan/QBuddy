@@ -8,27 +8,31 @@ export const adminMiddleware = async (
   next: NextFunction
 ) => {
   try {
-    if (!req.userId) {
-      return res.status(401).json("Not logged in");
+    // 1. เช็คว่าผ่านการ Login มาหรือยัง (เช็ค adminId จาก Token)
+    if (!req.adminId) {
+      return res.status(401).json({ message: "Not logged in" });
     }
 
+    // 2. ค้นหาข้อมูลในตาราง Admin โดยใช้ adminId
     const admin = await prisma.admin.findUnique({
       where: {
-        user_id: req.userId,
+        id: req.adminId, // เปลี่ยนจาก user_id เป็น admin_id
       },
     });
 
+    // 3. ถ้าไม่เจอข้อมูลในตาราง Admin
     if (!admin) {
-  return res.status(403).json("No permission");
-  }
+      return res.status(403).json({ message: "No permission (Admin only)" });
+    }
 
-  // เช็ค role
-  if (admin.role !== "admin" && admin.role !== "staff") {
-    return res.status(403).json("Not allowed");
-  }
+    // 4. เช็คสิทธิ์ (ให้ทั้ง admin และ staff ผ่านได้ หรือตามแต่คุณกำหนด)
+    if (admin.role !== "admin" && admin.role !== "staff") {
+      return res.status(403).json({ message: "Not allowed: Access denied" });
+    }
 
     next();
   } catch (err) {
-    return res.status(500).json("error");
+    console.error("Admin Middleware Error:", err);
+    return res.status(500).json({ message: "Internal server error" });
   }
 };
