@@ -6,7 +6,7 @@ interface InboxState {
 }
 
 const initialState: InboxState = {
-  tickets: [], // 🌟 เริ่มต้นด้วยค่าว่าง รอรับจาก API
+  tickets: [],
 };
 
 const inboxSlice = createSlice({

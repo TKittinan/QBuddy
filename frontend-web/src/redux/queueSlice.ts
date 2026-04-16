@@ -2,7 +2,7 @@ import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import type { Ticket, TicketStatus } from "../types";
 
 const initialState: { tickets: Ticket[] } = {
-  tickets: [] // 🌟 เริ่มต้นด้วยค่าว่าง รอรับจาก API
+  tickets: []
 };
 
 const queueSlice = createSlice({

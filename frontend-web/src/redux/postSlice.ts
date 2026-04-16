@@ -2,14 +2,13 @@ import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import type { PartyActivity, ActivityStatus } from "../types";
 
 const initialState: { posts: PartyActivity[] } = {
-  posts: [] // 🌟 เอา initialPosts ที่เป็น Mock ออก
+  posts: []
 };
 
 const postSlice = createSlice({
   name: "post",
   initialState,
   reducers: {
-    // 🌟 เพิ่มฟังก์ชันสำหรับรับข้อมูลจาก API
     setPosts: (state, action: PayloadAction<PartyActivity[]>) => {
       state.posts = action.payload;
     },

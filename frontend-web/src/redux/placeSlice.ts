@@ -2,7 +2,7 @@ import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import type { Place } from "../types";
 
 const initialState: { places: Place[] } = {
-  places: [] // 🌟 เริ่มต้นด้วยค่าว่าง รอรับจาก API
+  places: []
 };
 
 const placeSlice = createSlice({
