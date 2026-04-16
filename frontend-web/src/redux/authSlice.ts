@@ -1,7 +1,6 @@
 import { createSlice, createAsyncThunk, type PayloadAction } from "@reduxjs/toolkit";
 import axios from "axios";
 
-// กำหนด URL ของ API Login
 const LOGIN_URL = "http://localhost:3000/api/auth/login";
 
 interface AuthState {
@@ -11,7 +10,6 @@ interface AuthState {
   error: string | null;
 }
 
-// ดึงค่าเริ่มต้นจาก localStorage (ถ้าเคย login ไว้แล้ว)
 const initialState: AuthState = {
   user: JSON.parse(localStorage.getItem("user") || "null"),
   token: localStorage.getItem("token"),
@@ -19,15 +17,12 @@ const initialState: AuthState = {
   error: null,
 };
 
-// Thunk สำหรับจัดการการ Login
 export const loginAsync = createAsyncThunk(
   "auth/login",
   async (credentials: { email: string; password: string }, { rejectWithValue }) => {
     try {
       const response = await axios.post(LOGIN_URL, credentials);
       const { token, user } = response.data;
-
-      // เซฟลงเครื่องทันทีที่ login สำเร็จ
       localStorage.setItem("token", token);
       localStorage.setItem("user", JSON.stringify(user));
 
@@ -42,7 +37,6 @@ const authSlice = createSlice({
   name: "auth",
   initialState,
   reducers: {
-    // สำหรับ Logout
     logout: (state) => {
       state.user = null;
       state.token = null;
