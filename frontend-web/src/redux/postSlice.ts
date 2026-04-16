@@ -1,65 +1,59 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
+import type { PartyActivity } from "../types";
 
-export type Post = {
-  id: string;
-  bookingId: string; // ใช้ Foreign Key เชื่อมไปยังตารางคิว/การจอง
-  hostName: string; 
-  hostPhone: string;
-  placeName: string; 
-  tags: string[];    
-  meetingTime: string;
-  distance: string;
-  status: "Waiting" | "Completed" | "Cancelled"; // สถานะจะถูก Sync มาจากคิวอัตโนมัติโดย Backend
-  description: string;
-  createdAt: string;
-};
-
-const initialPosts: Post[] = [
+const initialPosts: PartyActivity[] = [
   {
-    id: "post_001", bookingId: "bk_001", hostName: "พรกิชัย (Tee)", hostPhone: "0812345678", placeName: "Copper Beyond Buffet",
-    tags: ["ร้านอาหาร", "อีเวนท์"], meetingTime: "วันนี้ 19:00 น.", distance: "0.8 กม.",
-    status: "Waiting", 
-    description: "หาเพื่อนไปกิน Copper ครับ จองคิวไว้แล้ว 2 ที่ ขาดอีก 1 คน คุยเก่งกินเก่งทักมาครับ",
-    createdAt: "10:30 AM"
-  },
-  {
-    id: "post_002", bookingId: "bk_002", hostName: "เลิศสกุล", hostPhone: "0898765432", placeName: "Shabushi (Mega Bangna)",
-    tags: ["ร้านอาหาร"], meetingTime: "พรุ่งนี้ 06:00 น.", distance: "1.5 กม.",
-    status: "Completed", 
-    description: "ไปกินชาบูกันตอนเช้าๆ ครับ หิวมาก",
-    createdAt: "Yesterday"
-  },
-  {
-    id: "post_003", bookingId: "bk_003", hostName: "ธีรภัทร", hostPhone: "0876543210", placeName: "ตี๋น้อย สุกี้",
-    tags: ["ร้านอาหาร"], meetingTime: "วันนี้ 23:00 น.", distance: "2.3 กม.",
-    status: "Waiting", 
-    description: "หาเพื่อนกินสุกี้รอบดึกครับ คิวรันเร็วมาก",
-    createdAt: "11:00 AM"
-  },
-  {
-    id: "post_004", bookingId: "bk_004", hostName: "สมชาย", hostPhone: "0811111111", placeName: "Let's Relax Spa",
-    tags: ["ร้านนวด"], meetingTime: "พรุ่งนี้ 14:00 น.", distance: "5.0 กม.",
-    status: "Cancelled", 
-    description: "หาเพื่อนไปนวดสปาครับ มีโปร 1 แถม 1",
-    createdAt: "10:00 AM"
+    id: "act_1",
+    bookingId: "SUKRR-CM001",
+    hostId: "u1",
+    hostName: "พรกิชัย (Tee)",
+    hostPhone: "0812345678",
+    avatarUrl: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100",
+    title: "อยากหาเพื่อนไปกิน Copper วันนี้ครับ",
+    description: "จองคิวไว้แล้ว 2 ที่ ขาดอีก 1 คน คุยเก่งกินเก่งทักมาครับ",
+    category: "ร้านอาหาร",
+    tags: ["บุฟเฟต์", "หาเพื่อนกิน"],
+    placeId: "1",
+    placeName: "Copper Beyond Buffet",
+    meetingDate: new Date().toISOString().split("T")[0],
+    meetingTime: "19:00",
+    lat: 13.7750,
+    lng: 100.4750,
+    distance: "0.8 กม.",
+    successRate: 92,
+    sharedInterests: 4,
+    joinedGuests: [{ userId: "u2", userName: "Mook", pax: 1, status: "pending" }],
+    maxGuests: 1,
+    status: "Open",
+    createdAt: new Date().toISOString()
   }
 ];
 
-const initialState = {
-  posts: JSON.parse(localStorage.getItem("system_posts") || "null") || initialPosts,
+const initialState: { posts: PartyActivity[] } = {
+  posts: JSON.parse(localStorage.getItem("party_posts_db") || "null") || initialPosts
 };
 
 const postSlice = createSlice({
   name: "post",
   initialState,
   reducers: {
-    // แอดมินมีสิทธิ์แค่ลบ (Moderate) โพสต์ที่ไม่เหมาะสมเท่านั้น
+    addPost: (state, action: PayloadAction<PartyActivity>) => {
+      state.posts.push(action.payload);
+      localStorage.setItem("party_posts_db", JSON.stringify(state.posts));
+    },
+    updatePostStatus: (state, action: PayloadAction<{ id: string; status: PartyActivity["status"] }>) => {
+      const post = state.posts.find(p => p.id === action.payload.id);
+      if (post) {
+        post.status = action.payload.status;
+        localStorage.setItem("party_posts_db", JSON.stringify(state.posts));
+      }
+    },
     deletePost: (state, action: PayloadAction<string>) => {
-      state.posts = state.posts.filter((p: Post) => p.id !== action.payload);
-      localStorage.setItem("system_posts", JSON.stringify(state.posts));
+      state.posts = state.posts.filter(p => p.id !== action.payload);
+      localStorage.setItem("party_posts_db", JSON.stringify(state.posts));
     }
   }
 });
 
-export const { deletePost } = postSlice.actions;
+export const { addPost, updatePostStatus, deletePost } = postSlice.actions;
 export default postSlice.reducer;

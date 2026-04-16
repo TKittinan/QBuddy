@@ -1,5 +1,5 @@
 import React from "react";
-import { TicketStatus, PlaceStatus } from "../../types";
+import type { TicketStatus, PlaceStatus } from "../../types";
 
 interface StatusBadgeProps {
   status: TicketStatus | PlaceStatus | string;
@@ -13,6 +13,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, className = ""
   switch (normalizedStatus) {
     case "WAITING":
     case "PENDING":
+    case "OPEN":
       badgeClass = "bg-amber-50 text-amber-600 border border-amber-200";
       break;
     case "SERVING":
@@ -27,6 +28,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, className = ""
     case "SKIPPED":
     case "DISABLED":
     case "INACTIVE":
+    case "CLOSED":
       badgeClass = "bg-rose-50 text-rose-600 border border-rose-200";
       break;
   }

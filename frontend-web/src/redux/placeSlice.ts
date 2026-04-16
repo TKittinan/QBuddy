@@ -1,25 +1,5 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-
-export type Place = {
-  id: string;
-  placeId: string;
-  name: string;
-  address: string;
-  status: "Active" | "Disabled";
-  queueCount: number;
-  categories: string[];
-  description: string;
-  phone: string;
-  latitude: string;
-  longitude: string;
-  openTime: string;
-  closeTime: string;
-  avgServiceTime: number;
-  createdAt: string;
-  branch?: string;
-  logoUrl?: string;
-  coverUrl?: string;
-};
+import type { Place } from "../types";
 
 const initialState: { places: Place[] } = {
   places: JSON.parse(localStorage.getItem("local_shops_db") || "[]")

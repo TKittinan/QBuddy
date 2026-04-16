@@ -10,7 +10,7 @@ import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input"; 
 import { SidePanelEdit } from "../components/ui/Tabbar/SidePanelEdit";
 import { Pagination } from "../components/ui/Pagination";
-import { Status } from "../components/ui/StatusBadge"; 
+import { StatusBadge } from "../components/ui/StatusBadge";
 import type { User, Column } from "../types";
 import { useAuth } from "../context/auth/use.Auth"; 
 
@@ -125,7 +125,7 @@ export default function StaffManagement() {
     { header: "ROLE", key: "role", className: "w-[20%] text-left", render: (user) => (
         <span className={`px-2 py-1 rounded border text-[10px] font-bold ${user.role === 'ADMIN' ? 'border-rose-200 text-rose-600 bg-rose-50' : 'border-indigo-200 text-indigo-600 bg-indigo-50'}`}>{user.role}</span>
       )},
-    { header: "STATUS", key: "status", className: "w-[20%] text-center", render: (user) => <div className="flex justify-center"><Status status={user.status} /></div> },
+    { header: "STATUS", key: "status", className: "w-[20%] text-center", render: (user) => <div className="flex justify-center"><StatusBadge status={user.status} /></div> },
     { header: "ACTIONS", key: "id", className: "text-right w-[20%]", render: (user) => (
         <Dropdown align="right" trigger={<button className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors"><MoreHorizontal size={18} /></button>}
           items={[
@@ -190,7 +190,7 @@ export default function StaffManagement() {
               <div className={`w-24 h-24 rounded-3xl flex items-center justify-center text-white font-bold text-4xl shadow-xl mb-4 uppercase ${editingUser.role === 'ADMIN' ? 'bg-rose-500 shadow-rose-100' : 'bg-indigo-500 shadow-indigo-100'}`}>{editingUser.name.charAt(0)}</div>
               <h3 className="text-2xl font-bold text-slate-800">{editingUser.name}</h3>
               <p className="text-slate-500 text-sm mt-1">{editingUser.email}</p>
-              <div className="mt-4"><Status status={editingUser.status} /></div>
+              <div className="mt-4"><StatusBadge status={editingUser.status} /></div>
             </div>
             
             <div className="space-y-6">

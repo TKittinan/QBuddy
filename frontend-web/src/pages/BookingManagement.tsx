@@ -11,16 +11,14 @@ import { Input } from "../components/ui/Input";
 import { Pagination } from "../components/ui/Pagination";
 import { SidePanelEdit } from "../components/ui/Tabbar/SidePanelEdit";
 import { SearchSelect, type SearchOption } from "../components/ui/SearchSelect";
-import { Status } from "../components/ui/StatusBadge";
+import { StatusBadge } from "../components/ui/StatusBadge";
 import type { Column } from "../types";
 import { CATEGORY_LIST } from "../components/ui/CategorySelect"; 
 
-// 🌟 นำเข้า useForm และ Zod
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 
-// 🌟 Schema ของ Booking
 const bookingSchema = z.object({
   name: z.string().min(1, "กรุณากรอกชื่อลูกค้า"),
   email: z.string().email("รูปแบบอีเมลไม่ถูกต้อง"),
@@ -70,7 +68,6 @@ export default function BookingManagement() {
   const [isAddPanelOpen, setIsAddPanelOpen] = useState(false);
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
 
-  // 🌟 ติดตั้ง useForm
   const { control, handleSubmit, reset, formState: { errors } } = useForm<BookingFormData>({
     resolver: zodResolver(bookingSchema),
     defaultValues,
@@ -122,7 +119,6 @@ export default function BookingManagement() {
     });
   };
 
-  // 🌟 รวมฟังก์ชัน Save ทั้ง Add และ Edit ไว้ด้วยกัน
   const onSubmit = (data: BookingFormData) => {
     const shopData = data.selectedShopOption.originalData;
     const shopId = shopData.id;
@@ -203,7 +199,8 @@ export default function BookingManagement() {
     if (categoryFilter !== "All") {
       result = result.filter(b => {
         const shop = allShops.find(s => s.id === b.placeId);
-        return shop?.categories?.includes(categoryFilter);
+        // 🌟 แก้ไขตรงนี้ ใช้ .category แทน .categories?.includes
+        return shop?.category === categoryFilter;
       });
     }
     if (searchQuery) {
@@ -236,7 +233,7 @@ export default function BookingManagement() {
         <div className="flex items-center gap-2 text-slate-500 font-medium"><Clock size={14} className="text-slate-400 shrink-0" /><span className="text-xs">{formatDateTime(item.dateTime)}</span></div>
       )
     },
-    { header: "STATUS", key: "status", className: "w-[15%] text-center", render: (item) => (<div className="flex justify-center"><Status status={item.status} /></div>) },
+    { header: "STATUS", key: "status", className: "w-[15%] text-center", render: (item) => (<div className="flex justify-center"><StatusBadge status={item.status} /></div>) },
     { header: "ACTIONS", key: "id", className: "w-[10%] text-right", render: (item) => (
         <Dropdown align="right" trigger={<button className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors"><MoreHorizontal size={18} /></button>}
           items={[
@@ -300,7 +297,6 @@ export default function BookingManagement() {
         </div>
       </div>
 
-      {/* 🌟 Panel (ใช้ร่วมกันทั้ง Add และ Edit) */}
       <SidePanelEdit isOpen={isAddPanelOpen || !!editingBooking} onClose={() => { setIsAddPanelOpen(false); setEditingBooking(null); }} title={editingBooking ? "Edit Booking" : "New Booking"}
         footer={<button onClick={handleSubmit(onSubmit)} className="w-full flex items-center justify-center gap-2 py-4 bg-[#5AB2A8] rounded-2xl text-white font-bold hover:bg-[#4a968d] shadow-lg shadow-teal-100 transition-all active:scale-[0.98]"><CheckCircle2 size={18} /> {editingBooking ? "Update Booking" : "Confirm Booking"}</button>}
       >
@@ -330,7 +326,7 @@ export default function BookingManagement() {
           <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Appointment Details</h4>
           <div className="space-y-4">
             <Controller control={control} name="selectedShopOption" render={({ field: { onChange, value } }) => (
-              <div><SearchSelect label="Select Place" placeholder={shops.length === 0 ? "No active places available" : "Search for a place..."} options={shopOptions} value={value} onChange={onChange} />
+              <div><SearchSelect label="Select Place" placeholder={shops.length === 0 ? "No active places available" : "Search for a place..."} options={shopOptions} value={value as SearchOption<unknown> | null} onChange={onChange} />
               {errors.selectedShopOption && <p className="text-xs text-red-500 mt-1">{errors.selectedShopOption.message as string}</p>}</div>
             )}/>
             

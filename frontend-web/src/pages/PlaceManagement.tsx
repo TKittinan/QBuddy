@@ -3,17 +3,17 @@ import { useOutletContext } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import type { RootState } from "../redux/Reduxindex";
 import { addPlace, updatePlace, deletePlace } from "../redux/placeSlice";
-import { Plus, MapPin, MoreHorizontal, ChevronDown, CheckCircle2, Trash2, Edit, Phone, Clock, Image as ImageIcon } from "lucide-react";
+import { Plus, MoreHorizontal, ChevronDown, CheckCircle2, Trash2, Edit, Clock, Image as ImageIcon } from "lucide-react";
 import { Table } from "../components/ui/Table/Table";
 import { Button } from "../components/ui/Button";
 import { Dropdown } from "../components/ui/Dropdown";
 import { Pagination } from "../components/ui/Pagination";
 import { SidePanelEdit } from "../components/ui/Tabbar/SidePanelEdit";
-import { StatusBadge } from "../components/ui/StatusBadge"; // 🌟 ใช้ Status กลาง
+import { StatusBadge } from "../components/ui/StatusBadge"; 
 import type { Column, Place } from "../types";
 import { CategorySelect, CATEGORY_LIST } from "../components/ui/CategorySelect";
-import { checkIsShopOpen } from "../utils/timeUtils"; // 🌟 ใช้ Utils เวลา
-import { generateShopPrefix } from "../utils/queueUtils"; // 🌟 ดึง Prefix Generator กลาง
+import { checkIsShopOpen } from "../utils/timeUtils"; 
+import { generateShopPrefix } from "../utils/queueUtils"; 
 
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -43,7 +43,7 @@ export default function PlaceManagement() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
 
-  const { control, handleSubmit, reset, formState: { errors }, setValue } = useForm<PlaceFormData>({
+  const { control, handleSubmit, reset, formState: { errors } } = useForm<PlaceFormData>({
     resolver: zodResolver(placeSchema),
     defaultValues: { status: "Active", openTime: "10:00", closeTime: "22:00", category: "ร้านอาหาร" }
   });
@@ -72,7 +72,7 @@ export default function PlaceManagement() {
       address: place.address || "",
       openTime: place.openTime,
       closeTime: place.closeTime,
-      status: place.status
+      status: place.status as "Active" | "Disabled" | "Inactive"
     });
     setIsPanelOpen(true);
   };
@@ -96,9 +96,8 @@ export default function PlaceManagement() {
       };
       dispatch(updatePlace(updated));
     } else {
-      // 🌟 ใช้ระบบสร้าง Prefix เหมือน Mobile เพื่อเก็บเข้า placeId
       const prefix = generateShopPrefix(formattedName, data.category);
-      const newPlaceId = `#${prefix}-00${Math.floor(Math.random() * 9) + 1}`; // จำลอง Sequence
+      const newPlaceId = `#${prefix}-00${Math.floor(Math.random() * 9) + 1}`; 
       
       const newPlace: Place = {
         id: Date.now().toString(),
@@ -111,11 +110,11 @@ export default function PlaceManagement() {
         address: data.address,
         openTime: data.openTime,
         closeTime: data.closeTime,
-        status: data.status,
+        status: data.status as "Active" | "Disabled" | "Inactive",
         queueCount: 0,
         avgServiceTime: 15,
-        lat: 13.75, // Default Mock
-        lng: 100.5, // Default Mock
+        lat: 13.75, 
+        lng: 100.5, 
         createdAt: new Date().toISOString()
       };
       dispatch(addPlace(newPlace));
@@ -148,7 +147,6 @@ export default function PlaceManagement() {
       header: "Operating Hours", 
       key: "time",
       render: (row) => {
-        // 🌟 ใช้ Hook เวลา
         const isOpen = checkIsShopOpen(row.openTime, row.closeTime);
         return (
           <div>

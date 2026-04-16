@@ -5,7 +5,7 @@ import { Send, CheckCircle2, ArrowLeft, AlertCircle } from "lucide-react";
 import type { RootState } from "../redux/Reduxindex";
 import { addReply, resolveTicket } from "../redux/inboxSlice";
 import { Button } from "../components/ui/Button";
-import { Status } from "../components/ui/StatusBadge";
+import { StatusBadge } from "../components/ui/StatusBadge";
 import { ChatMessage } from "../components/ui/User/ChatMessage";
 import { useAuth } from "../context/auth/use.Auth";
 
@@ -62,7 +62,7 @@ export default function Inbox() {
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-center gap-2 mb-1">
               <h3 className="text-base lg:text-lg font-bold text-slate-800 truncate">{activeTicket.subject}</h3>
-              <Status status={activeTicket.status === "Pending" ? "Waiting" : "Completed"} />
+              <StatusBadge status={activeTicket.status === "Pending" ? "Waiting" : "Completed"} />
             </div>
             <p className="text-xs lg:text-sm text-slate-500 font-medium truncate">Ticket ID: {activeTicket.id} • User: {activeTicket.userName}</p>
           </div>

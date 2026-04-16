@@ -4,7 +4,7 @@ import { Table } from "../components/ui/Table/Table";
 import { Dropdown } from "../components/ui/Dropdown";
 import { Button } from "../components/ui/Button";
 import { RefreshCcw, Calendar, ChevronDown, Clock } from "lucide-react";
-import { Status } from "../components/ui/StatusBadge";
+import { StatusBadge } from "../components/ui/StatusBadge";
 import type { Column } from "../types";
 
 type ActivityItem = {
@@ -180,7 +180,7 @@ export default function Dashboard() {
       className: "w-[15%] text-center",
       render: (row) => (
         <div className="flex justify-center">
-          <Status status={row.status} />
+          <StatusBadge status={row.status} />
         </div>
       )
     },

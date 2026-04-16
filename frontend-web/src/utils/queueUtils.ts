@@ -1,4 +1,4 @@
-import { Place, Ticket } from "../types";
+import type { Place, Ticket } from "../types";
 
 export const getBusinessDate = (dateString?: string): string => {
   if (!dateString) return "";
@@ -74,7 +74,6 @@ export const generateGlobalTicketId = (
   return newId;
 };
 
-// 🌟 ย้ายมาจาก Mobile: สูตรคำนวณคิวที่รอ และเวลาที่ต้องรอ
 export const getQueueDetails = (ticket: Ticket, allPlaces: Place[], allTickets: Ticket[]) => {
   const shop = allPlaces.find((p) => p.id === ticket.shopId);
   if (!shop) return { shop: null, queuesAhead: 0, estimatedWaitTime: 0 };

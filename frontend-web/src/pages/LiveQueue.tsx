@@ -2,18 +2,17 @@ import { useState, useMemo } from "react";
 import { useOutletContext } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import type { RootState } from "../redux/Reduxindex";
-import { addQueue, updateQueueStatus, type TicketStatus, type Ticket } from "../redux/queueSlice";
+import { addQueue, updateQueueStatus } from "../redux/queueSlice";
 import { RefreshCcw, Plus, Clock, PlayCircle, CheckCircle2, MoreHorizontal, User, SkipForward, XCircle } from "lucide-react";
 import { Table } from "../components/ui/Table/Table";
 import { Dropdown } from "../components/ui/Dropdown";
 import { Button } from "../components/ui/Button";
 import { SidePanelEdit } from "../components/ui/Tabbar/SidePanelEdit";
 import { SearchSelect, type SearchOption } from "../components/ui/SearchSelect";
-import { StatusBadge } from "../components/ui/StatusBadge"; // 🌟 ใช้ Component ใหม่
+import { StatusBadge } from "../components/ui/StatusBadge"; 
 import { Pagination } from "../components/ui/Pagination"; 
-import type { Column, Place } from "../types";
+import type { Column, Place, Ticket, TicketStatus } from "../types";
 
-// 🌟 นำเข้า Logic กลางที่ตรงกับฝั่ง Mobile
 import { generateGlobalTicketId, getQueueDetails } from "../utils/queueUtils";
 
 import { useForm, Controller } from "react-hook-form";
@@ -26,8 +25,8 @@ const ticketSchema = z.object({
     id: z.string(),
     label: z.string(),
     subLabel: z.string().optional(),
-    originalData: z.any().optional() // อนุโลม Zod schema สำหรับ originalData
-  }, { required_error: "กรุณาเลือกร้านค้า" }),
+    originalData: z.unknown().optional()
+  }),
   pax: z.number().min(1, "ระบุจำนวนคนอย่างน้อย 1 คน")
 });
 
@@ -86,7 +85,6 @@ export default function LiveQueue() {
     const currentTime = new Date().toISOString();
     const shopData = data.selectedShopOption.originalData as Place;
     
-    // 🌟 สร้าง Ticket ID ด้วย Logic สากล
     const newTicketId = generateGlobalTicketId(shopId, currentTime, places, tickets);
 
     const newTicket: Ticket = {
@@ -131,7 +129,6 @@ export default function LiveQueue() {
       header: "Est. Wait", 
       key: "waitTime",
       render: (row) => {
-        // 🌟 ใช้ Logic คำนวณคิวตรงกลางจาก Mobile
         const { estimatedWaitTime } = getQueueDetails(row, places, tickets);
         return (
           <div className="flex items-center gap-1.5 text-slate-500">
@@ -144,7 +141,7 @@ export default function LiveQueue() {
     { 
       header: "Status", 
       key: "status",
-      render: (row) => <StatusBadge status={row.status} /> // 🌟 ใช้ Component ใหม่
+      render: (row) => <StatusBadge status={row.status} /> 
     },
     {
       header: "Actions",
@@ -214,9 +211,15 @@ export default function LiveQueue() {
 
             <div className="space-y-3">
               <Controller control={control} name="selectedShopOption" render={({ field: { onChange, value } }) => (
-                <SearchSelect label="Select Shop" placeholder={shops.length === 0 ? "No active shops available" : "Search for a shop..."} options={shopOptions} value={value} onChange={onChange} />
+                <SearchSelect 
+                  label="Select Shop" 
+                  placeholder={activePlaces.length === 0 ? "No active shops available" : "Search for a shop..."} 
+                  options={shopOptions} 
+                  value={value as SearchOption<unknown> | null} 
+                  onChange={onChange} 
+                />
               )} />
-               {errors.selectedShopOption && <p className="text-xs text-rose-500">{errors.selectedShopOption.message}</p>}
+               {errors.selectedShopOption && <p className="text-xs text-rose-500">{errors.selectedShopOption.message as string}</p>}
             </div>
 
             <div className="space-y-3">

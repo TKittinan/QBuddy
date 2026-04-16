@@ -3,6 +3,7 @@ import React from "react";
 export type RoleType = "ADMIN" | "STAFF" | "CUSTOMER";
 export type TicketStatus = "Waiting" | "Serving" | "Completed" | "Skipped" | "Cancelled";
 export type PlaceStatus = "Active" | "Disabled" | "Inactive";
+export type ActivityStatus = "Open" | "Closed" | "Completed" | "Cancelled";
 
 export interface User {
   id: string;
@@ -13,8 +14,8 @@ export interface User {
   avatarUrl?: string;
   role: RoleType;
   status: "ACTIVE" | "INACTIVE" | "SUSPENDED" | "ONLINE" | "OFFLINE" | "UNVERIFIED";
-  createdAt: string;
   ai_consented?: boolean;
+  createdAt: string;
 }
 
 export interface TableType {
@@ -60,6 +61,40 @@ export interface Ticket {
   tableType?: string | null;
   waitTime?: number;
   status: TicketStatus;
+  createdAt: string;
+}
+
+// 🌟 เพิ่ม Type สำหรับระบบหาเพื่อนให้ตรงกับ Mobile
+export interface Guest {
+  userId: string;
+  userName: string;
+  pax: number;
+  status: "pending" | "confirmed";
+}
+
+export interface PartyActivity {
+  id: string;
+  bookingId?: string;     
+  hostId: string;         
+  hostName: string;
+  hostPhone?: string;     
+  avatarUrl?: string;     
+  title: string;          
+  description?: string;   
+  category: string;       
+  tags: string[];         
+  placeId: string;        
+  placeName: string;      
+  meetingDate: string;    
+  meetingTime: string;    
+  lat: number;            
+  lng: number;            
+  distance?: string;      
+  successRate?: number;   
+  sharedInterests?: number; 
+  joinedGuests: Guest[];  
+  maxGuests: number;      
+  status: ActivityStatus;
   createdAt: string;
 }
 

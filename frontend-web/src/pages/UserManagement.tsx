@@ -9,7 +9,7 @@ import { Dropdown } from "../components/ui/Dropdown";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input"; 
 import { SidePanelEdit } from "../components/ui/Tabbar/SidePanelEdit";
-import { Status } from "../components/ui/StatusBadge"; 
+import { StatusBadge } from "../components/ui/StatusBadge";
 import type { User, Column } from "../types";
 
 // 🌟 นำเข้า useForm และ Zod
@@ -102,7 +102,7 @@ export default function UserManagement() {
         </div>
       )},
     { header: "ROLE", key: "role" },
-    { header: "STATUS", key: "status", render: (user) => <Status status={user.status} /> },
+    { header: "STATUS", key: "status", render: (user) => <StatusBadge status={user.status} /> },
     { header: "ACTIONS", key: "id", className: "text-right", render: (user) => (
         <Dropdown trigger={<button className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors"><MoreHorizontal size={18} /></button>}
           items={[
@@ -151,7 +151,7 @@ export default function UserManagement() {
               <>
                 <h3 className="text-2xl font-bold text-slate-800">{editingUser.name}</h3>
                 <p className="text-slate-500 text-sm mt-1">{editingUser.email}</p>
-                <div className="mt-4"><Status status={editingUser.status} /></div>
+                <div className="mt-4"><StatusBadge status={editingUser.status} /></div>
               </>
             )}
           </div>
