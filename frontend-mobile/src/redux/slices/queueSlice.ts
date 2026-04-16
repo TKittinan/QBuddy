@@ -1,43 +1,106 @@
-import { createSlice, PayloadAction } from "@reduxjs/toolkit";
+import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
+import axios from "axios";
+import { Ticket } from "../../types";
 
-// =========================================================================
-// 🗄️ [SUPABASE DB CONNECTION MOCKUP] - ตาราง Tickets
-// =========================================================================
-/*
-  การเพิ่มคิวใหม่:
-  const addTicketToDB = async (ticketData) => {
-    const { data, error } = await supabase.from('tickets').insert([ticketData]);
-    if(data) dispatch(bookTicket(data[0]));
-  }
-*/
-// =========================================================================
+const API_URL = "http://192.168.1.X:5000/api/queues";
 
-const MOCK_TICKETS = [
-  { id: 'CBB-R-001', name: 'Taggsh', service: 'ร้านอาหาร', shopId: '1', status: 'Waiting', createdAt: new Date().toISOString(), guests: 2, tableType: 't1' },
-  { id: 'SP-R-015', name: 'Taggsh', service: 'ร้านอาหาร', shopId: '2', status: 'Serving', createdAt: new Date().toISOString(), guests: 4, tableType: 't2' },
-  { id: 'AYD-C-102', name: 'Taggsh', service: 'คาเฟ่', shopId: '3', status: 'Completed', createdAt: new Date(Date.now() - 86400000).toISOString(), guests: 2, tableType: 't2' }, 
-  { id: 'VSS-B-044', name: 'Taggsh', service: 'เสริมสวยอื่นๆ', shopId: '4', status: 'Cancelled', createdAt: new Date(Date.now() - 172800000).toISOString(), guests: 1 } 
-];
+interface QueueState {
+  tickets: Ticket[];
+  isLoading: boolean;
+  error: string | null;
+}
 
-const initialState = {
-  allTickets: MOCK_TICKETS,
+const initialState: QueueState = {
+  tickets: [],
+  isLoading: false,
+  error: null,
 };
+
+export const fetchTicketsAsync = createAsyncThunk(
+  "queue/fetchTickets",
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await axios.get(API_URL);
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || "Fetch error");
+    }
+  }
+);
+
+export const addQueueAsync = createAsyncThunk(
+  "queue/addQueue",
+  async (ticketData: Ticket, { rejectWithValue }) => {
+    try {
+      const response = await axios.post(API_URL, ticketData);
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || "Add error");
+    }
+  }
+);
+
+export const updateQueueStatusAsync = createAsyncThunk(
+  "queue/updateQueueStatus",
+  async ({ id, status }: { id: string; status: string }, { rejectWithValue }) => {
+    try {
+      const response = await axios.patch(`${API_URL}/${id}`, { status });
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || "Update error");
+    }
+  }
+);
 
 const queueSlice = createSlice({
   name: "queue",
   initialState,
   reducers: {
-    bookTicket: (state, action: PayloadAction<any>) => { 
-      state.allTickets.push(action.payload); 
+    setQueues: (state, action: PayloadAction<Ticket[]>) => {
+      state.tickets = action.payload;
+    },
+    addQueue: (state, action: PayloadAction<Ticket>) => {
+      state.tickets.push(action.payload);
     },
     updateQueueStatus: (state, action: PayloadAction<{ id: string; status: string }>) => {
-      const ticket = state.allTickets.find((t: any) => t.id === action.payload.id);
-      if (ticket) {
-        ticket.status = action.payload.status;
-      }
+      const ticket = state.tickets.find(t => t.id === action.payload.id);
+      if (ticket) ticket.status = action.payload.status;
+    },
+    deleteQueue: (state, action: PayloadAction<string>) => {
+      state.tickets = state.tickets.filter(t => t.id !== action.payload);
     }
   },
+  extraReducers: (builder) => {
+    builder
+      .addCase(fetchTicketsAsync.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(fetchTicketsAsync.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.tickets = action.payload;
+      })
+      .addCase(fetchTicketsAsync.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      })
+      .addCase(addQueueAsync.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(addQueueAsync.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.tickets.push(action.payload);
+      })
+      .addCase(addQueueAsync.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      })
+      .addCase(updateQueueStatusAsync.fulfilled, (state, action) => {
+        const index = state.tickets.findIndex(t => t.id === action.payload.id);
+        if (index !== -1) state.tickets[index] = action.payload;
+      });
+  }
 });
 
-export const { bookTicket, updateQueueStatus } = queueSlice.actions;
+export const { setQueues, addQueue, updateQueueStatus, deleteQueue } = queueSlice.actions;
 export default queueSlice.reducer;

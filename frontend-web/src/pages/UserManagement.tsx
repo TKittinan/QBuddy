@@ -66,7 +66,6 @@ export default function UserManagement() {
       reset();
     } catch (error) { alert("Error"); }
   };
-
   const handleEdit = (user: User) => {
     setEditingUser(user);
     reset({ 

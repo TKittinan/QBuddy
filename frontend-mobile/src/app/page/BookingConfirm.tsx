@@ -8,7 +8,8 @@ export default function BookingConfirm() {
   const router = useRouter();
   const { ticketId } = useLocalSearchParams();
 
-  const allTickets = useAppSelector((state: any) => state.queue?.allTickets || []);
+  // 🌟 เปลี่ยน allTickets เป็น tickets
+  const allTickets = useAppSelector((state: any) => state.queue?.tickets || []);
   const allPlaces = useAppSelector((state: any) => state.places?.places || []);
 
   const ticket = useMemo(() => allTickets.find((t: any) => t.id === ticketId), [allTickets, ticketId]);

@@ -8,7 +8,7 @@ import { Button } from '../../components/ui/Button';
 
 import { useAppSelector, useAppDispatch } from '../../hooks/useRedux';
 import { bookTicket } from '../../redux/slices/queueSlice';
-import { confirmGuest, removeGuest, Activity, Guest } from '../../redux/slices/friendSlice';
+import { confirmGuest, removeGuest, Activity, Guest } from '../../redux/slices/postSlice';
 import { addChatMessage, ChatMessage } from '../../redux/slices/chatSlice'; 
 import { useQueue } from '../../hooks/useQueue';
 
