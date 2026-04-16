@@ -66,14 +66,12 @@ export default function UserManagement() {
       reset();
     } catch (error) { alert("Error"); }
   };
-
-  // 🌟 แก้บั๊กปีกกาหาย และดึงข้อมูลเบอร์โทรมาใส่ฟอร์ม
   const handleEdit = (user: User) => {
     setEditingUser(user);
     reset({ 
       name: user.name, 
       email: user.email, 
-      phone: user.phone || "", // โหลดเบอร์โทร
+      phone: user.phone || "",
       role: user.role, 
       password: "" 
     });
@@ -124,7 +122,6 @@ export default function UserManagement() {
             <Controller control={control} name="name" render={({ field }) => <Input label="Full Name" icon={<UserIcon size={16}/>} {...field} error={errors.name?.message} />} />
             <Controller control={control} name="email" render={({ field }) => <Input label="Email Address" icon={<Mail size={16}/>} {...field} error={errors.email?.message} />} />
             <Controller control={control} name="phone" render={({ field }) => <Input label="Phone Number" icon={<Phone size={16}/>} {...field} error={errors.phone?.message} />} />
-
             <Controller control={control} name="role" render={({ field: { onChange, value } }) => (
               <div className="space-y-2">
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">System Role</label>
