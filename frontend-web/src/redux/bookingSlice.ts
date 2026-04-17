@@ -3,22 +3,25 @@ import axios from "axios";
 import { API_BASE_URL } from "../config";
 import type { Ticket, TicketStatus } from "../types";
 
-//  สร้าง AsyncThunk สำหรับดึงข้อมูล
-export const fetchBookings = createAsyncThunk("booking/fetchAll", async (_, { rejectWithValue }) => {
+// 1. แก้ไข Endpoint จาก /bookings เป็น /tickets ตาม Backend
+// และเพิ่มการรับค่า placeId เพราะ Backend บังคับใช้ route: /tickets/place/:place_id
+export const fetchBookings = createAsyncThunk("booking/fetchAll", async (placeId: string, { rejectWithValue }) => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/bookings`);
+    // แก้เป็น /tickets/place/${placeId} ตามบรรทัดที่ 7 ใน ticket_routes.ts
+    const response = await axios.get(`${API_BASE_URL}/tickets/place/${placeId}`);
     return response.data;
   } catch (err: any) {
-    return rejectWithValue(err.response?.data?.message || "Failed to fetch bookings");
+    return rejectWithValue(err.response?.data?.message || "Failed to fetch tickets");
   }
 });
 
-//  สร้าง AsyncThunk สำหรับอัปเดตสถานะ
+// 2. แก้ไข Endpoint การอัปเดตสถานะให้ตรงกับ Backend
 export const updateStatusAsync = createAsyncThunk(
   "booking/updateStatus",
   async ({ id, status }: { id: string; status: TicketStatus }, { rejectWithValue }) => {
     try {
-      await axios.patch(`${API_BASE_URL}/bookings/${id}/status`, { status });
+      // Backend ใช้ PATCH /tickets/:id/status ตามบรรทัดที่ 10 ใน ticket_routes.ts
+      await axios.patch(`${API_BASE_URL}/tickets/${id}/status`, { status });
       return { id, status };
     } catch (err: any) {
       return rejectWithValue(err.response?.data?.message || "Update failed");
@@ -42,7 +45,6 @@ const bookingSlice = createSlice({
   name: "booking",
   initialState,
   reducers: {
-    // Reducers ปกติสำหรับจัดการ State ภายใน (ถ้ายังจำเป็นต้องใช้)
     addBooking: (state, action: PayloadAction<Ticket>) => {
       state.bookings.unshift(action.payload);
     },
@@ -52,10 +54,10 @@ const bookingSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      // จัดการ fetchBookings
       .addCase(fetchBookings.pending, (state) => { state.loading = true; })
       .addCase(fetchBookings.fulfilled, (state, action) => {
         state.loading = false;
+        // ปรับการ Sort ข้อมูลเบื้องต้น
         state.bookings = action.payload.sort((a: any, b: any) => 
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );
@@ -64,7 +66,6 @@ const bookingSlice = createSlice({
         state.loading = false;
         state.error = action.payload as string;
       })
-      // จัดการ updateStatusAsync
       .addCase(updateStatusAsync.fulfilled, (state, action) => {
         const booking = state.bookings.find(b => b.id === action.payload.id);
         if (booking) booking.status = action.payload.status;

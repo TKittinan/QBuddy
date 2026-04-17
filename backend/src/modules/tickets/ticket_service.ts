@@ -1,40 +1,43 @@
 import { supabase } from '../../config/supabase';
 
 export class TicketService {
+  // 1. ดึงข้อมูลตั๋วตามสถานที่ (ใช้ place_id ตามโครงสร้างจริง)
   async get_tickets_by_place(place_id: string) {
     const { data, error } = await supabase
-      .from('tickets')
+      .from('tickets') // ตารางตัวเล็กตาม DB
       .select('*')
-      .eq('placeId', place_id)
+      .eq('place_id', place_id) // อ้างอิง place_id
       .order('createdAt', { ascending: true });
 
-    if (error) throw new Error(error.message);
+    if (error) {
+      console.error("Error fetching tickets:", error.message);
+      throw new Error(error.message);
+    }
     return data;
   }
 
+  // 2. ฟังก์ชันช่วยสร้าง ID (แก้ไขเพื่อป้องกัน ID ซ้ำ)
   private async generate_id(place_id: string, service_category: string) {
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const todayEnd = new Date();
-    todayEnd.setHours(23, 59, 59, 999);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-    // นับจำนวนตั๋วของวันนี้
+    // นับจำนวนตั๋วทั้งหมดของร้านนี้ในวันนี้เพื่อออกเลข Running Number
     const { count, error } = await supabase
       .from('tickets')
       .select('*', { count: 'exact', head: true })
-      .eq('placeId', place_id)
-      .gte('createdAt', todayStart.toISOString())
-      .lte('createdAt', todayEnd.toISOString());
+      .eq('place_id', place_id) //
+      .gte('createdAt', today.toISOString());
 
     if (error) throw new Error(error.message);
 
     const prefix = service_category === 'ร้านอาหาร' ? 'R' : service_category === 'คาเฟ่' ? 'C' : 'B';
+    // ใช้ count + 1 เสมอเพื่อให้ได้เลขถัดไป
     const runningNumber = ((count || 0) + 1).toString().padStart(3, '0');
     return `${prefix}-${runningNumber}`;
   }
 
+  // ฟังก์ชันตรวจสอบสถานะคิว
   async get_queue_status(ticket_id: string) {
-    // ดึงข้อมูลตั๋วพร้อมข้อมูลร้านค้า
     const { data: currentTicket, error } = await supabase
       .from('tickets')
       .select('*, place:places(*)')
@@ -43,17 +46,16 @@ export class TicketService {
 
     if (error || !currentTicket) throw new Error('Ticket not found');
 
-    // นับคิวที่อยู่ข้างหน้า
     const { count: queuesAhead, error: countError } = await supabase
       .from('tickets')
       .select('*', { count: 'exact', head: true })
-      .eq('placeId', currentTicket.placeId)
+      .eq('place_id', currentTicket.place_id) //
       .eq('status', 'Waiting')
       .lt('createdAt', currentTicket.createdAt);
 
     if (countError) throw new Error(countError.message);
 
-    const avgServiceTime = currentTicket.place?.avgServiceTime || 15;
+    const avgServiceTime = (currentTicket.place as any)?.avgServiceTime || 15;
     
     return {
       ticketId: ticket_id,
@@ -63,38 +65,49 @@ export class TicketService {
     };
   }
 
-  async create_ticket(data: any) {
-    const customId = await this.generate_id(data.place_id, data.service);
+  // 3. สร้างตั๋วใหม่ (Fix Error 400/500 และ Duplicate Key)
+  async create_ticket(data: any): Promise<any> {
+    const targetPlaceId = data.placeId || data.place_id || data.shopId;
+    const targetService = data.service || 'ร้านอาหาร';
 
-    // 1. สร้างตั๋วใหม่
+    if (!targetPlaceId) throw new Error("Missing placeId/shopId");
+
+    // เจนเนอเรต ID ใหม่
+    const customId = await this.generate_id(targetPlaceId, targetService);
+
     const { data: ticket, error: ticketError } = await supabase
       .from('tickets')
       .insert([{
         id: customId,
         name: data.name,
-        service: data.service,
+        service: targetService,
         guests: data.guests,
-        bookDate: data.book_date,
-        bookTime: data.book_time,
-        tableType: data.table_type,
+        bookDate: data.bookDate || data.book_date,
+        bookTime: data.bookTime || data.book_time,
+        tableType: data.tableType || data.table_type || 'General',
         status: 'Waiting',
-        placeId: data.place_id,
+        place_id: targetPlaceId, // ต้องใช้ place_id ตาม DB
       }])
       .select()
       .single();
 
-    if (ticketError) throw new Error(ticketError.message);
+    // จัดการกรณี ID ซ้ำแบบ Force Retry (ถ้าเจอ Duplicate Key ให้รันใหม่)
+    if (ticketError) {
+      if (ticketError.code === '23505') { 
+        return this.create_ticket(data); 
+      }
+      throw new Error(ticketError.message);
+    }
 
-    // 2. อัปเดตจำนวนคิวในร้านค้า
-    // หมายเหตุ: Supabase ใช้ .rpc() สำหรับการ increment ค่าที่แม่นยำได้ หรือดึงค่ามาบวกแล้วส่งกลับ
-    const { data: place } = await supabase.from('places').select('queueCount').eq('id', data.place_id).single();
-    await supabase.from('places').update({ queueCount: (place?.queueCount || 0) + 1 }).eq('id', data.place_id);
+    // อัปเดตคิวรวมในตารางร้านค้า
+    const { data: place } = await supabase.from('places').select('queueCount').eq('id', targetPlaceId).single();
+    await supabase.from('places').update({ queueCount: (place?.queueCount || 0) + 1 }).eq('id', targetPlaceId);
 
     return ticket;
   }
 
+  // 4. อัปเดตสถานะ (เปลี่ยน placeId -> place_id)
   async update_ticket_status(id: string, status: string) {
-    // 1. อัปเดตสถานะตั๋ว
     const { data: ticket, error: updateError } = await supabase
       .from('tickets')
       .update({ status })
@@ -104,32 +117,26 @@ export class TicketService {
 
     if (updateError) throw new Error(updateError.message);
 
-    // 2. ลดจำนวนคิวถ้าระบบเสร็จสิ้นหรือยกเลิก
-    if (status === 'Completed' || status === 'Cancelled' || status === 'Skipped') {
-      const { data: place } = await supabase.from('places').select('queueCount').eq('id', ticket.placeId).single();
+    if (['Completed', 'Cancelled', 'Skipped'].includes(status)) {
+      const { data: place } = await supabase.from('places').select('queueCount').eq('id', ticket.place_id).single();
       const newCount = Math.max(0, (place?.queueCount || 0) - 1);
-      await supabase.from('places').update({ queueCount: newCount }).eq('id', ticket.placeId);
+      await supabase.from('places').update({ queueCount: newCount }).eq('id', ticket.place_id);
     }
 
     return ticket;
   }
 
-  // เพิ่มฟังก์ชันลบ Ticket ตามที่ขอ
+  // 5. ลบตั๋ว (เปลี่ยน placeId -> place_id)
   async delete_ticket(id: string) {
-    // ดึงข้อมูลก่อนเพื่อตรวจสอบเรื่อง queueCount
-    const { data: ticket } = await supabase.from('tickets').select('placeId, status').eq('id', id).single();
+    const { data: ticket } = await supabase.from('tickets').select('place_id, status').eq('id', id).single();
     
     if (ticket && ticket.status === 'Waiting') {
-      const { data: place } = await supabase.from('places').select('queueCount').eq('id', ticket.placeId).single();
+      const { data: place } = await supabase.from('places').select('queueCount').eq('id', ticket.place_id).single();
       const newCount = Math.max(0, (place?.queueCount || 0) - 1);
-      await supabase.from('places').update({ queueCount: newCount }).eq('id', ticket.placeId);
+      await supabase.from('places').update({ queueCount: newCount }).eq('id', ticket.place_id);
     }
 
-    const { error } = await supabase
-      .from('tickets')
-      .delete()
-      .eq('id', id);
-
+    const { error } = await supabase.from('tickets').delete().eq('id', id);
     if (error) throw new Error(error.message);
     return true;
   }
