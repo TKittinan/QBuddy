@@ -1,19 +1,27 @@
-import { prisma } from '../../lib/prisma';
+import { supabase } from '../../config/supabase';
 
 export class SettingsService {
-  // ดึงค่าการตั้งค่าทั้งหมด (สมมติว่าใช้ ID: 1 เสมอ)
+  // ดึงค่าการตั้งค่าทั้งหมด (ใช้ ID: 1 เสมอ)
   async get_settings() {
-    return await prisma.settings.findFirst({
-      where: { id: 1 }
-    });
+    const { data, error } = await supabase
+      .from('settings')
+      .select('*')
+      .eq('id', 1)
+      .maybeSingle(); // ใช้ maybeSingle เพราะถ้าไม่เจอจะได้ไม่ Error (ส่ง null กลับไป)
+
+    if (error) throw new Error(error.message);
+    return data;
   }
 
-  // อัปเดตหรือสร้างการตั้งค่า
+  // อัปเดตหรือสร้างการตั้งค่า (Upsert)
   async update_settings(data: any) {
-    return await prisma.settings.upsert({
-      where: { id: 1 },
-      update: data,
-      create: { id: 1, ...data }
-    });
+    const { data: updatedSettings, error } = await supabase
+      .from('settings')
+      .upsert({ id: 1, ...data }) // ระบุ id: 1 เพื่อให้ Supabase รู้ว่าต้องทับแถวเดิม
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
+    return updatedSettings;
   }
 }
