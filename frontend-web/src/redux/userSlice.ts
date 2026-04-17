@@ -1,35 +1,77 @@
-import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import type { User } from "../types"; 
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import axios from "axios";
+import { API_BASE_URL } from "../config";
+import type { User } from "../types";
+
+//  1. AsyncThunk สำหรับดึงข้อมูลผู้ใช้ทั้งหมด
+export const fetchUsers = createAsyncThunk("users/fetchAll", async (_, { rejectWithValue }) => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/users`);
+    return response.data;
+  } catch (err: any) {
+    return rejectWithValue(err.response?.data?.message || "Failed to fetch users");
+  }
+});
+
+//  2. AsyncThunk สำหรับเพิ่มผู้ใช้ใหม่
+export const addUserAsync = createAsyncThunk("users/add", async (newUser: Partial<User>, { rejectWithValue }) => {
+  try {
+    const response = await axios.post(`${API_BASE_URL}/users`, newUser);
+    return response.data;
+  } catch (err: any) {
+    return rejectWithValue(err.response?.data?.message || "Failed to add user");
+  }
+});
+
+//  3. AsyncThunk สำหรับลบผู้ใช้
+export const deleteUserAsync = createAsyncThunk("users/delete", async (id: string, { rejectWithValue }) => {
+  try {
+    await axios.delete(`${API_BASE_URL}/users/${id}`);
+    return id;
+  } catch (err: any) {
+    return rejectWithValue(err.response?.data?.message || "Failed to delete user");
+  }
+});
 
 interface UserState {
   users: User[];
+  loading: boolean;
+  error: string | null;
 }
 
 const initialState: UserState = {
   users: [],
+  loading: false,
+  error: null,
 };
 
 const userSlice = createSlice({
   name: "users",
   initialState,
-  reducers: {
-    setUsers: (state, action: PayloadAction<User[]>) => {
-      state.users = action.payload;
-    },
-    addUser: (state, action: PayloadAction<User>) => {
-      state.users.push(action.payload);
-    },
-    updateUser: (state, action: PayloadAction<User>) => {
-      const index = state.users.findIndex((u: User) => u.id === action.payload.id);
-      if (index !== -1) {
-        state.users[index] = action.payload;
-      }
-    },
-    deleteUser: (state, action: PayloadAction<string>) => {
-      state.users = state.users.filter((u: User) => u.id !== action.payload);
-    }
-  }
+  reducers: {},
+  extraReducers: (builder) => {
+    builder
+      // Fetch Users
+      .addCase(fetchUsers.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(fetchUsers.fulfilled, (state, action) => {
+        state.loading = false;
+        state.users = action.payload;
+      })
+      .addCase(fetchUsers.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload as string;
+      })
+      // Add User
+      .addCase(addUserAsync.fulfilled, (state, action) => {
+        state.users.push(action.payload);
+      })
+      // Delete User
+      .addCase(deleteUserAsync.fulfilled, (state, action) => {
+        state.users = state.users.filter((u) => u.id !== action.payload);
+      });
+  },
 });
 
-export const { setUsers, addUser, updateUser, deleteUser } = userSlice.actions;
 export default userSlice.reducer;
