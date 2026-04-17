@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import type { RootState } from "../redux/Reduxindex";
-import { deletePost } from "../redux/postSlice";
+import { deletePost, setPosts } from "../redux/postSlice";
 import { MapPin, Clock, Users, Trash2, MoreHorizontal, Eye } from "lucide-react";
 import { Table } from "../components/ui/Table/Table";
 import { Dropdown } from "../components/ui/Dropdown";
@@ -10,28 +10,34 @@ import { Pagination } from "../components/ui/Pagination";
 import { SidePanelEdit } from "../components/ui/Tabbar/SidePanelEdit";
 import { StatusBadge } from "../components/ui/StatusBadge";
 import type { Column, PartyActivity, Guest } from "../types";
+import { API_BASE_URL } from "../config";
 
 export default function PostManagement() {
   const dispatch = useDispatch();
   const posts = useSelector((state: RootState) => state.post.posts);
-  
+
   const context = useOutletContext<{ searchQuery: string } | null>();
   const searchQuery = context?.searchQuery || "";
 
   const [viewingPost, setViewingPost] = useState<PartyActivity | null>(null);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 6; 
+  const itemsPerPage = 6;
 
   // จุดเชื่อมต่อ API อ่านข้อมูล
   const fetchPostsFromDB = async () => {
     try {
-
-      const response = await fetch('http://localhost:3000/api/parties');
+      const token = localStorage.getItem("token"); // แนะนำให้ใส่ Token ตอนดึงข้อมูลด้วยถ้า Backend ล็อกไว้
+      if (!token) {
+        alert("เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่");
+        // อาจจะสั่ง navigate("/login") กลับไปหน้า login
+        return;
+      }
+      const response = await fetch(`${API_BASE_URL}/parties`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
       const data = await response.json();
       dispatch(setPosts(data));
-
-      console.log("Fetching real-time Posts from DB...");
     } catch (error) {
       console.error("Failed to fetch posts:", error);
     }
@@ -45,11 +51,11 @@ export default function PostManagement() {
 
   const displayPosts = useMemo(() => {
     let result = [...posts].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    
+
     if (searchQuery) {
       const lowerQ = searchQuery.toLowerCase();
-      result = result.filter(p => 
-        p.title.toLowerCase().includes(lowerQ) || 
+      result = result.filter(p =>
+        p.title.toLowerCase().includes(lowerQ) ||
         p.hostName.toLowerCase().includes(lowerQ) ||
         p.placeName.toLowerCase().includes(lowerQ)
       );
@@ -71,29 +77,40 @@ export default function PostManagement() {
   const handleDelete = async (id: string) => {
     if (window.confirm("คุณแน่ใจหรือไม่ว่าต้องการลบโพสต์นี้ออกจากระบบถาวร?")) {
       try {
-        
-        await fetch(`http://localhost:3000/api/parties/${id}`, { method: 'DELETE' });
-        
+        const token = localStorage.getItem("token"); // ดึงตั๋วออกมาก่อนยิง API
+
+        const response = await fetch(`${API_BASE_URL}/parties/${id}`, {
+          method: 'DELETE',
+          headers: {
+            "Authorization": `Bearer ${token}` // ส่งตั๋วไปยืนยันตัวตน
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to delete from server");
+        }
+
         dispatch(deletePost(id));
         setIsPanelOpen(false);
         console.log(`Deleted Post ${id} from Database...`);
       } catch (error) {
         console.error("Failed to delete post:", error);
+        alert("ไม่สามารถลบโพสต์ได้ กรุณาลองใหม่อีกครั้ง");
       }
     }
   };
 
   // กำหนดความกว้าง Column ให้ชัดเจน
   const columns: Column<PartyActivity>[] = [
-    { 
+    {
       header: "PARTY HOST", key: "host", className: "w-[20%] text-left",
       render: (row) => (<div><p className="font-bold text-slate-800">{row.hostName}</p><p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1">{row.hostPhone || "No Phone"}</p></div>)
     },
-    { 
+    {
       header: "POST TITLE & PLACE", key: "title", className: "w-[30%] text-left",
       render: (row) => (<div><p className="font-semibold text-slate-700 truncate max-w-[200px]">{row.title}</p><div className="flex items-center gap-1 text-xs text-slate-500 mt-1"><MapPin size={12} className="text-indigo-400" /><span className="truncate max-w-[180px]">{row.placeName}</span></div></div>)
     },
-    { 
+    {
       header: "MEETING TIME", key: "time", className: "w-[20%] text-left",
       render: (row) => (<div className="flex items-center gap-1.5 text-sm font-medium text-slate-600"><Clock size={14} className="text-amber-500" />{row.meetingDate} • {row.meetingTime}</div>)
     },
@@ -101,9 +118,9 @@ export default function PostManagement() {
       header: "GUESTS", key: "guests", className: "w-[10%] text-center",
       render: (row) => (<div className="flex items-center justify-center gap-1.5"><Users size={14} className="text-slate-400" /><span className="text-sm font-bold text-slate-700">{row.joinedGuests.filter((g: Guest) => g.status === 'confirmed').length} / {row.maxGuests}</span></div>)
     },
-    { 
-      header: "STATUS", key: "status", className: "w-[10%] text-center", 
-      render: (row) => <div className="flex justify-center"><StatusBadge status={row.status} /></div> 
+    {
+      header: "STATUS", key: "status", className: "w-[10%] text-center",
+      render: (row) => <div className="flex justify-center"><StatusBadge status={row.status} /></div>
     },
     {
       header: "ACTIONS", key: "actions", className: "w-[10%] text-right",
@@ -122,7 +139,7 @@ export default function PostManagement() {
 
   return (
     <div className="p-4 lg:p-8 max-w-[1600px] mx-auto w-full pt-10">
-      
+
       {/* ไม่มี Filter ไม่มี Add (หน้าต่างแสดงผลล้วนๆ) */}
       <Table data={currentData} columns={columns} emptyMessage={searchQuery ? "No posts match your search." : "No posts found."} />
       <div className="mt-4">

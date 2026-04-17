@@ -3,7 +3,7 @@ import { useOutletContext } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import type { RootState } from "../redux/Reduxindex";
 import { setPlaces, addPlace, updatePlace, deletePlace } from "../redux/placeSlice";
-import { Plus, MoreHorizontal, ChevronDown, Trash2, Edit, Clock, Image as ImageIcon, MapPin, Phone, FileText, ImagePlus, TrendingUp } from "lucide-react";
+import { Plus, MoreHorizontal, Trash2, Edit, Clock, Image as ImageIcon, MapPin, Phone, FileText, ImagePlus, TrendingUp } from "lucide-react";
 import { Table } from "../components/ui/Table/Table";
 import { Dropdown } from "../components/ui/Dropdown";
 import { Input } from "../components/ui/Input";
@@ -13,8 +13,7 @@ import { StatusBadge } from "../components/ui/StatusBadge";
 import type { Column, Place } from "../types"; 
 import { CategorySelect } from "../components/ui/CategorySelect";
 import { useForm, Controller } from "react-hook-form";
-
-const API_BASE_URL = "http://localhost:5000/api";
+import { API_BASE_URL } from "../config"; 
 
 export default function PlaceManagement() {
   const dispatch = useDispatch();
@@ -35,32 +34,70 @@ export default function PlaceManagement() {
     }
   });
 
+  // ฟังก์ชันดึงข้อมูลจาก Database
   const fetchPlacesFromDB = async () => {
     try {
-      /*
-      const response = await fetch(`${API_BASE_URL}/places`);
-      const data = await response.json();
-      dispatch(setPlaces(data));
-      */
-    } catch (error) { console.error("Fetch Error:", error); }
+      const token = localStorage.getItem("token");
+      const response = await fetch(`${API_BASE_URL}/places`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        dispatch(setPlaces(data));
+      }
+    } catch (error) { 
+      console.error("Fetch Error:", error); 
+    }
   };
 
   useEffect(() => { fetchPlacesFromDB(); }, []);
 
+  // ฟังก์ชันบันทึกข้อมูล (สร้างใหม่ หรือ แก้ไข)
   const onSubmit = async (data: Place) => {
     try {
+      const token = localStorage.getItem("token");
       const method = editingPlace ? "PUT" : "POST";
       const url = editingPlace ? `${API_BASE_URL}/places/${editingPlace.id}` : `${API_BASE_URL}/places`;
       
-      /* const response = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
-      const result = await response.json();
-      if (editingPlace) dispatch(updatePlace(result));
-      else dispatch(addPlace(result));
-      */
+      const response = await fetch(url, { 
+        method, 
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        }, 
+        body: JSON.stringify(data) 
+      });
 
-      setIsPanelOpen(false);
-      reset();
-    } catch (error) { alert("Error saving place"); }
+      if (response.ok) {
+        const result = await response.json();
+        if (editingPlace) dispatch(updatePlace(result));
+        else dispatch(addPlace(result));
+        
+        setIsPanelOpen(false);
+        reset();
+      }
+    } catch (error) { 
+      alert("Error saving place"); 
+    }
+  };
+
+  // ฟังก์ชันลบข้อมูลออกจากระบบ
+  const handleDelete = async (id: string) => {
+    if (window.confirm("คุณแน่ใจหรือไม่ว่าต้องการลบสถานที่นี้?")) {
+      try {
+        const token = localStorage.getItem("token");
+        const response = await fetch(`${API_BASE_URL}/places/${id}`, {
+          method: "DELETE",
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+          dispatch(deletePlace(id));
+        }
+      } catch (error) {
+        console.error("Delete error:", error);
+      }
+    }
   };
 
   const handleEdit = (place: Place) => {
@@ -68,6 +105,16 @@ export default function PlaceManagement() {
     reset(place);
     setIsPanelOpen(true);
   };
+
+  // กรองข้อมูลตาม Search Query
+  const displayPlaces = useMemo(() => {
+    return places.filter(p => 
+      p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      p.branch.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [places, searchQuery]);
+
+  const currentData = displayPlaces.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const columns: Column<Place>[] = [
     { header: "Place Info", key: "info", className: "w-[30%]", render: (row) => (
@@ -86,7 +133,7 @@ export default function PlaceManagement() {
       <Dropdown align="right" trigger={<button className="p-2 text-slate-400 hover:bg-slate-100 rounded-lg transition-colors"><MoreHorizontal size={18} /></button>}
         items={[
           { label: "Edit Details", icon: <Edit size={16} />, onClick: () => handleEdit(row) },
-          { label: "Delete", icon: <Trash2 size={16} />, className: "text-rose-600", onClick: () => dispatch(deletePlace(row.id)) }
+          { label: "Delete", icon: <Trash2 size={16} />, className: "text-rose-600", onClick: () => handleDelete(row.id) }
         ]}
       />
     )}
@@ -99,8 +146,8 @@ export default function PlaceManagement() {
         <button onClick={() => { setEditingPlace(null); reset(); setIsPanelOpen(true); }} className="bg-[#5AB2A8] hover:bg-[#4a968d] text-white px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 shadow-lg transition-all"><Plus size={16}/> New Place</button>
       </div>
 
-      <Table data={places.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)} columns={columns} emptyMessage="No places found." />
-      <Pagination currentPage={currentPage} totalPages={Math.ceil(places.length / itemsPerPage)} onChange={setCurrentPage} />
+      <Table data={currentData} columns={columns} emptyMessage="No places found." />
+      <Pagination currentPage={currentPage} totalPages={Math.ceil(displayPlaces.length / itemsPerPage)} onChange={setCurrentPage} />
 
       <SidePanelEdit isOpen={isPanelOpen} onClose={() => setIsPanelOpen(false)} title={editingPlace ? "Edit Place" : "Create New Place"}>
         <div className="p-6">
@@ -117,9 +164,8 @@ export default function PlaceManagement() {
               )} />
             </div>
 
-            {/* 🌟 เพิ่มช่องรับยอดจองรายเดือนสำหรับระบบ Trending ของแอป */}
             <Controller control={control} name="monthlyBookings" render={({ field }) => (
-              <Input label="Monthly Bookings (ยอดจองรายเดือน - นำไปแสดงร้านฮิต)" type="number" icon={<TrendingUp size={16}/>} value={field.value} onChange={e => field.onChange(parseInt(e.target.value) || 0)} />
+              <Input label="Monthly Bookings (ยอดจองรายเดือน)" type="number" icon={<TrendingUp size={16}/>} value={field.value} onChange={e => field.onChange(parseInt(e.target.value) || 0)} />
             )} />
 
             <div className="grid grid-cols-2 gap-4">
@@ -130,7 +176,7 @@ export default function PlaceManagement() {
               <Controller control={control} name="lat" render={({ field }) => <Input label="Latitude" type="number" step="any" icon={<MapPin size={16}/>} value={field.value} onChange={e => field.onChange(parseFloat(e.target.value))} />} />
               <Controller control={control} name="lng" render={({ field }) => <Input label="Longitude" type="number" step="any" icon={<MapPin size={16}/>} value={field.value} onChange={e => field.onChange(parseFloat(e.target.value))} />} />
             </div>
-            <Controller control={control} name="phone" render={({ field }) => <Input label="Contact Phone" icon={<Phone size={16}/>} {...field} />} />
+            <Controller control={control} name="phone" render={({ field }) => <Input label="Contact Phone" icon={<Phone size={16}/>} {...field} value={field.value || ""} />} />
             <Controller control={control} name="logoUrl" render={({ field }) => <Input label="Logo Image URL" icon={<ImagePlus size={16}/>} {...field} value={field.value || ""} />} />
             
             <button type="submit" className="w-full py-3.5 bg-[#5AB2A8] hover:bg-[#4a968d] text-white font-bold rounded-xl shadow-lg mt-4 active:scale-[0.98] transition-all">Save Information</button>

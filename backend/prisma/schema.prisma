@@ -196,6 +196,6 @@ model Settings {
   businessName   String
   phone          String
   email          String
-  maxQueuePerDay String
-  autoCancelMins String
+  maxQueuePerDay Int
+  autoCancelMins Int
 }

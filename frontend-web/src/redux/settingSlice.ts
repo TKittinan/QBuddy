@@ -5,8 +5,8 @@ const initialState: SettingsState = {
   businessName: "",
   phone: "",
   email: "",
-  maxQueuePerDay: "",
-  autoCancelMins: ""
+  maxQueuePerDay: 0, 
+  autoCancelMins: 0  
 };
 
 const settingsSlice = createSlice({

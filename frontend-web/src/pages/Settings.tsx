@@ -15,17 +15,48 @@ export default function Settings() {
 
   useEffect(() => { setFormData(settings); }, [settings]);
 
-  const handleSaveGeneral = async () => {
+  const fetchSettings = async () => {
     try {
-      
-      const response = await fetch(`${API_BASE_URL}/settings`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(formData) });
-      if (!response.ok) throw new Error();
-      
-      dispatch(updateSettings(formData));
-      alert("Settings saved successfully!");
-    } catch (error) { alert("Error saving settings"); }
+      const token = localStorage.getItem("token");
+      const response = await fetch(`${API_BASE_URL}/settings`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      const data = await response.json();
+      if (response.ok) {
+        dispatch(updateSettings(data));
+        setFormData(data);
+      }
+    } catch (error) {
+      console.error("Fetch settings error:", error);
+    }
   };
 
+  useEffect(() => { fetchSettings(); }, []);
+
+  const handleSaveGeneral = async () => {
+    try {
+      const token = localStorage.getItem("token"); // ดึง Token มา
+
+      const response = await fetch(`${API_BASE_URL}/settings`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}` // เพิ่มบรรทัดนี้
+        },
+        body: JSON.stringify(formData)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Save failed");
+      }
+
+      dispatch(updateSettings(formData));
+      alert("Settings saved successfully!");
+    } catch (error) {
+      alert("Error saving settings");
+    }
+  };
   return (
     <div className="space-y-6 pt-10 px-8">
       <div><h2 className="text-2xl font-bold text-slate-800">System Settings</h2><p className="text-sm text-slate-500 mt-1">Configure your business rules and profile</p></div>
@@ -38,13 +69,24 @@ export default function Settings() {
           {activeTab === "general" ? (
             <div className="space-y-6 animate-in fade-in duration-300">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Input label="Business Name" icon={<Building2 size={16}/>} value={formData.businessName} onChange={(e) => setFormData({...formData, businessName: e.target.value})} />
-                <Input label="Business Email" icon={<Mail size={16}/>} value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} />
+                <Input label="Business Name" icon={<Building2 size={16} />} value={formData.businessName} onChange={(e) => setFormData({ ...formData, businessName: e.target.value })} />
+                <Input label="Business Email" icon={<Mail size={16} />} value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
               </div>
-              <Input label="Contact Phone" icon={<Phone size={16}/>} value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} />
+              <Input label="Contact Phone" icon={<Phone size={16} />} value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-50">
-                <Input label="Max Queues per Day" icon={<Hash size={16}/>} value={formData.maxQueuePerDay} onChange={(e) => setFormData({...formData, maxQueuePerDay: e.target.value})} />
-                <Input label="Auto-cancel (Minutes)" icon={<Clock size={16}/>} value={formData.autoCancelMins} onChange={(e) => setFormData({...formData, autoCancelMins: e.target.value})} />
+                <Input
+                  label="Max Queues per Day"
+                  icon={<Hash size={16} />}
+                  value={formData.maxQueuePerDay}
+                  onChange={(e) => setFormData({ ...formData, maxQueuePerDay: Number(e.target.value) })}
+                />
+
+                <Input
+                  label="Auto-cancel (Minutes)"
+                  icon={<Clock size={16} />}
+                  value={formData.autoCancelMins}
+                  onChange={(e) => setFormData({ ...formData, autoCancelMins: Number(e.target.value) })}
+                />
               </div>
               <Button onClick={handleSaveGeneral} className="bg-[#5AB2A8] text-white flex items-center gap-2 shadow-lg shadow-teal-100 mt-4"><Save size={18} /> Save All Changes</Button>
             </div>
