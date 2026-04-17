@@ -1,51 +1,33 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useSelector, useDispatch } from "react-redux";
+import { useAppSelector, useAppDispatch } from "../redux/hooks";
 import { Send, CheckCircle2, ArrowLeft, AlertCircle } from "lucide-react";
-import type { RootState } from "../redux/Reduxindex";
-import { addReply, resolveTicket, setInboxTickets } from "../redux/inboxSlice"; 
+import { fetchInboxTickets, sendReplyAsync, resolveTicketAsync } from "../redux/inboxSlice"; 
 import { Button } from "../components/ui/Button";
 import { StatusBadge } from "../components/ui/StatusBadge";
 import { ChatMessage } from "../components/ui/User/ChatMessage";
 import { useAuth } from "../context/auth/use.Auth";
-import { API_BASE_URL } from "../config";
 
 export default function Inbox() {
   const { id } = useParams<{ id: string }>(); 
   const navigate = useNavigate();
-  const dispatch = useDispatch();
+  const dispatch = useAppDispatch();
   const { user } = useAuth();
   
   const [replyText, setReplyText] = useState("");
 
-  const activeTicket = useSelector((state: RootState) => 
-    state.inbox.tickets.find(t => t.id === id)
-  );
+  // ดึงข้อมูลจาก Redux Store โดยตรง
+  const { tickets, loading } = useAppSelector((state) => state.inbox);
+  const activeTicket = tickets.find(t => t.id === id);
 
-  // ==========================================
-  // 1. API: GET - ดึงข้อความแชท (Inbox Tickets) ทั้งหมดจาก Backend
-  // ==========================================
-  const fetchInboxFromDB = async () => {
-    try {
-      // โค้ดสำหรับ Backend
-      const response = await fetch(`${API_BASE_URL}/support-tickets`);
-      if (!response.ok) throw new Error("Failed to fetch tickets");
-      const data = await response.json();
-      dispatch(setInboxTickets(data)); // เอาข้อมูลใส่ Redux
-      
-      console.log("Fetching real-time Chat from DB...");
-    } catch (error) {
-      console.error("Failed to fetch inbox chat:", error);
-    }
-  };
-
-  // ดึงข้อมูลใหม่ทุกๆ 15 วินาที เพื่อให้แชทอัปเดตแบบ Real-time
+  // 1. ดึงข้อมูลผ่าน Thunk (สะอาดมาก!)
   useEffect(() => {
-    fetchInboxFromDB();
-    const intervalId = setInterval(fetchInboxFromDB, 15000);
+    dispatch(fetchInboxTickets());
+    const intervalId = setInterval(() => dispatch(fetchInboxTickets()), 15000);
     return () => clearInterval(intervalId);
-  }, []);
+  }, [dispatch]);
 
+  // กรณีหา Ticket ไม่เจอ
   if (!activeTicket) {
     return (
       <div className="flex-1 hidden lg:flex flex-col items-center justify-center text-slate-400 p-6 text-center">
@@ -56,14 +38,12 @@ export default function Inbox() {
     );
   }
 
-  // ==========================================
-  // 2. API: POST - ส่งข้อความตอบกลับ (Reply)
-  // ==========================================
+  // 2. ส่งข้อความผ่าน Thunk
   const handleSendReply = async () => {
     if (!replyText.trim()) return;
 
     const newMessage = {
-      id: `msg_${Date.now()}`, // ปกติ Backend มักจะ Generate ID นี้ให้
+      id: `msg_${Date.now()}`, 
       senderId: "admin",
       senderName: user?.name || "Admin",
       text: replyText.trim(),
@@ -71,42 +51,20 @@ export default function Inbox() {
     };
 
     try {
-      // โค้ดสำหรับ Backend
-      const response = await fetch(`${API_BASE_URL}/support-tickets/${activeTicket.id}/reply`, { 
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newMessage) 
-      });
-      if (!response.ok) throw new Error("Failed to send message");
-      
-      // ถ้าระบบ Backend ส่ง message กลับมาพร้อม ID จริง ก็ดึงมาใช้ได้เลย
-      const savedMessage = await response.json();
-      dispatch(addReply({ ticketId: activeTicket.id, message: savedMessage }));
-
+      // เรียก Thunk แทนการ fetch เอง
+      await dispatch(sendReplyAsync({ ticketId: activeTicket.id, message: newMessage })).unwrap();
       setReplyText("");
     } catch (error) {
-      console.error("Failed to send message:", error);
       alert("ไม่สามารถส่งข้อความได้ กรุณาลองใหม่อีกครั้ง");
     }
   };
 
-  // ==========================================
-  // 3. API: PUT/PATCH - กดปิดงาน (Resolve Ticket)
-  // ==========================================
+  // 3. ปิดเคสผ่าน Thunk
   const handleResolve = async () => {
     if (window.confirm("คุณแน่ใจหรือไม่ว่าต้องการปิดเคสนี้?")) {
       try {
-        // โค้ดสำหรับ Backend
-        const response = await fetch(`${API_BASE_URL}/support-tickets/${activeTicket.id}/resolve`, { 
-          method: 'PUT', // หรือ PATCH
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: "Resolved" })
-        });
-        if (!response.ok) throw new Error("Failed to resolve ticket");
-
-        dispatch(resolveTicket(activeTicket.id));
+        await dispatch(resolveTicketAsync(activeTicket.id)).unwrap();
       } catch (error) {
-        console.error("Failed to resolve ticket:", error);
         alert("ไม่สามารถปิดเคสได้ กรุณาลองใหม่อีกครั้ง");
       }
     }
@@ -114,6 +72,7 @@ export default function Inbox() {
 
   return (
     <>
+      {/* Header Section */}
       <div className="p-4 lg:p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-start justify-between bg-slate-50/50 gap-4 sm:gap-0">
         <div className="flex items-start gap-3">
           <button onClick={() => navigate("/inbox")} className="lg:hidden p-2 -ml-2 text-slate-500 hover:bg-slate-200 rounded-full shrink-0">
@@ -135,12 +94,18 @@ export default function Inbox() {
         )}
       </div>
 
+      {/* Chat Messages Section */}
       <div className="flex-1 overflow-y-auto p-4 lg:p-6 bg-slate-50/30">
-        {activeTicket.messages.map(msg => (
-          <ChatMessage key={msg.id} text={msg.text} senderName={msg.senderName} timestamp={msg.timestamp} isAdmin={msg.senderId === "admin"} />
-        ))}
+        {loading && activeTicket.messages.length === 0 ? (
+          <p className="text-center text-slate-400">Loading messages...</p>
+        ) : (
+          activeTicket.messages.map(msg => (
+            <ChatMessage key={msg.id} text={msg.text} senderName={msg.senderName} timestamp={msg.timestamp} isAdmin={msg.senderId === "admin"} />
+          ))
+        )}
       </div>
 
+      {/* Input Section */}
       <div className="p-3 lg:p-4 bg-white border-t border-slate-100">
         <div className="flex items-end gap-2 lg:gap-3">
           <textarea
@@ -150,7 +115,11 @@ export default function Inbox() {
             disabled={activeTicket.status === "Resolved"}
             className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:ring-2 focus:ring-[#5AB2A8] outline-none min-h-[50px] lg:min-h-[80px] max-h-[120px] resize-y disabled:bg-slate-100 disabled:text-slate-400"
           />
-          <Button onClick={handleSendReply} disabled={!replyText.trim() || activeTicket.status === "Resolved"} className="bg-[#5AB2A8] text-white px-4 lg:px-6 h-12 flex items-center justify-center gap-2 rounded-xl shrink-0 disabled:bg-slate-300">
+          <Button 
+            onClick={handleSendReply} 
+            disabled={!replyText.trim() || activeTicket.status === "Resolved" || loading} 
+            className="bg-[#5AB2A8] text-white px-4 lg:px-6 h-12 flex items-center justify-center gap-2 rounded-xl shrink-0 disabled:bg-slate-300"
+          >
             <Send size={16} className="lg:mr-1" /> <span className="hidden lg:inline">Send</span>
           </Button>
         </div>
