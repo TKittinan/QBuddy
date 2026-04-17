@@ -4,17 +4,18 @@ import { Store, Clock, Users, AlertCircle, Calendar as CalendarIcon, Ticket as T
 
 import { useAppDispatch, useAppSelector } from '../../hooks/useRedux';
 import { updateQueueStatus } from '../../redux/slices/queueSlice'; 
-import { useQueue } from '../../hooks/useQueue'; // 🌟 เรียกใช้ Hook กลาง
+// 🌟 1. ลบ import useQueue ออก
 
 type FilterType = 'active' | 'all' | 'success' | 'cancelled';
 
 export default function QueuePage() {
   const dispatch = useAppDispatch();
-  const { getQueueDetails } = useQueue(); // 🌟 ดึงฟังก์ชันมาใช้
+  // 🌟 2. ลบ getQueueDetails ออก
   
   const user = useAppSelector((state: any) => state.auth?.user) || { name: 'Taggsh' }; 
   const places = useAppSelector((state: any) => state.places?.places || []);
-  const allTickets = useAppSelector((state: any) => state.queue?.allTickets || []);
+  
+  const allTickets = useAppSelector((state: any) => state.queue?.tickets || []);
 
   const [activeFilter, setActiveFilter] = useState<FilterType>('active');
 
@@ -83,8 +84,11 @@ export default function QueuePage() {
           activeTickets.length > 0 ? (
             <View>
               {activeTickets.map((ticket: any) => {
-                // 🌟 ใช้ Hook คำนวณคิว
-                const { shop, queuesAhead, estimatedWaitTime } = getQueueDetails(ticket);
+                // 🌟 3. เปลี่ยนวิธีการดึงข้อมูลร้าน โดยค้นหาจาก places แทนการใช้ getQueueDetails
+                const shop = places.find((p: any) => p.id === ticket.shopId) || { name: 'Unknown Shop', logoUrl: 'https://via.placeholder.com/150', tableTypes: [] };
+                const queuesAhead = ticket.queuesAhead || 0; // ใส่ค่า Fallback เผื่อ Backend ยังไม่ส่งมา
+                const estimatedWaitTime = ticket.estimatedWaitTime || 15;
+
                 const isServing = ticket.status === 'Serving';
                 
                 if (!shop) return null;

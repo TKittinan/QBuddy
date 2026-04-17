@@ -6,7 +6,7 @@ import { useRouter } from 'expo-router';
 import { useAppSelector } from '../../hooks/useRedux';
 import { Card } from '../../components/ui/Card';
 import { CategoryChips } from '../../components/ui/CategoryChips';
-import { Place } from '../../redux/slices/placeSlice'; // 🌟 1. นำเข้า Type
+import { Place } from '../../types';
 
 export default function Beauty() { // 🌟 เปลี่ยนชื่อ Function ให้ตรงกับไฟล์ (Cafe, Beauty)
   const router = useRouter();

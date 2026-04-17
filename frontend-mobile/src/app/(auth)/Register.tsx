@@ -2,19 +2,19 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { ArrowLeft, EyeOff, Eye, CheckCircle2, XCircle } from 'lucide-react-native';
 import { useRouter, Href } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { AuthLayout } from '../../components/layout/AuthLayout'; 
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
-import { User } from '../../types';
 
-// 🌟 1. นำเข้า Hook Form และ Zod
+// 🌟 1. นำเข้า Redux Dispatch และ registerAsync (ของจริง)
+import { useAppDispatch, useAppSelector } from '../../hooks/useRedux';
+import { registerAsync } from '../../redux/slices/authSlice'; 
+
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 
-// 🌟 2. กำหนด Schema (ใช้ superRefine เช็ครหัสผ่านให้ตรงกัน)
 const registerSchema = z.object({
   fullName: z.string().min(1, "กรุณากรอกชื่อ-นามสกุล"),
   email: z.string().email("รูปแบบอีเมลไม่ถูกต้อง"),
@@ -36,29 +36,15 @@ const registerSchema = z.object({
 
 type RegisterFormData = z.infer<typeof registerSchema>;
 
-const mockRegisterAPI = async (userData: RegisterFormData): Promise<User> => {
-  await new Promise(resolve => setTimeout(resolve, 500));
-  const existingUsersJson = await AsyncStorage.getItem('mock_users_db');
-  const existingUsers = existingUsersJson ? (JSON.parse(existingUsersJson) as Array<User & { password?: string }>) : [];
-  
-  if (existingUsers.some(u => u.email === userData.email)) throw new Error('อีเมลนี้ถูกใช้งานแล้วในระบบ');
-  
-  const newUser: User & { password?: string } = { id: `usr_${Date.now()}`, name: userData.fullName, email: userData.email, phone: userData.phone, password: userData.password, ai_consented: false, role: 'user' };
-  existingUsers.push(newUser);
-  await AsyncStorage.setItem('mock_users_db', JSON.stringify(existingUsers));
-  
-  const { password, ...userWithoutPassword } = newUser;
-  return userWithoutPassword;
-};
-
 export default function RegisterPage() {
   const router = useRouter();
+  const dispatch = useAppDispatch(); // 🌟 เรียกใช้ dispatch
+  const isLoading = useAppSelector(state => state.auth.isLoading); // 🌟 ดึงสถานะโหลดจาก Redux
+  
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState('');
 
-  // 🌟 3. ติดตั้ง useForm
   const { control, handleSubmit, watch, formState: { errors } } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
     defaultValues: { fullName: "", email: "", phone: "", password: "", confirmPassword: "" },
@@ -67,17 +53,28 @@ export default function RegisterPage() {
 
   const passwordValue = watch("password");
 
-  const onRegisterSubmit = async (data: RegisterFormData) => {
+  const onRegisterSubmit = (data: RegisterFormData) => {
     setApiError('');
-    setIsLoading(true);
-    try {
-      await mockRegisterAPI(data);
-      Alert.alert('สำเร็จ', 'สมัครสมาชิกเรียบร้อยแล้ว', [{ text: 'ไปหน้าเข้าสู่ระบบ', onPress: () => router.replace('/(auth)/Login' as Href) }]);
-    } catch (error: any) {
-      setApiError(error.message || 'เกิดข้อผิดพลาดในการสมัครสมาชิก');
-    } finally {
-      setIsLoading(false);
-    }
+    
+    // 🌟 2. จัดรูปแบบข้อมูลให้ตรงกับที่ Backend ต้องการ
+    const payload = {
+      name: data.fullName,
+      email: data.email,
+      phone: data.phone,
+      password: data.password,
+      role: 'CUSTOMER' // ระบุ Role ตาม Database
+    };
+
+    // 🌟 3. ยิง API จริงไปที่ Backend
+    dispatch(registerAsync(payload)).then((res: any) => {
+      if (res.meta.requestStatus === 'fulfilled') {
+        Alert.alert('สำเร็จ', 'สมัครสมาชิกเรียบร้อยแล้ว', [
+          { text: 'ไปหน้าเข้าสู่ระบบ', onPress: () => router.replace('/(auth)/Login' as Href) }
+        ]);
+      } else {
+        setApiError(res.payload || 'เกิดข้อผิดพลาดในการสมัครสมาชิก กรุณาลองใหม่อีกครั้ง');
+      }
+    });
   };
 
   const renderReqItem = (isMet: boolean, text: string) => (

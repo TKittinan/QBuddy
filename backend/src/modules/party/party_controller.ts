@@ -6,7 +6,12 @@ const party_service = new PartyService();
 export class PartyController {
   async list(req: Request, res: Response) {
     try {
-      const parties = await party_service.get_all_parties();
+      // Extract user location from query parameters
+      const { lat, lng, userId } = req.query;
+      const userLat = lat ? parseFloat(lat as string) : undefined;
+      const userLng = lng ? parseFloat(lng as string) : undefined;
+
+      const parties = await party_service.get_all_parties(userLat, userLng, userId as string | undefined);
       res.json(parties);
     } catch (error: any) {
       res.status(500).json({ message: error.message });

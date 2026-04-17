@@ -90,7 +90,6 @@ const fetchUsersFromDB = async () => {
     alert("Error connecting to server"); 
   }
 };
-
   const handleEdit = (user: User) => {
     setEditingUser(user);
     reset({ 
