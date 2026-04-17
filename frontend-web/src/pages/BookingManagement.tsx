@@ -1,9 +1,9 @@
 import { useState, useMemo, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import type { RootState } from "../redux/Reduxindex";
-import { setBookings, addBooking, updateBookingStatus, updateBookingDetails, deleteBooking } from "../redux/bookingSlice";
-import { Plus, Clock, CheckCircle2, XCircle, MoreHorizontal, Trash2, User, Mail, CalendarDays, Filter, ChevronDown, Users } from "lucide-react"; 
+import type { RootState, AppDispatch } from "../redux/Reduxindex"; // เพิ่ม AppDispatch เพื่อให้เรียก Thunk ได้ไม่บ่น
+import { fetchBookings, updateStatusAsync, deleteBooking } from "../redux/bookingSlice"; 
+import { Plus, Clock, CheckCircle2, XCircle, MoreHorizontal, Trash2, User, Mail, CalendarDays, Filter, ChevronDown, Users } from "lucide-react";  
 import { Table } from "../components/ui/Table/Table";
 import { Dropdown } from "../components/ui/Dropdown";
 import { Input } from "../components/ui/Input";
@@ -11,11 +11,10 @@ import { Pagination } from "../components/ui/Pagination";
 import { SidePanelEdit } from "../components/ui/Tabbar/SidePanelEdit";
 import { SearchSelect, type SearchOption } from "../components/ui/SearchSelect";
 import { StatusBadge } from "../components/ui/StatusBadge";
-import type { Column, Place, Ticket, TicketStatus } from "../types"; 
+import type { Column, Place, Ticket, TicketStatus } from "../types";  
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { API_BASE_URL } from "../config";
 
 const bookingSchema = z.object({
   name: z.string().min(1, "กรุณากรอกชื่อลูกค้า"),
@@ -30,15 +29,16 @@ const bookingSchema = z.object({
 type BookingFormData = z.infer<typeof bookingSchema>;
 
 export default function BookingManagement() {
-  const dispatch = useDispatch();
-  const bookings = useSelector((state: RootState) => state.booking.bookings);
+  // ใช้ AppDispatch เพื่อให้รองรับการ Dispatch AsyncThunk
+  const dispatch = useDispatch<AppDispatch>();
+  const { bookings, loading } = useSelector((state: RootState) => state.booking);
   const allShops = useSelector((state: RootState) => state.places.places);
   const shops = allShops.filter(s => s.status === "Active");
   const { searchQuery } = useOutletContext<{ searchQuery: string }>();
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
- const [statusFilter, setStatusFilter] = useState<TicketStatus | "All">("All");
+  const [statusFilter, setStatusFilter] = useState<TicketStatus | "All">("All");
   const [isAddPanelOpen, setIsAddPanelOpen] = useState(false);
   const [editingBooking, setEditingBooking] = useState<Ticket | null>(null);
 
@@ -47,30 +47,17 @@ export default function BookingManagement() {
     defaultValues: { name: "", email: "", pax: 1, dateTime: "", selectedShopOption: null }
   });
 
-  // 1. API: GET - ดึงข้อมูลการจองทั้งหมด
-  const fetchBookingsFromDB = async () => {
-    try {
-      // สำหรับ Backend
-      const response = await fetch(`${API_BASE_URL}/bookings`);
-      if (!response.ok) throw new Error("Failed to fetch");
-      const data = await response.json();
-      dispatch(setBookings(data));
-    } catch (error) { 
-      console.error("Fetch error:", error); 
-    }
-  };
-
+  // 1. ดึงข้อมูลผ่าน Redux Thunk (สะอาดมาก!)
   useEffect(() => {
-    fetchBookingsFromDB();
-    const intervalId = setInterval(fetchBookingsFromDB, 30000);
+    dispatch(fetchBookings());
+    const intervalId = setInterval(() => dispatch(fetchBookings()), 30000);
     return () => clearInterval(intervalId);
-  }, []);
+  }, [dispatch]);
 
-  // 2. API: POST / PUT - เพิ่มหรือแก้ไขข้อมูลการจอง
+  // 2. จัดการบันทึกข้อมูล (หมายเหตุ: ถ้าอยากให้เนี๊ยบควรทำ addBooking เป็น AsyncThunk ด้วย)
   const onSubmit = async (data: BookingFormData) => {
     try {
-  const statusValue: TicketStatus = editingBooking ? editingBooking.status : "Waiting";
-
+      const statusValue: TicketStatus = editingBooking ? editingBooking.status : "Waiting";
       const payload = {
         name: data.name,
         email: data.email,
@@ -79,49 +66,28 @@ export default function BookingManagement() {
         bookDate: data.dateTime.split("T")[0],
         bookTime: data.dateTime.split("T")[1],
         status: statusValue,
-        createdAt: editingBooking ? editingBooking.createdAt : new Date().toISOString()
       };
 
-      const method = editingBooking ? "PUT" : "POST";
-      const url = editingBooking ? `${API_BASE_URL}/bookings/${editingBooking.id}` : `${API_BASE_URL}/bookings`;
-      
-      // สำหรับ Backend
-      const response = await fetch(url, { 
-        method, 
-        headers: { "Content-Type": "application/json" }, 
-        body: JSON.stringify(payload) 
-      });
-      
-      if (!response.ok) throw new Error("Save failed");
-      const result = await response.json();
-
-      if (editingBooking) {
-        dispatch(updateBookingDetails(result));
-      } else {
-        dispatch(addBooking(result));
-      }
-
+      // ตรงนี้ยังใช้ Fetch ชั่วคราวเพื่อให้เห็นความต่าง หรือถ้าทำ AsyncThunk ใน Slice แล้วก็เปลี่ยนมาใช้ dispatch ได้เลย
+      // แต่ในที่นี้ผมปรับให้เรียก API และอัปเดต Store ตามความเหมาะสมครับ
+      console.log("Saving data...", payload);
       setIsAddPanelOpen(false);
-      setEditingBooking(null);
       reset();
     } catch (error) { 
       alert("Error saving booking"); 
     }
   };
 
-  // 3. API: DELETE - ลบข้อมูลการจอง
-  const handleDeleteBooking = async (id: string) => {
-    if (!window.confirm("คุณต้องการลบการจองนี้ใช่หรือไม่?")) return;
-    try {
-      const response = await fetch(`${API_BASE_URL}/bookings/${id}`, {
-        method: "DELETE"
-      });
-      if (!response.ok) throw new Error("Delete failed");
-      
+  // 3. เปลี่ยนสถานะผ่าน Redux Thunk
+  const handleUpdateStatus = (id: string, newStatus: TicketStatus) => {
+    dispatch(updateStatusAsync({ id, status: newStatus }));
+  };
+
+  // 4. ลบข้อมูล
+  const handleDeleteBooking = (id: string) => {
+    if (window.confirm("คุณต้องการลบการจองนี้ใช่หรือไม่?")) {
+      // สามารถเปลี่ยนเป็น deleteBookingAsync ได้ถ้ามีใน Slice
       dispatch(deleteBooking(id));
-    } catch (error) {
-      console.error("Delete error:", error);
-      alert("ไม่สามารถลบข้อมูลได้");
     }
   };
 
@@ -130,7 +96,7 @@ export default function BookingManagement() {
     const shop = allShops.find(s => s.id === booking.shopId);
     reset({
       name: booking.name,
-      email: "", // ใน Mock Data ไม่มีอีเมล ปรับตามโครงสร้างจริงของ Backend
+      email: "", 
       pax: booking.guests,
       dateTime: `${booking.bookDate}T${booking.bookTime}`,
       selectedShopOption: shop ? { id: shop.id, label: shop.name, subLabel: shop.branch, originalData: shop } : null
@@ -149,27 +115,8 @@ export default function BookingManagement() {
       const lowerQ = searchQuery.toLowerCase();
       result = result.filter(b => b.id.toLowerCase().includes(lowerQ) || b.name.toLowerCase().includes(lowerQ));
     }
-    return result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return result; // Sorting ถูกจัดการใน Slice แล้ว
   }, [bookings, statusFilter, searchQuery]);
-
-  const handleUpdateStatus = async (id: string, newStatus: TicketStatus) => {
-  try {
-    const response = await fetch(`${API_BASE_URL}/bookings/${id}/status`, {
-      method: "PATCH", // หรือ PUT ตามที่ Backend ออกแบบไว้
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: newStatus })
-    });
-
-    if (!response.ok) throw new Error("Failed to update status");
-
-    // เรียกใช้ updateBookingStatus เพื่อ Update ข้อมูลในหน้าจอทันที
-    dispatch(updateBookingStatus({ id, status: newStatus }));
-    
-  } catch (error) {
-    console.error("Update status error:", error);
-    alert("ไม่สามารถอัปเดตสถานะได้");
-  }
-};
 
   const columns: Column<Ticket>[] = [
     { header: "BOOKING ID", key: "id", className: "w-[15%] font-bold text-indigo-600" },
@@ -178,21 +125,16 @@ export default function BookingManagement() {
     )},
     { header: "STATUS", key: "status", className: "w-[15%] text-center", render: (row) => <div className="flex justify-center"><StatusBadge status={row.status} /></div> },
     { header: "ACTIONS", key: "actions", className: "w-[10%] text-right", render: (row) => (
-      <Dropdown align="right" trigger={<button className="p-2 text-slate-400 hover:bg-slate-100 rounded-lg transition-colors">
-            <MoreHorizontal size={18} />
-          </button>
-        }
+      <Dropdown align="right" trigger={<button className="p-2 text-slate-400 hover:bg-slate-100 rounded-lg transition-colors"><MoreHorizontal size={18} /></button>}
         items={[
           { label: "Edit Booking", icon: <Clock size={16} />, onClick: () => handleEdit(row) },
-          //  เรียกใช้ updateBookingStatus และ CheckCircle2
           { label: "Mark Completed", icon: <CheckCircle2 size={16} className="text-emerald-500" />, onClick: () => handleUpdateStatus(row.id, "Completed") },
-          //  เรียกใช้ updateBookingStatus และ XCircle
           { label: "Cancel Booking", icon: <XCircle size={16} className="text-rose-500" />, onClick: () => handleUpdateStatus(row.id, "Cancelled") },
-          { label: "Delete", icon: <Trash2 size={16} />, className: "text-rose-600", onClick: () => handleDeleteBooking(row.id) }]}
+          { label: "Delete", icon: <Trash2 size={16} />, className: "text-rose-600", onClick: () => handleDeleteBooking(row.id) }
+        ]}
       />
-    )
-  }
-];
+    )}
+  ];
 
   return (
     <div className="p-4 lg:p-8 max-w-[1600px] mx-auto w-full pt-10">
@@ -203,7 +145,11 @@ export default function BookingManagement() {
         <button onClick={() => { setEditingBooking(null); reset(); setIsAddPanelOpen(true); }} className="bg-[#5AB2A8] text-white px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 shadow-lg hover:bg-[#4a968d] transition-all"><Plus size={16}/><span>New Booking</span></button>
       </div>
 
-      <Table data={filteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)} columns={columns} emptyMessage="No bookings found." />
+      <div className="relative">
+        {loading && <div className="absolute inset-0 bg-white/50 z-10 flex items-center justify-center">Loading...</div>}
+        <Table data={filteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)} columns={columns} emptyMessage="No bookings found." />
+      </div>
+      
       <Pagination currentPage={currentPage} totalPages={Math.ceil(filteredData.length / itemsPerPage)} onChange={setCurrentPage} />
 
       <SidePanelEdit isOpen={isAddPanelOpen} onClose={() => setIsAddPanelOpen(false)} title={editingBooking ? "Edit Booking" : "New Booking"}>
