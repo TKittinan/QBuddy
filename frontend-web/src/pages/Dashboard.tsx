@@ -4,9 +4,8 @@ import { Dropdown } from "../components/ui/Dropdown";
 import { Pagination } from "../components/ui/Pagination";
 import { StatusBadge } from "../components/ui/StatusBadge";
 import { Clock, Filter, Calendar, ChevronDown, BarChart2, Hourglass, CheckCircle2 } from "lucide-react";
-import type { Column, Ticket } from "../types";
-
-const API_BASE_URL = "http://localhost:5000/api";
+import type { Column } from "../types";
+import { API_BASE_URL } from "../config";
 
 type ActivityItem = {
   id: string;
@@ -30,22 +29,28 @@ export default function Dashboard() {
     completed: 0
   });
 
-  // 🟢 โครงสร้าง API: GET ข้อมูลสถิติ
+  // ==========================================
+  //  1. API: GET - ดึงข้อมูลสถิติและกิจกรรมล่าสุด
+  // ==========================================
   const loadDashboardData = async () => {
     try {
-      /* // 🚀 ฝั่ง Backend: เปลี่ยน URL และรองรับ Query Params ?range=...
+      //  ส่ง Query Params ไปยัง Backend ตามช่วงเวลาที่เลือก (Day/Week/Month)
       const response = await fetch(`${API_BASE_URL}/dashboard/stats?range=${range}`);
       if (!response.ok) throw new Error("Fetch error");
+      
       const data = await response.json();
+      
+      // อัปเดต State ด้วยข้อมูลจริงจาก DB
       setStatsData(data.stats); 
       setActivities(data.recentActivities);
-      */
-      console.log(`Fetching Dashboard Stats for period: ${range}`);
+      
+      console.log(`Successfully fetched Dashboard Stats for period: ${range}`);
     } catch (error) {
       console.error("Dashboard Load Error:", error);
     }
   };
 
+  // ดึงข้อมูลใหม่เมื่อมีการเปลี่ยน range หรือดึงอัตโนมัติทุก 30 วินาที
   useEffect(() => {
     loadDashboardData();
     const intervalId = setInterval(loadDashboardData, 30000); 
