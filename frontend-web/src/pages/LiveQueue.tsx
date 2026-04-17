@@ -12,14 +12,10 @@ import { StatusBadge } from "../components/ui/StatusBadge";
 import { Pagination } from "../components/ui/Pagination"; 
 import type { Column, Place, Ticket, TicketStatus } from "../types";
 
-import { generateGlobalTicketId, getQueueDetails } from "../utils/queueUtils";
-
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-
-// 🟢 ตัวแปรสำหรับ API Base URL (เปลี่ยนเป็นของจริงได้เลย เช่น .env)
-// const API_BASE_URL = "http://localhost:5000/api";
+import { API_BASE_URL } from "../config";
 
 const ticketSchema = z.object({
   customerName: z.string().min(1, "กรุณากรอกชื่อลูกค้า"),
@@ -28,6 +24,31 @@ const ticketSchema = z.object({
   }),
   pax: z.number().min(1, "ระบุจำนวนคนอย่างน้อย 1 คน")
 });
+
+const generateGlobalTicketId = (shopId: string, time: string, places: any[], tickets: any[]) => {
+  const shop = places.find(p => p.id === shopId);
+  const prefix = shop ? shop.name.substring(0, 2).toUpperCase() : "QN";
+  const dateStr = new Date(time).getTime().toString().slice(-4);
+  const count = tickets.filter(t => t.shopId === shopId).length + 1;
+  return `${prefix}-${dateStr}-${count}`;
+};
+
+// ฟังก์ชันสำหรับคำนวณเวลาที่ต้องรอ
+const getQueueDetails = (ticket: any, places: any[], tickets: any[]) => {
+  const shop = places.find(p => p.id === ticket.shopId);
+  const avgTime = shop?.avgServiceTime || 15;
+  
+  // นับจำนวนคนที่รออยู่ก่อนหน้าในร้านเดียวกัน
+  const waitingBefore = tickets.filter(t => 
+    t.shopId === ticket.shopId && 
+    t.status === "Waiting" && 
+    new Date(t.createdAt).getTime() < new Date(ticket.createdAt).getTime()
+  ).length;
+
+  return {
+    estimatedWaitTime: (waitingBefore + 1) * avgTime
+  };
+};
 
 type TicketFormData = z.infer<typeof ticketSchema>;
 
@@ -50,34 +71,31 @@ export default function LiveQueue() {
   });
 
   // ==========================================
-  // 🟢 1. API: GET - ดึงข้อมูลคิวทั้งหมด
+  // 1. API: GET - ดึงข้อมูลคิวทั้งหมด
   // ==========================================
   const fetchLiveQueueFromDB = async () => {
     try {
-      /* // 🚀 โค้ดสำหรับ Backend
+      // โค้ดสำหรับ Backend
       const response = await fetch(`${API_BASE_URL}/queues`);
       if (!response.ok) throw new Error("Network response was not ok");
       const data = await response.json();
       dispatch(setQueues(data)); // เอาข้อมูลที่ได้อัปเดตลง Redux
-      */
     } catch (error) {
       console.error("Failed to fetch live queue:", error);
     }
   };
 
   // ==========================================
-  // 🟢 2. API: DELETE - ลบข้อมูลคิว
+  // 2. API: DELETE - ลบข้อมูลคิว
   // ==========================================
   const deleteQueueTicketFromDB = async (id: string) => {
     if (window.confirm("คุณแน่ใจหรือไม่ว่าต้องการลบคิวนี้ออกจากระบบถาวร?")) {
       try {
-        /*
-        // 🚀 โค้ดสำหรับ Backend
+        // โค้ดสำหรับ Backend
         const response = await fetch(`${API_BASE_URL}/queues/${id}`, {
           method: 'DELETE'
         });
         if (!response.ok) throw new Error("Failed to delete ticket");
-        */
         
         dispatch(deleteQueue(id)); 
         console.log(`Deleted Ticket ${id} from Database`);
@@ -89,19 +107,17 @@ export default function LiveQueue() {
   };
 
   // ==========================================
-  // 🟢 3. API: PUT/PATCH - อัปเดตสถานะคิว
+  // 3. API: PUT/PATCH - อัปเดตสถานะคิว
   // ==========================================
   const handleStatusChange = async (id: string, newStatus: TicketStatus) => { 
     try {
-      /*
-      // 🚀 โค้ดสำหรับ Backend
+      // โค้ดสำหรับ Backend
       const response = await fetch(`${API_BASE_URL}/queues/${id}/status`, {
         method: 'PUT', // หรือ PATCH
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })
       });
       if (!response.ok) throw new Error("Failed to update status");
-      */
 
       dispatch(updateQueueStatus({ id, status: newStatus })); 
     } catch (error) {
@@ -111,7 +127,7 @@ export default function LiveQueue() {
   };
 
   // ==========================================
-  // 🟢 4. API: POST - เพิ่มคิวใหม่
+  // 4. API: POST - เพิ่มคิวใหม่
   // ==========================================
   const onSubmit = async (data: TicketFormData) => {
     const shopId = data.selectedShopOption.id;
@@ -125,8 +141,7 @@ export default function LiveQueue() {
     };
 
     try {
-      /*
-      // 🚀 โค้ดสำหรับ Backend
+      // โค้ดสำหรับ Backend
       const response = await fetch(`${API_BASE_URL}/queues`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -135,11 +150,9 @@ export default function LiveQueue() {
       if (!response.ok) throw new Error("Failed to create ticket");
       
       // ถ้าระบบ Backend ทำการ Generate ID ใหม่มาให้ สามารถดึงมาใช้ได้เลย
-      // const createdTicket = await response.json();
-      // dispatch(addQueue(createdTicket));
-      */
+      const createdTicket = await response.json();
+      dispatch(addQueue(createdTicket));
 
-      dispatch(addQueue(newTicket));
       reset();
       setIsPanelOpen(false);
     } catch (error) {
@@ -148,7 +161,7 @@ export default function LiveQueue() {
     }
   };
 
-  // 🔄 ดึงข้อมูลอัตโนมัติ (Polling)
+  // ดึงข้อมูลอัตโนมัติ (Polling)
   useEffect(() => {
     fetchLiveQueueFromDB();
     const intervalId = setInterval(fetchLiveQueueFromDB, 15000); 
