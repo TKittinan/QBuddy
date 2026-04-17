@@ -1,13 +1,15 @@
-import { prisma } from '../../lib/prisma';
-// 🌟 Import Prisma เข้ามาช่วยทำ Type ให้ Transaction
-import { TicketStatus, Prisma } from '@prisma/client';
+import { supabase } from '../../config/supabase';
 
 export class TicketService {
   async get_tickets_by_place(place_id: string) {
-    return await prisma.ticket.findMany({
-      where: { placeId: place_id },
-      orderBy: { createdAt: 'asc' } 
-    });
+    const { data, error } = await supabase
+      .from('tickets')
+      .select('*')
+      .eq('placeId', place_id)
+      .order('createdAt', { ascending: true });
+
+    if (error) throw new Error(error.message);
+    return data;
   }
 
   private async generate_id(place_id: string, service_category: string) {
@@ -16,88 +18,119 @@ export class TicketService {
     const todayEnd = new Date();
     todayEnd.setHours(23, 59, 59, 999);
 
-    const countToday = await prisma.ticket.count({
-      where: {
-        placeId: place_id,
-        createdAt: { gte: todayStart, lte: todayEnd },
-      },
-    });
+    // นับจำนวนตั๋วของวันนี้
+    const { count, error } = await supabase
+      .from('tickets')
+      .select('*', { count: 'exact', head: true })
+      .eq('placeId', place_id)
+      .gte('createdAt', todayStart.toISOString())
+      .lte('createdAt', todayEnd.toISOString());
+
+    if (error) throw new Error(error.message);
 
     const prefix = service_category === 'ร้านอาหาร' ? 'R' : service_category === 'คาเฟ่' ? 'C' : 'B';
-    const runningNumber = (countToday + 1).toString().padStart(3, '0');
+    const runningNumber = ((count || 0) + 1).toString().padStart(3, '0');
     return `${prefix}-${runningNumber}`;
   }
 
   async get_queue_status(ticket_id: string) {
-    const currentTicket = await prisma.ticket.findUnique({
-      where: { id: ticket_id },
-      include: { place: true }
-    });
+    // ดึงข้อมูลตั๋วพร้อมข้อมูลร้านค้า
+    const { data: currentTicket, error } = await supabase
+      .from('tickets')
+      .select('*, place:places(*)')
+      .eq('id', ticket_id)
+      .single();
 
-    if (!currentTicket) throw new Error('Ticket not found');
+    if (error || !currentTicket) throw new Error('Ticket not found');
 
-    const queuesAhead = await prisma.ticket.count({
-      where: {
-        placeId: currentTicket.placeId,
-        status: 'Waiting',
-        createdAt: { lt: currentTicket.createdAt } 
-      }
-    });
+    // นับคิวที่อยู่ข้างหน้า
+    const { count: queuesAhead, error: countError } = await supabase
+      .from('tickets')
+      .select('*', { count: 'exact', head: true })
+      .eq('placeId', currentTicket.placeId)
+      .eq('status', 'Waiting')
+      .lt('createdAt', currentTicket.createdAt);
+
+    if (countError) throw new Error(countError.message);
 
     const avgServiceTime = currentTicket.place?.avgServiceTime || 15;
     
     return {
       ticketId: ticket_id,
       status: currentTicket.status,
-      queuesAhead,
-      estimatedWaitTime: queuesAhead * avgServiceTime
+      queuesAhead: queuesAhead || 0,
+      estimatedWaitTime: (queuesAhead || 0) * avgServiceTime
     };
   }
 
   async create_ticket(data: any) {
     const customId = await this.generate_id(data.place_id, data.service);
 
-    // 🌟 ใส่ Type ให้ tx
-    return await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      const ticket = await tx.ticket.create({
-        data: {
-          id: customId,
-          name: data.name,
-          service: data.service,
-          guests: data.guests,
-          bookDate: data.book_date,
-          bookTime: data.book_time,
-          tableType: data.table_type,
-          status: 'Waiting',
-          placeId: data.place_id,
-        }
-      });
+    // 1. สร้างตั๋วใหม่
+    const { data: ticket, error: ticketError } = await supabase
+      .from('tickets')
+      .insert([{
+        id: customId,
+        name: data.name,
+        service: data.service,
+        guests: data.guests,
+        bookDate: data.book_date,
+        bookTime: data.book_time,
+        tableType: data.table_type,
+        status: 'Waiting',
+        placeId: data.place_id,
+      }])
+      .select()
+      .single();
 
-      await tx.place.update({
-        where: { id: data.place_id },
-        data: { queueCount: { increment: 1 } }
-      });
+    if (ticketError) throw new Error(ticketError.message);
 
-      return ticket;
-    });
+    // 2. อัปเดตจำนวนคิวในร้านค้า
+    // หมายเหตุ: Supabase ใช้ .rpc() สำหรับการ increment ค่าที่แม่นยำได้ หรือดึงค่ามาบวกแล้วส่งกลับ
+    const { data: place } = await supabase.from('places').select('queueCount').eq('id', data.place_id).single();
+    await supabase.from('places').update({ queueCount: (place?.queueCount || 0) + 1 }).eq('id', data.place_id);
+
+    return ticket;
   }
 
-  async update_ticket_status(id: string, status: TicketStatus) {
-    // 🌟 ใส่ Type ให้ tx
-    return await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      const ticket = await tx.ticket.update({
-        where: { id },
-        data: { status }
-      });
+  async update_ticket_status(id: string, status: string) {
+    // 1. อัปเดตสถานะตั๋ว
+    const { data: ticket, error: updateError } = await supabase
+      .from('tickets')
+      .update({ status })
+      .eq('id', id)
+      .select()
+      .single();
 
-      if (status === 'Completed' || status === 'Cancelled' || status === 'Skipped') {
-        await tx.place.update({
-          where: { id: ticket.placeId },
-          data: { queueCount: { decrement: 1 } }
-        });
-      }
+    if (updateError) throw new Error(updateError.message);
 
-      return ticket;
-    });
+    // 2. ลดจำนวนคิวถ้าระบบเสร็จสิ้นหรือยกเลิก
+    if (status === 'Completed' || status === 'Cancelled' || status === 'Skipped') {
+      const { data: place } = await supabase.from('places').select('queueCount').eq('id', ticket.placeId).single();
+      const newCount = Math.max(0, (place?.queueCount || 0) - 1);
+      await supabase.from('places').update({ queueCount: newCount }).eq('id', ticket.placeId);
+    }
+
+    return ticket;
+  }
+
+  // เพิ่มฟังก์ชันลบ Ticket ตามที่ขอ
+  async delete_ticket(id: string) {
+    // ดึงข้อมูลก่อนเพื่อตรวจสอบเรื่อง queueCount
+    const { data: ticket } = await supabase.from('tickets').select('placeId, status').eq('id', id).single();
+    
+    if (ticket && ticket.status === 'Waiting') {
+      const { data: place } = await supabase.from('places').select('queueCount').eq('id', ticket.placeId).single();
+      const newCount = Math.max(0, (place?.queueCount || 0) - 1);
+      await supabase.from('places').update({ queueCount: newCount }).eq('id', ticket.placeId);
+    }
+
+    const { error } = await supabase
+      .from('tickets')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw new Error(error.message);
+    return true;
   }
 }
