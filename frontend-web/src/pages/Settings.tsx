@@ -1,70 +1,64 @@
 import { useState, useEffect } from "react";
-import { useDispatch, useSelector } from "react-redux";
-import type { RootState } from "../redux/Reduxindex";
-import { updateSettings } from "../redux/settingSlice";
+import { useAppDispatch, useAppSelector } from "../redux/hooks"; 
+import { fetchSettings, updateSettingsAsync } from "../redux/settingSlice"; 
 import { Building2, ShieldCheck, Save, Phone, Mail, Clock, Hash } from "lucide-react";
 import { Input } from "../components/ui/Input";
 import { Button } from "../components/ui/Button";
-import { API_BASE_URL } from "../config";
 
 export default function Settings() {
-  const dispatch = useDispatch();
-  const settings = useSelector((state: RootState) => state.settings);
+  const dispatch = useAppDispatch();
+  //  ดึง settings และ loading จาก store
+  const { loading, ...settings } = useAppSelector((state) => state.settings);
+  
   const [activeTab, setActiveTab] = useState("general");
   const [formData, setFormData] = useState(settings);
 
-  useEffect(() => { setFormData(settings); }, [settings]);
+  // อัปเดต formData เมื่อข้อมูลใน store เปลี่ยน (เช่น หลัง fetch เสร็จ)
+  useEffect(() => { 
+    setFormData(settings); 
+  }, [settings]);
 
-  const fetchSettings = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(`${API_BASE_URL}/settings`, {
-        headers: { "Authorization": `Bearer ${token}` }
-      });
-      const data = await response.json();
-      if (response.ok) {
-        dispatch(updateSettings(data));
-        setFormData(data);
-      }
-    } catch (error) {
-      console.error("Fetch settings error:", error);
-    }
-  };
+  // 1. ดึงข้อมูลผ่าน Redux Thunk
+  useEffect(() => { 
+    dispatch(fetchSettings()); 
+  }, [dispatch]);
 
-  useEffect(() => { fetchSettings(); }, []);
-
+  // 2. บันทึกข้อมูลผ่าน Redux Thunk
   const handleSaveGeneral = async () => {
     try {
-      const token = localStorage.getItem("token"); // ดึง Token มา
-
-      const response = await fetch(`${API_BASE_URL}/settings`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}` // เพิ่มบรรทัดนี้
-        },
-        body: JSON.stringify(formData)
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Save failed");
-      }
-
-      dispatch(updateSettings(formData));
+      // เรียกใช้ Thunk และรอผลลัพธ์ด้วย .unwrap()
+      await dispatch(updateSettingsAsync(formData)).unwrap();
       alert("Settings saved successfully!");
-    } catch (error) {
-      alert("Error saving settings");
+    } catch (error: any) {
+      alert(error || "Error saving settings");
     }
   };
+
   return (
     <div className="space-y-6 pt-10 px-8">
-      <div><h2 className="text-2xl font-bold text-slate-800">System Settings</h2><p className="text-sm text-slate-500 mt-1">Configure your business rules and profile</p></div>
+      <div>
+        <h2 className="text-2xl font-bold text-slate-800">System Settings</h2>
+        <p className="text-sm text-slate-500 mt-1">Configure your business rules and profile</p>
+      </div>
+
       <div className="flex flex-col lg:flex-row gap-8">
+        {/* Sidebar Tabs */}
         <div className="w-full lg:w-64 flex flex-col gap-2 shrink-0">
-          <button onClick={() => setActiveTab("general")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold ${activeTab === "general" ? "bg-[#5AB2A8] text-white" : "text-slate-500 hover:bg-slate-200/50"}`}><Building2 size={18} /> General Info</button>
-          <button onClick={() => setActiveTab("security")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold ${activeTab === "security" ? "bg-[#5AB2A8] text-white" : "text-slate-500 hover:bg-slate-200/50"}`}><ShieldCheck size={18} /> Security</button>
+          <button 
+            onClick={() => setActiveTab("general")} 
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all ${activeTab === "general" ? "bg-[#5AB2A8] text-white shadow-md" : "text-slate-500 hover:bg-slate-100"}`}
+          >
+            <Building2 size={18} /> General Info
+          </button>
+          <button 
+            onClick={() => setActiveTab("security")} 
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all ${activeTab === "security" ? "bg-[#5AB2A8] text-white shadow-md" : "text-slate-500 hover:bg-slate-100"}`}
+          >
+            <ShieldCheck size={18} /> Security
+          </button>
         </div>
+
+        {/* Content Area */}
         <div className="flex-1 bg-white p-8 rounded-3xl shadow-sm border border-slate-100 max-w-3xl">
           {activeTab === "general" ? (
             <div className="space-y-6 animate-in fade-in duration-300">
@@ -73,22 +67,31 @@ export default function Settings() {
                 <Input label="Business Email" icon={<Mail size={16} />} value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
               </div>
               <Input label="Contact Phone" icon={<Phone size={16} />} value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
+              
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-50">
                 <Input
                   label="Max Queues per Day"
                   icon={<Hash size={16} />}
+                  type="number"
                   value={formData.maxQueuePerDay}
                   onChange={(e) => setFormData({ ...formData, maxQueuePerDay: Number(e.target.value) })}
                 />
-
                 <Input
                   label="Auto-cancel (Minutes)"
                   icon={<Clock size={16} />}
+                  type="number"
                   value={formData.autoCancelMins}
                   onChange={(e) => setFormData({ ...formData, autoCancelMins: Number(e.target.value) })}
                 />
               </div>
-              <Button onClick={handleSaveGeneral} className="bg-[#5AB2A8] text-white flex items-center gap-2 shadow-lg shadow-teal-100 mt-4"><Save size={18} /> Save All Changes</Button>
+
+              <Button 
+                onClick={handleSaveGeneral} 
+                disabled={loading} // ✅ ปิดปุ่มระหว่างบันทึก
+                className="bg-[#5AB2A8] text-white flex items-center gap-2 shadow-lg shadow-teal-100 mt-4 disabled:opacity-50"
+              >
+                <Save size={18} /> {loading ? "Saving..." : "Save All Changes"}
+              </Button>
             </div>
           ) : (
             <div className="p-12 text-center text-slate-400">Security settings are managed by Central Auth Service</div>
