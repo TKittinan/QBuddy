@@ -1,17 +1,16 @@
 import { supabase } from '../../config/supabase';
+import bcrypt from 'bcryptjs';
 
 export class UserService {
-  // ดึงข้อมูล User ทั้งหมด
   async get_all_users() {
     const { data, error } = await supabase
-      .from('users') // ชื่อ Table ใน Supabase
-      .select('id, name, email, role, status');
+      .from('users')
+      .select('id, name, email, phone, role, status, createdAt');
 
     if (error) throw new Error(error.message);
     return data;
   }
 
-  // ค้นหา User ด้วย ID
   async get_user_by_id(id: string) {
     const { data, error } = await supabase
       .from('users')
@@ -23,26 +22,43 @@ export class UserService {
     return data;
   }
 
-  // สร้าง User ใหม่
-  async create_user(data: { name: string; email: string; password?: string; role?: any }) {
+  async create_user(data: { name: string; email: string; phone?: string; password?: string; role?: any }) {
+    let hashed_password = null;
+    
+    if (data.password) {
+      hashed_password = await bcrypt.hash(data.password, 10);
+    }
+
     const { data: newUser, error } = await supabase
       .from('users')
       .insert([{
-        ...data,
-        status: 'ACTIVE'
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        password: hashed_password,
+        role: data.role || 'CUSTOMER',
+        status: 'INACTIVE'
       }])
       .select()
       .single();
 
-    if (error) throw new Error(error.message);
+    if (error) {
+      if (error.code === '23505') throw new Error('อีเมลนี้มีในระบบแล้ว');
+      throw new Error(error.message);
+    }
     return newUser;
   }
 
-  // --- เพิ่มฟังก์ชันอัปเดต (เพื่อรองรับการแก้ไขข้อมูล User) ---
   async update_user(id: string, data: any) {
+    let updateData = { ...data };
+
+    if (updateData.password) {
+      updateData.password = await bcrypt.hash(updateData.password, 10);
+    }
+
     const { data: updatedUser, error } = await supabase
       .from('users')
-      .update(data)
+      .update(updateData)
       .eq('id', id)
       .select()
       .single();
@@ -51,7 +67,6 @@ export class UserService {
     return updatedUser;
   }
 
-  // --- เพิ่มฟังก์ชันลบ User (ตามที่ขอมาครับ) ---
   async delete_user(id: string) {
     const { error } = await supabase
       .from('users')

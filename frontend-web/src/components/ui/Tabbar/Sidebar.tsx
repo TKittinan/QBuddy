@@ -7,25 +7,21 @@ import {
   EnvelopeClosedIcon
 } from "@radix-ui/react-icons";
 import { NavLink, useNavigate } from "react-router-dom";
-import { useAuth } from "../../../context/auth/use.Auth";
 import { MessageSquare } from "lucide-react";
 
-// นำเข้า Hooks จาก Redux แทน Context เดิม
+// นำเข้า Hooks จาก Redux
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { logout } from "../../../redux/authSlice";
 
 const Sidebar = () => {
   const navigate = useNavigate();
-  const dispatch = useAppDispatch();
+  const dispatch = useAppDispatch(); 
   
-  // ดึงข้อมูล User จาก Redux Store
   const { user } = useAppSelector((state) => state.auth);
-  
-  // เช็คสิทธิ์ Admin จากข้อมูลใน Redux (ตรวจสอบให้แน่ใจว่า field ชื่อ role หรือ admin.role)
-  const isAdmin = user?.role === "admin";
+  const isAdmin = user?.role === "ADMIN";
 
   const handleLogout = () => {
-    logout();
+    dispatch(logout());
     navigate("/login");
   };
 
@@ -48,7 +44,7 @@ const Sidebar = () => {
         <SidebarItem to="/placemanagement" icon={<PersonIcon />} label="Place Management" />
         <SidebarItem to="/postmanagement" icon={<MessageSquare size={16} />} label="Post Management" />
 
-        {/* ยุบรวมเมนูแล้ว เหลือแค่ UserManage ที่ดูได้ทุก Role */}
+        {/* เมนู User Management จะโชว์เฉพาะแอดมิน */}
         {isAdmin && (
           <>
             <div className="border-t border-white/10 my-4 mx-2" />

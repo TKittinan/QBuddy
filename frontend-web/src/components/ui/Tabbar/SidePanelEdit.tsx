@@ -1,3 +1,4 @@
+import React from "react"; // 🌟 เพิ่ม import React
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
@@ -6,7 +7,7 @@ interface SidePanelEditProps {
   onClose: () => void;
   title: string;
   children: React.ReactNode;
-  footer?: React.ReactNode; // อนุญาตให้มีหรือไม่มี Footer ก็ได้
+  footer?: React.ReactNode; 
 }
 
 export function SidePanelEdit({ isOpen, onClose, title, children, footer }: SidePanelEditProps) {
@@ -31,14 +32,14 @@ export function SidePanelEdit({ isOpen, onClose, title, children, footer }: Side
           </button>
         </div>
 
-        {/* พื้นที่ Content เลื่อนได้ (รับค่ามาจากภายนอก) */}
-        <div className="flex-1 p-8 overflow-y-auto">
+        {/* พื้นที่ Content เลื่อนได้ */}
+        <div className="flex-1 overflow-y-auto no-scrollbar pb-20">
           {children}
         </div>
 
-        {/* Footer คงที่ (ถ้ามีการส่ง prop footer มา) */}
+        {/*แสดงผล Footer (ถ้ามีการส่ง prop footer เข้ามา) */}
         {footer && (
-          <div className="p-6 border-t bg-slate-50">
+          <div className="p-4 border-t bg-slate-50 sticky bottom-0 z-10">
             {footer}
           </div>
         )}

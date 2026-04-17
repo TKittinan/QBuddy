@@ -52,7 +52,6 @@ const postSlice = createSlice({
   name: "post",
   initialState,
   reducers: {
-    // นายสามารถเพิ่ม reducer ปกติที่นี่ได้ถ้าจำเป็น เช่น clearError
   },
   extraReducers: (builder) => {
     builder
