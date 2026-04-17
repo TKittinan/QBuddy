@@ -26,7 +26,6 @@ export interface TableType {
 
 export interface Place {
   id: string;
-  placeId: string;
   name: string;
   branch: string;
   category: string;
@@ -41,7 +40,6 @@ export interface Place {
   closeTime: string;
   avgServiceTime: number;
   queueCount: number;
-  image?: string;
   logoUrl?: string;
   coverUrl?: string;
   isRecommended?: boolean;

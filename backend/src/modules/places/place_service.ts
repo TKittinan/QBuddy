@@ -1,19 +1,21 @@
 import { supabase } from '../../config/supabase';
 
 export class PlaceService {
+  // 1. ดึงข้อมูล Place ทั้งหมด พร้อมข้อมูล TableType
   async get_all_places() {
     const { data, error } = await supabase
-      .from('places')
-      .select('*, tableTypes(*)'); 
+      .from('Place')
+      .select('*, TableType(*)'); 
 
     if (error) throw new Error(error.message);
     return data;
   }
 
+  // 2. ค้นหา Place ด้วย ID
   async get_place_by_id(id: string) {
     const { data, error } = await supabase
-      .from('places')
-      .select('*, tableTypes(*)')
+      .from('Place')
+      .select('*, TableType(*)')
       .eq('id', id)
       .single();
 
@@ -21,25 +23,29 @@ export class PlaceService {
     return data;
   }
 
+  // 3. สร้าง Place ใหม่
   async create_place(data: any) {
-    const { table_types, ...place_data } = data;
+    const { id, table_types, TableType, tags, ...place_data } = data;
 
     const { data: newPlace, error: placeError } = await supabase
-      .from('places')
-      .insert([place_data])
+      .from('Place')
+      .insert([place_data]) 
       .select()
       .single();
 
     if (placeError) throw new Error(placeError.message);
 
+    // บันทึกข้อมูลประเภทโต๊ะลงตาราง TableType พร้อมส่ง label ไปด้วย
     if (table_types && table_types.length > 0) {
       const tableTypesToInsert = table_types.map((tt: any) => ({
-        ...tt,
+        name: tt.name,
+        label: tt.label, // 🌟 เพิ่มบรรทัดนี้
+        capacity: tt.capacity,
         placeId: newPlace.id 
       }));
 
       const { error: ttError } = await supabase
-        .from('tableTypes') 
+        .from('TableType')
         .insert(tableTypesToInsert);
 
       if (ttError) throw new Error(ttError.message);
@@ -48,13 +54,12 @@ export class PlaceService {
     return await this.get_place_by_id(newPlace.id);
   }
 
-  // --- ฟังก์ชันอัปเดต (เพิ่มเข้าไปเพื่อแก้ Error) ---
+  // 4. อัปเดตข้อมูล Place
   async update_place(id: string, data: any) {
-    const { table_types, ...place_data } = data;
+    const { table_types, TableType, tags, ...place_data } = data;
 
-    // 1. อัปเดตข้อมูลร้านค้า
     const { data: updatedPlace, error: placeError } = await supabase
-      .from('places')
+      .from('Place')
       .update(place_data)
       .eq('id', id)
       .select()
@@ -62,16 +67,17 @@ export class PlaceService {
 
     if (placeError) throw new Error(placeError.message);
 
-    // 2. จัดการ tableTypes (ลบของเก่าแล้วลงใหม่เพื่อให้ sync กับข้อมูลล่าสุด)
     if (table_types) {
-      await supabase.from('tableTypes').delete().eq('placeId', id);
+      await supabase.from('TableType').delete().eq('placeId', id);
       
       if (table_types.length > 0) {
         const tableTypesToInsert = table_types.map((tt: any) => ({
-          ...tt,
+          name: tt.name,
+          label: tt.label, // 🌟 เพิ่มบรรทัดนี้
+          capacity: tt.capacity,
           placeId: id
         }));
-        const { error: ttError } = await supabase.from('tableTypes').insert(tableTypesToInsert);
+        const { error: ttError } = await supabase.from('TableType').insert(tableTypesToInsert);
         if (ttError) throw new Error(ttError.message);
       }
     }
@@ -79,10 +85,10 @@ export class PlaceService {
     return await this.get_place_by_id(id);
   }
 
-  // --- ฟังก์ชันลบ (เพิ่มเข้าไปเพื่อแก้ Error) ---
+  // 5. ลบ Place
   async delete_place(id: string) {
     const { error } = await supabase
-      .from('places')
+      .from('Place')
       .delete()
       .eq('id', id);
 
@@ -90,52 +96,38 @@ export class PlaceService {
     return true;
   }
 
+  // 6. AI Recommendation
   async get_ai_recommendations(user_name: string) {
     const { data: history, error: historyError } = await supabase
-      .from('tickets')
-      .select('*, place:places(*)') 
+      .from('Ticket')
+      .select('*, place:Place(*)') 
       .eq('name', user_name)
       .eq('status', 'Completed');
 
     if (historyError) throw new Error(historyError.message);
 
     if (!history || history.length === 0) {
-      const { data: recommended, error: recError } = await supabase
-        .from('places')
-        .select('*')
-        .eq('isRecommended', true)
-        .eq('status', 'Active')
-        .limit(5); 
-
-      if (recError) throw new Error(recError.message);
+      const { data: recommended } = await supabase
+        .from('Place').select('*').eq('status', 'Active').limit(5); 
       return recommended;
     }
     
-    const favorite_tags = [...new Set(history.flatMap((h: any) => h.place?.tags || []))];
+    const categories = history.flatMap((h: any) => h.place?.category?.split(',') || []);
+    const uniqueFavoriteCats = [...new Set(categories)];
     const visited_place_ids = history.map((h: any) => h.placeId);
 
-    const idsString = `(${visited_place_ids.join(',')})`;
-
     let { data: recommended, error: recError } = await supabase
-      .from('places')
+      .from('Place')
       .select('*')
-      .overlaps('tags', favorite_tags) 
-      .filter('id', 'not.in', idsString) 
       .eq('status', 'Active')
+      .not('id', 'in', `(${visited_place_ids.join(',')})`)
+      .ilike('category', `%${uniqueFavoriteCats[0]}%`) 
       .limit(5);
 
-    if (recError) throw new Error(recError.message);
-
-    if (!recommended || recommended.length === 0) {
-      const { data: fallback, error: fallbackError } = await supabase
-        .from('places')
-        .select('*')
-        .eq('isRecommended', true)
-        .eq('status', 'Active')
-        .limit(5);
-
-      if (fallbackError) throw new Error(fallbackError.message);
-      recommended = fallback;
+    if (recError || !recommended || recommended.length === 0) {
+      const { data: fallback } = await supabase
+        .from('Place').select('*').eq('status', 'Active').limit(5);
+      return fallback;
     }
 
     return recommended;

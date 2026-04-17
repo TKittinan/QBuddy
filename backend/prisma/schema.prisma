@@ -78,7 +78,6 @@ model User {
 
 model Place {
   id              String       @id @default(cuid())
-  placeId         String       @unique // สำหรับ External ID หรือรหัสร้าน
   name            String
   branch          String
   category        String
@@ -93,7 +92,6 @@ model Place {
   closeTime       String
   avgServiceTime  Int
   queueCount      Int          @default(0)
-  image           String?
   logoUrl         String?
   coverUrl        String?
   isRecommended   Boolean      @default(false)

@@ -23,7 +23,20 @@ export const addUserAsync = createAsyncThunk("users/add", async (newUser: Partia
   }
 });
 
-//  3. AsyncThunk สำหรับลบผู้ใช้
+// 🌟 3. AsyncThunk สำหรับอัปเดตข้อมูลผู้ใช้ (เพิ่มส่วนนี้)
+export const updateUserAsync = createAsyncThunk(
+  "users/update",
+  async (user: User, { rejectWithValue }) => {
+    try {
+      const response = await axios.put(`${API_BASE_URL}/users/${user.id}`, user);
+      return response.data;
+    } catch (err: any) {
+      return rejectWithValue(err.response?.data?.message || "Failed to update user");
+    }
+  }
+);
+
+//  4. AsyncThunk สำหรับลบผู้ใช้
 export const deleteUserAsync = createAsyncThunk("users/delete", async (id: string, { rejectWithValue }) => {
   try {
     await axios.delete(`${API_BASE_URL}/users/${id}`);
@@ -66,6 +79,22 @@ const userSlice = createSlice({
       // Add User
       .addCase(addUserAsync.fulfilled, (state, action) => {
         state.users.push(action.payload);
+      })
+      // 🌟 Update User (เพิ่มส่วนนี้)
+      .addCase(updateUserAsync.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(updateUserAsync.fulfilled, (state, action) => {
+        state.loading = false;
+        // หาตำแหน่ง User ใน Array แล้วอัปเดตข้อมูลใหม่เข้าไป
+        const index = state.users.findIndex((u) => u.id === action.payload.id);
+        if (index !== -1) {
+          state.users[index] = action.payload;
+        }
+      })
+      .addCase(updateUserAsync.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload as string;
       })
       // Delete User
       .addCase(deleteUserAsync.fulfilled, (state, action) => {
