@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk, type PayloadAction } from "@reduxjs/toolkit";
 import axios from "axios";
-import { API_BASE_URL } from "../config"; // ดึง URL จาก config กลาง
+import { API_BASE_URL } from "../config";
 
 interface AuthState {
   user: any | null;
@@ -10,7 +10,6 @@ interface AuthState {
 }
 
 const initialState: AuthState = {
-  // ใช้การเช็คเงื่อนไขที่ปลอดภัยขึ้น
   user: typeof window !== 'undefined' ? JSON.parse(localStorage.getItem("user") || "null") : null,
   token: typeof window !== 'undefined' ? localStorage.getItem("token") : null,
   loading: false,
@@ -21,7 +20,6 @@ export const loginAsync = createAsyncThunk(
   "auth/login",
   async (credentials: { email: string; password: string }, { rejectWithValue }) => {
     try {
-      // ใช้ API_BASE_URL แทนการระบุตรงๆ
       const response = await axios.post(`${API_BASE_URL}/auth/login`, credentials);
       const { token, user } = response.data;
       
@@ -30,7 +28,6 @@ export const loginAsync = createAsyncThunk(
 
       return { token, user };
     } catch (err: any) {
-      // ส่งข้อความ Error กลับไปให้ UI
       return rejectWithValue(err.response?.data?.message || "Login failed");
     }
   }
@@ -41,13 +38,20 @@ const authSlice = createSlice({
   initialState,
   reducers: {
     logout: (state) => {
+      // 1. ล้าง State ใน Redux
       state.user = null;
       state.token = null;
-      state.error = null; // เคลียร์ Error เมื่อ Logout
+      state.error = null;
+
+      // 2. ล้างกุญแจใน Browser
       localStorage.removeItem("token");
       localStorage.removeItem("user");
+
+      // 3. (สำคัญ) บังคับเด้งไปหน้า Login และรีเฟรชความจำ Browser
+      if (typeof window !== 'undefined') {
+        window.location.href = "/login";
+      }
     },
-    // เพิ่ม Reducer เพื่อเคลียร์ Error ระหว่างเปลี่ยนหน้า
     clearError: (state) => {
       state.error = null;
     }
