@@ -1,8 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
-import { useDispatch, useSelector } from "react-redux";
-import type { RootState } from "../redux/Reduxindex";
-import { deletePost, setPosts } from "../redux/postSlice";
+import { useAppDispatch, useAppSelector } from "../redux/hooks";
+import { fetchPosts, deletePostAsync } from "../redux/postSlice"; 
 import { MapPin, Clock, Users, Trash2, MoreHorizontal, Eye } from "lucide-react";
 import { Table } from "../components/ui/Table/Table";
 import { Dropdown } from "../components/ui/Dropdown";
@@ -10,11 +9,11 @@ import { Pagination } from "../components/ui/Pagination";
 import { SidePanelEdit } from "../components/ui/Tabbar/SidePanelEdit";
 import { StatusBadge } from "../components/ui/StatusBadge";
 import type { Column, PartyActivity, Guest } from "../types";
-import { API_BASE_URL } from "../config";
 
 export default function PostManagement() {
-  const dispatch = useDispatch();
-  const posts = useSelector((state: RootState) => state.post.posts);
+  const dispatch = useAppDispatch();
+  // ดึงข้อมูลจาก Redux Store (ได้ทั้ง posts และ loading)
+  const { posts, loading } = useAppSelector((state) => state.post);
 
   const context = useOutletContext<{ searchQuery: string } | null>();
   const searchQuery = context?.searchQuery || "";
@@ -24,33 +23,16 @@ export default function PostManagement() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
 
-  // จุดเชื่อมต่อ API อ่านข้อมูล
-  const fetchPostsFromDB = async () => {
-    try {
-      const token = localStorage.getItem("token"); // แนะนำให้ใส่ Token ตอนดึงข้อมูลด้วยถ้า Backend ล็อกไว้
-      if (!token) {
-        alert("เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่");
-        // อาจจะสั่ง navigate("/login") กลับไปหน้า login
-        return;
-      }
-      const response = await fetch(`${API_BASE_URL}/parties`, {
-        headers: { "Authorization": `Bearer ${token}` }
-      });
-      const data = await response.json();
-      dispatch(setPosts(data));
-    } catch (error) {
-      console.error("Failed to fetch posts:", error);
-    }
-  };
-
+  // 1. ดึงข้อมูลผ่าน Thunk แทนการ fetch เอง
   useEffect(() => {
-    fetchPostsFromDB();
-    const intervalId = setInterval(fetchPostsFromDB, 30000); // ดึงข้อมูลใหม่ทุก 30 วิ
+    dispatch(fetchPosts());
+    const intervalId = setInterval(() => dispatch(fetchPosts()), 30000);
     return () => clearInterval(intervalId);
-  }, []);
+  }, [dispatch]);
 
+  // 2. จัดการเรื่องการค้นหาและเรียงลำดับ
   const displayPosts = useMemo(() => {
-    let result = [...posts].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    let result = [...posts]; // การ Sort ถูกจัดการใน Slice แล้ว แต่ถ้าจะ Sort ซ้ำที่นี่ก็ได้
 
     if (searchQuery) {
       const lowerQ = searchQuery.toLowerCase();
@@ -73,34 +55,19 @@ export default function PostManagement() {
     setIsPanelOpen(true);
   };
 
-  // จุดเชื่อมต่อ API ลบข้อมูล
+  // 3. ลบข้อมูลผ่าน Thunk (สะอาดมาก!)
   const handleDelete = async (id: string) => {
     if (window.confirm("คุณแน่ใจหรือไม่ว่าต้องการลบโพสต์นี้ออกจากระบบถาวร?")) {
       try {
-        const token = localStorage.getItem("token"); // ดึงตั๋วออกมาก่อนยิง API
-
-        const response = await fetch(`${API_BASE_URL}/parties/${id}`, {
-          method: 'DELETE',
-          headers: {
-            "Authorization": `Bearer ${token}` // ส่งตั๋วไปยืนยันตัวตน
-          }
-        });
-
-        if (!response.ok) {
-          throw new Error("Failed to delete from server");
-        }
-
-        dispatch(deletePost(id));
+        await dispatch(deletePostAsync(id)).unwrap();
         setIsPanelOpen(false);
-        console.log(`Deleted Post ${id} from Database...`);
-      } catch (error) {
-        console.error("Failed to delete post:", error);
-        alert("ไม่สามารถลบโพสต์ได้ กรุณาลองใหม่อีกครั้ง");
+      } catch (error: any) {
+        alert(error || "ไม่สามารถลบโพสต์ได้ กรุณาลองใหม่อีกครั้ง");
       }
     }
   };
 
-  // กำหนดความกว้าง Column ให้ชัดเจน
+  // Columns definition (เหมือนเดิม)
   const columns: Column<PartyActivity>[] = [
     {
       header: "PARTY HOST", key: "host", className: "w-[20%] text-left",
@@ -125,7 +92,6 @@ export default function PostManagement() {
     {
       header: "ACTIONS", key: "actions", className: "w-[10%] text-right",
       render: (row) => (
-        // Dropdown เหลือแค่ View กับ Delete
         <Dropdown align="right" trigger={<button className="p-2 text-slate-400 hover:bg-slate-100 rounded-lg transition-colors"><MoreHorizontal size={18} /></button>}
           items={[
             { label: "View Details", icon: <Eye size={16} />, onClick: () => handleView(row) },
@@ -139,13 +105,19 @@ export default function PostManagement() {
 
   return (
     <div className="p-4 lg:p-8 max-w-[1600px] mx-auto w-full pt-10">
+      {/* Table Section */}
+      {loading && posts.length === 0 ? (
+        <p className="text-center py-10 text-slate-400">Loading parties...</p>
+      ) : (
+        <>
+          <Table data={currentData} columns={columns} emptyMessage={searchQuery ? "No posts match your search." : "No posts found."} />
+          <div className="mt-4">
+            <Pagination currentPage={currentPage} totalPages={totalPages} onChange={setCurrentPage} />
+          </div>
+        </>
+      )}
 
-      {/* ไม่มี Filter ไม่มี Add (หน้าต่างแสดงผลล้วนๆ) */}
-      <Table data={currentData} columns={columns} emptyMessage={searchQuery ? "No posts match your search." : "No posts found."} />
-      <div className="mt-4">
-        <Pagination currentPage={currentPage} totalPages={totalPages} onChange={setCurrentPage} />
-      </div>
-
+      {/* Side Panel Section (Detail View) */}
       <SidePanelEdit isOpen={isPanelOpen} onClose={() => setIsPanelOpen(false)} title="Post Details">
         {viewingPost && (
           <div className="p-6 space-y-6">
@@ -190,7 +162,6 @@ export default function PostManagement() {
             </div>
 
             <div className="pt-4 mt-2 border-t border-slate-100 flex gap-3">
-              {/* ปุ่มล่างสุดเหลือแค่ Delete Post เท่านั้น */}
               <button onClick={() => handleDelete(viewingPost.id)} className="w-full py-3.5 flex flex-row items-center justify-center gap-2 bg-rose-50 text-rose-600 font-bold rounded-xl hover:bg-rose-100 transition-colors whitespace-nowrap">
                 <Trash2 size={16} />
                 <span>Delete Post</span>
