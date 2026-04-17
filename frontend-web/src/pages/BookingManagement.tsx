@@ -1,7 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
-import { useDispatch, useSelector } from "react-redux";
-import type { RootState, AppDispatch } from "../redux/Reduxindex"; // เพิ่ม AppDispatch เพื่อให้เรียก Thunk ได้ไม่บ่น
+import { useAppDispatch, useAppSelector } from "../redux/hooks";
 import { fetchBookings, updateStatusAsync, deleteBooking } from "../redux/bookingSlice"; 
 import { Plus, Clock, CheckCircle2, XCircle, MoreHorizontal, Trash2, User, Mail, CalendarDays, Filter, ChevronDown, Users } from "lucide-react";  
 import { Table } from "../components/ui/Table/Table";
@@ -30,9 +29,9 @@ type BookingFormData = z.infer<typeof bookingSchema>;
 
 export default function BookingManagement() {
   // ใช้ AppDispatch เพื่อให้รองรับการ Dispatch AsyncThunk
-  const dispatch = useDispatch<AppDispatch>();
-  const { bookings, loading } = useSelector((state: RootState) => state.booking);
-  const allShops = useSelector((state: RootState) => state.places.places);
+  const dispatch = useAppDispatch();
+  const { bookings, loading } = useAppSelector((state) => state.booking);
+ const allShops = useAppSelector((state) => state.places.places);
   const shops = allShops.filter(s => s.status === "Active");
   const { searchQuery } = useOutletContext<{ searchQuery: string }>();
 
