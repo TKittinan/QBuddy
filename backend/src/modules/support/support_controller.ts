@@ -27,11 +27,23 @@ export class SupportController {
   // ดึงข้อความทั้งหมดในตั๋ว
   async get_messages(req: Request, res: Response) {
     try {
+      // ใช้ as string เพื่อป้องกัน Error แบบเดียวกับหน้า Place และ Ticket
       const ticket_data = await support_service.get_ticket_messages(req.params.ticket_id as string);
       if (!ticket_data) return res.status(404).json({ message: 'Ticket not found' });
       res.json(ticket_data);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
+    }
+  }
+
+  // เพิ่มฟังก์ชันลบตั๋วแจ้งปัญหา (เพื่อให้ลบประวัติการคุยที่ไม่ต้องการได้)
+  async delete(req: Request, res: Response) {
+    try {
+      // ระบุเป็น as string เพื่อให้ TypeScript ยอมรับค่า id จาก params
+      await support_service.delete_ticket(req.params.id as string);
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
     }
   }
 }
