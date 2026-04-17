@@ -1,9 +1,16 @@
 import { useState, useMemo, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
-import { useDispatch, useSelector } from "react-redux";
-import type { RootState } from "../redux/Reduxindex";
-import { setPlaces, addPlace, updatePlace, deletePlace } from "../redux/placeSlice";
-import { Plus, MoreHorizontal, Trash2, Edit, Clock, Image as ImageIcon, MapPin, Phone, FileText, ImagePlus, TrendingUp } from "lucide-react";
+import { useAppDispatch, useAppSelector } from "../redux/hooks";
+import { 
+  fetchPlaces, 
+  addPlaceAsync, 
+  updatePlaceAsync, 
+  deletePlaceAsync } from "../redux/placeSlice"; 
+import { 
+  Plus, MoreHorizontal, Trash2, Edit, Clock, 
+  Image as ImageIcon, MapPin, Phone, FileText, 
+  ImagePlus, TrendingUp 
+} from "lucide-react";
 import { Table } from "../components/ui/Table/Table";
 import { Dropdown } from "../components/ui/Dropdown";
 import { Input } from "../components/ui/Input";
@@ -13,11 +20,10 @@ import { StatusBadge } from "../components/ui/StatusBadge";
 import type { Column, Place } from "../types"; 
 import { CategorySelect } from "../components/ui/CategorySelect";
 import { useForm, Controller } from "react-hook-form";
-import { API_BASE_URL } from "../config"; 
 
 export default function PlaceManagement() {
-  const dispatch = useDispatch();
-  const places = useSelector((state: RootState) => state.places.places);
+  const dispatch = useAppDispatch();
+  const { places, loading } = useAppSelector((state) => state.places);
   const context = useOutletContext<{ searchQuery: string } | null>();
   const searchQuery = context?.searchQuery || "";
 
@@ -34,68 +40,37 @@ export default function PlaceManagement() {
     }
   });
 
-  // ฟังก์ชันดึงข้อมูลจาก Database
-  const fetchPlacesFromDB = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(`${API_BASE_URL}/places`, {
-        headers: { "Authorization": `Bearer ${token}` }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        dispatch(setPlaces(data));
-      }
-    } catch (error) { 
-      console.error("Fetch Error:", error); 
-    }
-  };
+  // 1. ดึงข้อมูลผ่าน Redux Thunk
+  useEffect(() => { 
+    dispatch(fetchPlaces()); 
+  }, [dispatch]);
 
-  useEffect(() => { fetchPlacesFromDB(); }, []);
-
-  // ฟังก์ชันบันทึกข้อมูล (สร้างใหม่ หรือ แก้ไข)
+  // 2. บันทึกข้อมูล (Add/Update) ผ่าน Thunk
   const onSubmit = async (data: Place) => {
     try {
-      const token = localStorage.getItem("token");
-      const method = editingPlace ? "PUT" : "POST";
-      const url = editingPlace ? `${API_BASE_URL}/places/${editingPlace.id}` : `${API_BASE_URL}/places`;
-      
-      const response = await fetch(url, { 
-        method, 
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        }, 
-        body: JSON.stringify(data) 
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        if (editingPlace) dispatch(updatePlace(result));
-        else dispatch(addPlace(result));
-        
-        setIsPanelOpen(false);
-        reset();
+      if (editingPlace) {
+        // อัปเดตข้อมูลที่มีอยู่
+        await dispatch(updatePlaceAsync(data)).unwrap();
+      } else {
+        // เพิ่มที่ใหม่ (ตัด id ออกถ้า Backend เจนให้เอง)
+        const { id, ...newPlaceData } = data;
+        await dispatch(addPlaceAsync(newPlaceData)).unwrap();
       }
-    } catch (error) { 
-      alert("Error saving place"); 
+      
+      setIsPanelOpen(false);
+      reset();
+    } catch (error: any) { 
+      alert(error || "Error saving place"); 
     }
   };
 
-  // ฟังก์ชันลบข้อมูลออกจากระบบ
+  // 3. ลบข้อมูลผ่าน Thunk
   const handleDelete = async (id: string) => {
     if (window.confirm("คุณแน่ใจหรือไม่ว่าต้องการลบสถานที่นี้?")) {
       try {
-        const token = localStorage.getItem("token");
-        const response = await fetch(`${API_BASE_URL}/places/${id}`, {
-          method: "DELETE",
-          headers: { "Authorization": `Bearer ${token}` }
-        });
-
-        if (response.ok) {
-          dispatch(deletePlace(id));
-        }
-      } catch (error) {
-        console.error("Delete error:", error);
+        await dispatch(deletePlaceAsync(id)).unwrap();
+      } catch (error: any) {
+        alert(error || "Delete failed");
       }
     }
   };
@@ -106,7 +81,6 @@ export default function PlaceManagement() {
     setIsPanelOpen(true);
   };
 
-  // กรองข้อมูลตาม Search Query
   const displayPlaces = useMemo(() => {
     return places.filter(p => 
       p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -143,15 +117,35 @@ export default function PlaceManagement() {
     <div className="p-4 lg:p-8 max-w-[1600px] mx-auto w-full pt-10">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-bold text-slate-800">Place Management</h2>
-        <button onClick={() => { setEditingPlace(null); reset(); setIsPanelOpen(true); }} className="bg-[#5AB2A8] hover:bg-[#4a968d] text-white px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 shadow-lg transition-all"><Plus size={16}/> New Place</button>
+        <button 
+          onClick={() => { setEditingPlace(null); reset(); setIsPanelOpen(true); }} 
+          className="bg-[#5AB2A8] hover:bg-[#4a968d] text-white px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 shadow-lg transition-all"
+        >
+          <Plus size={16}/> New Place
+        </button>
       </div>
 
-      <Table data={currentData} columns={columns} emptyMessage="No places found." />
-      <Pagination currentPage={currentPage} totalPages={Math.ceil(displayPlaces.length / itemsPerPage)} onChange={setCurrentPage} />
+      {loading ? (
+        <p className="text-center py-10 text-slate-500">Loading places...</p>
+      ) : (
+        <>
+          <Table data={currentData} columns={columns} emptyMessage="No places found." />
+          <Pagination 
+            currentPage={currentPage} 
+            totalPages={Math.ceil(displayPlaces.length / itemsPerPage)} 
+            onChange={setCurrentPage} 
+          />
+        </>
+      )}
 
-      <SidePanelEdit isOpen={isPanelOpen} onClose={() => setIsPanelOpen(false)} title={editingPlace ? "Edit Place" : "Create New Place"}>
+      <SidePanelEdit 
+        isOpen={isPanelOpen} 
+        onClose={() => setIsPanelOpen(false)} 
+        title={editingPlace ? "Edit Place" : "Create New Place"}
+      >
         <div className="p-6">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+            {/* Form Fields เหมือนเดิม... */}
             <div className="grid grid-cols-2 gap-4">
               <Controller control={control} name="name" render={({ field }) => <Input label="Shop Name" icon={<FileText size={16}/>} {...field} />} />
               <Controller control={control} name="branch" render={({ field }) => <Input label="Branch" icon={<MapPin size={16}/>} {...field} />} />
@@ -172,10 +166,12 @@ export default function PlaceManagement() {
               <Controller control={control} name="openTime" render={({ field }) => <Input label="Open" type="time" icon={<Clock size={16}/>} {...field} />} />
               <Controller control={control} name="closeTime" render={({ field }) => <Input label="Close" type="time" icon={<Clock size={16}/>} {...field} />} />
             </div>
+            
             <div className="grid grid-cols-2 gap-4">
               <Controller control={control} name="lat" render={({ field }) => <Input label="Latitude" type="number" step="any" icon={<MapPin size={16}/>} value={field.value} onChange={e => field.onChange(parseFloat(e.target.value))} />} />
               <Controller control={control} name="lng" render={({ field }) => <Input label="Longitude" type="number" step="any" icon={<MapPin size={16}/>} value={field.value} onChange={e => field.onChange(parseFloat(e.target.value))} />} />
             </div>
+
             <Controller control={control} name="phone" render={({ field }) => <Input label="Contact Phone" icon={<Phone size={16}/>} {...field} value={field.value || ""} />} />
             <Controller control={control} name="logoUrl" render={({ field }) => <Input label="Logo Image URL" icon={<ImagePlus size={16}/>} {...field} value={field.value || ""} />} />
             
