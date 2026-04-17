@@ -3,14 +3,12 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import { Send, CheckCircle2, ArrowLeft, AlertCircle } from "lucide-react";
 import type { RootState } from "../redux/Reduxindex";
-import { addReply, resolveTicket, setInboxTickets } from "../redux/inboxSlice"; // 🌟 นำเข้า setInboxTickets กลับมา
+import { addReply, resolveTicket, setInboxTickets } from "../redux/inboxSlice"; 
 import { Button } from "../components/ui/Button";
 import { StatusBadge } from "../components/ui/StatusBadge";
 import { ChatMessage } from "../components/ui/User/ChatMessage";
 import { useAuth } from "../context/auth/use.Auth";
-
-// 🟢 ตัวแปรสำหรับ API Base URL (ฝั่ง Backend เอาไปผูกกับ .env ได้เลย)
-const API_BASE_URL = "http://localhost:5000/api";
+import { API_BASE_URL } from "../config";
 
 export default function Inbox() {
   const { id } = useParams<{ id: string }>(); 
@@ -25,16 +23,16 @@ export default function Inbox() {
   );
 
   // ==========================================
-  // 🟢 1. API: GET - ดึงข้อความแชท (Inbox Tickets) ทั้งหมดจาก Backend
+  // 1. API: GET - ดึงข้อความแชท (Inbox Tickets) ทั้งหมดจาก Backend
   // ==========================================
   const fetchInboxFromDB = async () => {
     try {
-      /* // 🚀 โค้ดสำหรับ Backend
+      // โค้ดสำหรับ Backend
       const response = await fetch(`${API_BASE_URL}/support-tickets`);
       if (!response.ok) throw new Error("Failed to fetch tickets");
       const data = await response.json();
       dispatch(setInboxTickets(data)); // เอาข้อมูลใส่ Redux
-      */
+      
       console.log("Fetching real-time Chat from DB...");
     } catch (error) {
       console.error("Failed to fetch inbox chat:", error);
@@ -59,7 +57,7 @@ export default function Inbox() {
   }
 
   // ==========================================
-  // 🟢 2. API: POST - ส่งข้อความตอบกลับ (Reply)
+  // 2. API: POST - ส่งข้อความตอบกลับ (Reply)
   // ==========================================
   const handleSendReply = async () => {
     if (!replyText.trim()) return;
@@ -73,7 +71,7 @@ export default function Inbox() {
     };
 
     try {
-      /* // 🚀 โค้ดสำหรับ Backend
+      // โค้ดสำหรับ Backend
       const response = await fetch(`${API_BASE_URL}/support-tickets/${activeTicket.id}/reply`, { 
         method: 'POST', 
         headers: { 'Content-Type': 'application/json' },
@@ -82,14 +80,9 @@ export default function Inbox() {
       if (!response.ok) throw new Error("Failed to send message");
       
       // ถ้าระบบ Backend ส่ง message กลับมาพร้อม ID จริง ก็ดึงมาใช้ได้เลย
-      // const savedMessage = await response.json();
-      // dispatch(addReply({ ticketId: activeTicket.id, message: savedMessage }));
-      */
+      const savedMessage = await response.json();
+      dispatch(addReply({ ticketId: activeTicket.id, message: savedMessage }));
 
-      dispatch(addReply({
-        ticketId: activeTicket.id,
-        message: newMessage
-      }));
       setReplyText("");
     } catch (error) {
       console.error("Failed to send message:", error);
@@ -98,19 +91,18 @@ export default function Inbox() {
   };
 
   // ==========================================
-  // 🟢 3. API: PUT/PATCH - กดปิดงาน (Resolve Ticket)
+  // 3. API: PUT/PATCH - กดปิดงาน (Resolve Ticket)
   // ==========================================
   const handleResolve = async () => {
     if (window.confirm("คุณแน่ใจหรือไม่ว่าต้องการปิดเคสนี้?")) {
       try {
-        /* // 🚀 โค้ดสำหรับ Backend
+        // โค้ดสำหรับ Backend
         const response = await fetch(`${API_BASE_URL}/support-tickets/${activeTicket.id}/resolve`, { 
           method: 'PUT', // หรือ PATCH
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status: "Resolved" })
         });
         if (!response.ok) throw new Error("Failed to resolve ticket");
-        */
 
         dispatch(resolveTicket(activeTicket.id));
       } catch (error) {
