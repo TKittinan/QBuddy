@@ -1,8 +1,7 @@
-import { prisma } from '../../lib/prisma';
-import { ActivityStatus, PartyActivity, User } from '@prisma/client';
+import { supabase } from '../../config/supabase';
 
-type PartyWithDetails = PartyActivity & {
-  host: Partial<User> & { successRate?: number };
+type PartyWithDetails = any & {
+  host: any & { successRate?: number };
   place: { name: string, branch: string | null };
   joinedGuests: any[];
   distance?: number;
@@ -12,6 +11,7 @@ type PartyWithDetails = PartyActivity & {
 };
 
 export class PartyService {
+
   private calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
     const R = 6371;
     const dLat = (lat2 - lat1) * (Math.PI / 180);
@@ -34,52 +34,71 @@ export class PartyService {
     };
   }
 
+  // --- แปลงเป็น Supabase ---
   async get_all_parties(userLat?: number, userLng?: number, currentUserId?: string): Promise<PartyWithDetails[]> {
-    const parties = await prisma.partyActivity.findMany({
-      where: {
-        status: ActivityStatus.Open,
-        ...(currentUserId && { hostId: { not: currentUserId } })
-      },
-      include: {
-        host: { select: { id: true, name: true, avatarUrl: true, interests: true } },
-        place: { select: { name: true, branch: true } },
-        joinedGuests: true
-      },
-      orderBy: { createdAt: 'desc' }
-    });
+    let query = supabase
+      .from('partyActivities') // ชื่อ Table ใน Supabase
+      .select(`
+        *,
+        host:users!hostId (id, name, avatarUrl, interests),
+        place:places (name, branch),
+        joinedGuests:guests (*)
+      `)
+      .eq('status', 'Open')
+      .order('createdAt', { ascending: false });
 
-    if (!parties.length) return [];
+    if (currentUserId) {
+      query = query.neq('hostId', currentUserId);
+    }
 
-    const hostIds = [...new Set(parties.map((p: PartyActivity) => p.hostId))];
+    const { data: parties, error } = await query;
+    if (error || !parties || parties.length === 0) return [];
 
-    const totalStats = await prisma.partyActivity.groupBy({ by: ['hostId'], where: { hostId: { in: hostIds } }, _count: { _all: true } });
-    const completedStats = await prisma.partyActivity.groupBy({ by: ['hostId'], where: { hostId: { in: hostIds }, status: 'Completed' }, _count: { _all: true } });
+    // ดึงสถิติเพื่อคำนวณ Success Rate (ใช้ RPC หรือดึงมา Group เอง)
+    const hostIds = [...new Set(parties.map((p: any) => p.hostId))];
+    
+    // ดึงข้อมูลกิจกรรมทั้งหมดของ Host เหล่านี้มาคำนวณ Success Rate
+    const { data: allStats } = await supabase
+      .from('partyActivities')
+      .select('hostId, status')
+      .in('hostId', hostIds);
 
     const successRateMap = new Map<string, number>();
-    hostIds.forEach((hostId: string) => {
-      const total = totalStats.find((s: any) => s.hostId === hostId)?._count._all || 0;
-      const completed = completedStats.find((s: any) => s.hostId === hostId)?._count._all || 0;
+    hostIds.forEach((hostId) => {
+      const hostActivities = allStats?.filter(a => a.hostId === hostId) || [];
+      const total = hostActivities.length;
+      const completed = hostActivities.filter(a => a.status === 'Completed').length;
       const rate = total > 0 ? (completed / total) * 100 : 0;
-      successRateMap.set(hostId, parseFloat(rate.toFixed(0)));
+      successRateMap.set(hostId, Math.round(rate));
     });
 
-    const currentUser = currentUserId ? await prisma.user.findUnique({ where: { id: currentUserId }, select: { interests: true } }) : null;
+    // ดึงข้อมูลความสนใจของ User ปัจจุบัน
+    let currentUserInterests: string[] = [];
+    if (currentUserId) {
+      const { data: userData } = await supabase
+        .from('users')
+        .select('interests')
+        .eq('id', currentUserId)
+        .single();
+      currentUserInterests = userData?.interests || [];
+    }
 
-    const partiesWithDetails = parties.map((party: any) => {
+    // Map ข้อมูลกลับไปพร้อมการคำนวณ
+    return parties.map((party: any) => {
       const distance = (userLat !== undefined && userLng !== undefined)
         ? parseFloat(this.calculateDistance(userLat, userLng, party.lat, party.lng).toFixed(2))
         : undefined;
 
       const successRate = successRateMap.get(party.hostId) || 0;
-      let matchDetails: { matchRate: number; isRecommended: boolean; } | undefined;
-      let sharedInterestsCount: number | undefined;
-
-      if (currentUser && currentUser.interests && party.host.interests && Array.isArray(currentUser.interests) && Array.isArray(party.host.interests)) {
-        // 🌟 ใส่ Type ให้ interest ป้องกัน implicit any
-        sharedInterestsCount = currentUser.interests.filter((interest: string) => (party.host.interests as string[]).includes(interest)).length;
-        // 🌟 แก้ Error undefined (ใส่ || 0 ป้องกันกรณีไม่ได้ค่า)
-        matchDetails = this.checkIsAiRecommended(successRate, sharedInterestsCount || 0);
+      let sharedInterestsCount = 0;
+      
+      if (currentUserInterests.length > 0 && party.host?.interests) {
+        sharedInterestsCount = currentUserInterests.filter((i: string) => 
+          party.host.interests.includes(i)
+        ).length;
       }
+
+      const matchDetails = this.checkIsAiRecommended(successRate, sharedInterestsCount);
 
       return {
         ...party,
@@ -92,13 +111,12 @@ export class PartyService {
         ...matchDetails,
       };
     });
-
-    return partiesWithDetails;
   }
 
   async create_party(data: any) {
-    return await prisma.partyActivity.create({
-      data: {
+    const { data: newParty, error } = await supabase
+      .from('partyActivities')
+      .insert([{
         title: data.title,
         description: data.description,
         category: data.category,
@@ -108,21 +126,41 @@ export class PartyService {
         lat: data.lat,
         lng: data.lng,
         maxGuests: data.max_guests,
-        status: ActivityStatus.Open, 
+        status: 'Open',
         hostId: data.host_id,
         placeId: data.place_id
-      }
-    });
+      }])
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
+    return newParty;
   }
 
   async join_party(data: { activity_id: string; user_id: string; pax: number }) {
-    return await prisma.guest.create({
-      data: {
+    const { data: joinData, error } = await supabase
+      .from('guests')
+      .insert([{
         activityId: data.activity_id,
         userId: data.user_id,
         pax: data.pax,
         status: 'pending'
-      }
-    });
+      }])
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
+    return joinData;
+  }
+
+
+  async delete_party(id: string) {
+    const { error } = await supabase
+      .from('partyActivities')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw new Error(error.message);
+    return true;
   }
 }
