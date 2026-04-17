@@ -2,8 +2,6 @@ import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, Image, SafeAreaView, Platform, StatusBar, FlatList, StyleSheet, Alert } from 'react-native';
 import { ArrowLeft, MessageSquare, MapPin, Sparkles } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
-
-// 🌟 ดึงข้อมูลจาก Redux
 import { useAppSelector } from '../../hooks/useRedux';
 
 export default function SmartFeedPage() {

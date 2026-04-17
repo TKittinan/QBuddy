@@ -9,7 +9,6 @@ import {
 } from "react-native";
 
 export interface DropdownItem {
-  // ใน React Native แนะนำให้ label เป็น string เพื่อให้ง่ายต่อการครอบด้วย <Text>
   label: string | React.ReactNode; 
   icon?: React.ReactNode;
   onClick?: () => void;

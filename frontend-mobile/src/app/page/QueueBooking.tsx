@@ -4,9 +4,8 @@ import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, ChevronDown, Users, C
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import { useAppSelector, useAppDispatch } from '../../hooks/useRedux';
-// 🌟 แก้ชื่อฟังก์ชันให้ตรงกับที่เปลี่ยนใน Slice
-import { addQueue } from '../../redux/slices/queueSlice';
-import { useQueue } from '../../hooks/useQueue';
+// 🌟 1. เปลี่ยนมาใช้ addQueueAsync (ยิงเข้า Backend)
+import { addQueueAsync } from '../../redux/slices/queueSlice'; 
 import { Stepper } from '../../components/ui/Stepper';
 import { Dropdown } from '../../components/ui/Dropdown';
 
@@ -14,8 +13,7 @@ export default function QueueBooking() {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const { id } = useLocalSearchParams();
-  const { getAvailableTable, generateTicketId } = useQueue();
-  
+
   const allPlaces = useAppSelector((state: any) => state.places?.places || []);
   const allTickets = useAppSelector((state: any) => state.queue?.tickets || []);
   const user = useAppSelector((state: any) => state.auth?.user) || { name: 'Taggsh' };
@@ -86,7 +84,7 @@ export default function QueueBooking() {
     });
   }, [timeSlots, showGuestSelection, selectedTable, selectedDate, allTickets, place.id, selectedTime]);
 
-  const handleConfirmBooking = () => {
+const handleConfirmBooking = () => {
     if (showGuestSelection && !selectedTable) {
       Alert.alert('แจ้งเตือน', 'กรุณาเลือกประเภทโต๊ะที่ต้องการครับ');
       return;
@@ -96,15 +94,23 @@ export default function QueueBooking() {
       return;
     }
 
-    const newTicketId = generateTicketId(place.id, selectedDate.toISOString().split('T')[0]);
-
-    dispatch(addQueue({
-      id: newTicketId, name: user.name, service: place.category, shopId: place.id, status: 'Waiting',
-      createdAt: new Date().toISOString(), bookDate: selectedDate.toISOString(), bookTime: selectedTime,
-      tableType: selectedTable, guests: showGuestSelection ? guestCount : 1
-    }));
-
-    router.push({ pathname: '/page/BookingConfirm', params: { ticketId: newTicketId } });
+    dispatch(addQueueAsync({
+      id: '',
+      name: user.name, 
+      service: place.category, 
+      shopId: place.id, 
+      status: 'Waiting',
+      createdAt: new Date().toISOString(), 
+      bookDate: selectedDate.toISOString(), 
+      bookTime: selectedTime,
+      tableType: selectedTable, 
+      guests: showGuestSelection ? guestCount : 1
+    })).then((res: any) => {
+      // เมื่อจองเสร็จ ส่ง id ที่ได้จาก backend ไปหน้า Confirm
+      if(res.payload && res.payload.id) {
+         router.push({ pathname: '/page/BookingConfirm', params: { ticketId: res.payload.id } });
+      }
+    });
   };
 
   return (

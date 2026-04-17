@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, Alert } from 'react-native';
 import { Search, Calendar, Store, LucideIcon, ShieldCheck, Database, BrainCircuit } from 'lucide-react-native';
 import { useRouter, Href } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { Button } from '../../components/ui/Button';
 import { useAppDispatch, useAppSelector } from '../../hooks/useRedux';
@@ -24,44 +23,10 @@ export default function AIConsentPage() {
   const handleAccept = async () => {
     setIsLoading(true);
     try {
-      // 1. อัปเดตสถานะใน Users DB หลัก
-      const existingUsersJson = await AsyncStorage.getItem('mock_users_db');
-      if (existingUsersJson && user) {
-        const users = JSON.parse(existingUsersJson) as User[];
-        const updatedUsers = users.map((u) => {
-          if (u.email === user.email) return { ...u, ai_consented: true };
-          return u;
-        });
-        await AsyncStorage.setItem('mock_users_db', JSON.stringify(updatedUsers));
-      }
-
-      // 2. สร้าง Log เก็บลง DB (จำลองตาราง Consent_Logs)
-      if (user) {
-        const existingLogsJson = await AsyncStorage.getItem('mock_consent_logs');
-        const existingLogs = existingLogsJson ? JSON.parse(existingLogsJson) : [];
-        
-        const newLog = {
-          log_id: `log_${Date.now()}`,
-          user_id: user.id,
-          user_name: user.name,
-          user_email: user.email,
-          user_phone: user.phone,
-          action: 'ACCEPTED_AI_TERMS',
-          timestamp: new Date().toISOString(),
-          ip_address: '127.0.0.1', // ข้อมูลจำลอง
-          device: 'Mobile App'
-        };
-        
-        existingLogs.push(newLog);
-        await AsyncStorage.setItem('mock_consent_logs', JSON.stringify(existingLogs));
-        
-        console.log('บันทึกการยินยอมสำเร็จ:', newLog);
-      }
-      
-      // 3. อัปเดต Redux State
+      // 🌟 อัปเดต Redux State เพียงอย่างเดียว (ไม่ต้อง Mock ลง AsyncStorage แล้ว)
       dispatch(updateConsent(true));
       
-      // 4. นำทางไปหน้าหลัก (ระบุไฟล์ให้ชัดเจน ป้องกันจอดำ)
+      // นำทางไปหน้าหลัก (ระบุไฟล์ให้ชัดเจน ป้องกันจอดำ)
       router.replace('/(tabs)/Home' as Href);
       
     } catch (error) {
@@ -139,7 +104,6 @@ export default function AIConsentPage() {
             disabled={isLoading}
             style={styles.acceptButton} 
           />
-          {/* ลบปุ่ม ข้ามไปก่อน ออกตามความต้องการ */}
         </View>
 
       </View>

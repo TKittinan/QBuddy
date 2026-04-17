@@ -20,9 +20,10 @@ const initialState: PostState = {
 
 export const fetchPostsAsync = createAsyncThunk(
   "post/fetchPosts",
-  async (params?: { lat?: number; lng?: number; userId?: string }, { rejectWithValue }) => {
+  /* Remove ? from params and use | void instead */
+  async (params: { lat?: number; lng?: number; userId?: string } | void, { rejectWithValue }) => {
     try {
-      // Build the URL with query parameters if params are provided
+      /* Build the URL with query parameters if params are provided */
       const url = new URL(API_URL);
       if (params) {
         if (params.lat) url.searchParams.set('lat', String(params.lat));

@@ -6,7 +6,7 @@ import { useRouter } from 'expo-router';
 import { useAppSelector } from '../../hooks/useRedux';
 import { Card } from '../../components/ui/Card'; 
 import { CategoryChips } from '../../components/ui/CategoryChips'; 
-import { Place } from '../../redux/slices/placeSlice'; // 🌟 นำเข้า Type Place
+import { Place } from '../../types';
 
 export default function Trending() {
   const router = useRouter();

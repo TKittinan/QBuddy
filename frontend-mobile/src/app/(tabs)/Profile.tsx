@@ -13,7 +13,7 @@ import { Pagination } from '../../components/ui/Pagination';
 import { useAppDispatch, useAppSelector } from '../../hooks/useRedux';
 import { logout } from '../../redux/slices/authSlice';
 import { toggleSavePlace } from '../../redux/slices/savedPlacesSlice'; 
-import { Place } from '../../redux/slices/placeSlice'; // 🌟 นำเข้า Type Place
+import { Place } from '../../types';
 
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -64,7 +64,6 @@ export default function ProfilePage() {
   }, []);
 
   const savedPlacesList = useMemo(() => {
-    // 🌟 แทนที่ any ด้วย Place
     return allPlaces.filter((place: Place) => savedPlaceIds.includes(place.id));
   }, [allPlaces, savedPlaceIds]);
 
@@ -199,8 +198,8 @@ export default function ProfilePage() {
                   <Text className="text-gray-500 mt-2 text-center">คุณสามารถกดบันทึกร้านอาหารหรือคาเฟ่ที่คุณชอบ เพื่อให้แสดงในหน้านี้ได้</Text>
                 </View>
               ) : (
-                // 🌟 ระบุ Type Place ตรง map
-                savedPlacesList.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE).map((place: Place) => (
+                // 🌟 ใส่ Intersection Type Place & { distance... } ตรงนี้ให้ Error หาย
+                savedPlacesList.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE).map((place: Place & { distance?: string | number, category?: string }) => (
                   <View key={place.id} className="bg-white rounded-2xl p-4 mb-4 shadow-sm border border-gray-100 flex-row items-center">
                     <Image source={{ uri: place.image }} className="w-16 h-16 rounded-xl mr-4" />
                     <View className="flex-1">
