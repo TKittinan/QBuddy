@@ -15,8 +15,7 @@ import type { Column, Place, Ticket, TicketStatus } from "../types";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-
-const API_BASE_URL = "http://localhost:5000/api";
+import { API_BASE_URL } from "../config";
 
 const bookingSchema = z.object({
   name: z.string().min(1, "กรุณากรอกชื่อลูกค้า"),
@@ -39,7 +38,7 @@ export default function BookingManagement() {
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
-  const [statusFilter, setStatusFilter] = useState<string>("All");
+ const [statusFilter, setStatusFilter] = useState<TicketStatus | "All">("All");
   const [isAddPanelOpen, setIsAddPanelOpen] = useState(false);
   const [editingBooking, setEditingBooking] = useState<Ticket | null>(null);
 
@@ -48,14 +47,17 @@ export default function BookingManagement() {
     defaultValues: { name: "", email: "", pax: 1, dateTime: "", selectedShopOption: null }
   });
 
+  // 1. API: GET - ดึงข้อมูลการจองทั้งหมด
   const fetchBookingsFromDB = async () => {
     try {
-      /* 🟢 สำหรับ Backend
+      // สำหรับ Backend
       const response = await fetch(`${API_BASE_URL}/bookings`);
+      if (!response.ok) throw new Error("Failed to fetch");
       const data = await response.json();
       dispatch(setBookings(data));
-      */
-    } catch (error) { console.error("Fetch error:", error); }
+    } catch (error) { 
+      console.error("Fetch error:", error); 
+    }
   };
 
   useEffect(() => {
@@ -64,8 +66,11 @@ export default function BookingManagement() {
     return () => clearInterval(intervalId);
   }, []);
 
+  // 2. API: POST / PUT - เพิ่มหรือแก้ไขข้อมูลการจอง
   const onSubmit = async (data: BookingFormData) => {
     try {
+  const statusValue: TicketStatus = editingBooking ? editingBooking.status : "Waiting";
+
       const payload = {
         name: data.name,
         email: data.email,
@@ -73,24 +78,51 @@ export default function BookingManagement() {
         shopId: data.selectedShopOption?.id,
         bookDate: data.dateTime.split("T")[0],
         bookTime: data.dateTime.split("T")[1],
-        status: editingBooking ? editingBooking.status : "Waiting",
+        status: statusValue,
         createdAt: editingBooking ? editingBooking.createdAt : new Date().toISOString()
       };
 
       const method = editingBooking ? "PUT" : "POST";
       const url = editingBooking ? `${API_BASE_URL}/bookings/${editingBooking.id}` : `${API_BASE_URL}/bookings`;
       
-      /* 🟢 สำหรับ Backend
-      const response = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      // สำหรับ Backend
+      const response = await fetch(url, { 
+        method, 
+        headers: { "Content-Type": "application/json" }, 
+        body: JSON.stringify(payload) 
+      });
+      
+      if (!response.ok) throw new Error("Save failed");
       const result = await response.json();
-      if (editingBooking) dispatch(updateBookingDetails(result));
-      else dispatch(addBooking(result));
-      */
+
+      if (editingBooking) {
+        dispatch(updateBookingDetails(result));
+      } else {
+        dispatch(addBooking(result));
+      }
 
       setIsAddPanelOpen(false);
       setEditingBooking(null);
       reset();
-    } catch (error) { alert("Error saving booking"); }
+    } catch (error) { 
+      alert("Error saving booking"); 
+    }
+  };
+
+  // 3. API: DELETE - ลบข้อมูลการจอง
+  const handleDeleteBooking = async (id: string) => {
+    if (!window.confirm("คุณต้องการลบการจองนี้ใช่หรือไม่?")) return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/bookings/${id}`, {
+        method: "DELETE"
+      });
+      if (!response.ok) throw new Error("Delete failed");
+      
+      dispatch(deleteBooking(id));
+    } catch (error) {
+      console.error("Delete error:", error);
+      alert("ไม่สามารถลบข้อมูลได้");
+    }
   };
 
   const handleEdit = (booking: Ticket) => {
@@ -98,7 +130,7 @@ export default function BookingManagement() {
     const shop = allShops.find(s => s.id === booking.shopId);
     reset({
       name: booking.name,
-      email: "", // ใน Mock Data ไม่มีอีเมล
+      email: "", // ใน Mock Data ไม่มีอีเมล ปรับตามโครงสร้างจริงของ Backend
       pax: booking.guests,
       dateTime: `${booking.bookDate}T${booking.bookTime}`,
       selectedShopOption: shop ? { id: shop.id, label: shop.name, subLabel: shop.branch, originalData: shop } : null
@@ -120,6 +152,25 @@ export default function BookingManagement() {
     return result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [bookings, statusFilter, searchQuery]);
 
+  const handleUpdateStatus = async (id: string, newStatus: TicketStatus) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/bookings/${id}/status`, {
+      method: "PATCH", // หรือ PUT ตามที่ Backend ออกแบบไว้
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: newStatus })
+    });
+
+    if (!response.ok) throw new Error("Failed to update status");
+
+    // เรียกใช้ updateBookingStatus เพื่อ Update ข้อมูลในหน้าจอทันที
+    dispatch(updateBookingStatus({ id, status: newStatus }));
+    
+  } catch (error) {
+    console.error("Update status error:", error);
+    alert("ไม่สามารถอัปเดตสถานะได้");
+  }
+};
+
   const columns: Column<Ticket>[] = [
     { header: "BOOKING ID", key: "id", className: "w-[15%] font-bold text-indigo-600" },
     { header: "CUSTOMER", key: "name", className: "w-[20%]", render: (row) => (
@@ -127,14 +178,21 @@ export default function BookingManagement() {
     )},
     { header: "STATUS", key: "status", className: "w-[15%] text-center", render: (row) => <div className="flex justify-center"><StatusBadge status={row.status} /></div> },
     { header: "ACTIONS", key: "actions", className: "w-[10%] text-right", render: (row) => (
-      <Dropdown align="right" trigger={<button className="p-2 text-slate-400 hover:bg-slate-100 rounded-lg transition-colors"><MoreHorizontal size={18} /></button>}
+      <Dropdown align="right" trigger={<button className="p-2 text-slate-400 hover:bg-slate-100 rounded-lg transition-colors">
+            <MoreHorizontal size={18} />
+          </button>
+        }
         items={[
           { label: "Edit Booking", icon: <Clock size={16} />, onClick: () => handleEdit(row) },
-          { label: "Delete", icon: <Trash2 size={16} />, className: "text-rose-600", onClick: () => dispatch(deleteBooking(row.id)) }
-        ]}
+          //  เรียกใช้ updateBookingStatus และ CheckCircle2
+          { label: "Mark Completed", icon: <CheckCircle2 size={16} className="text-emerald-500" />, onClick: () => handleUpdateStatus(row.id, "Completed") },
+          //  เรียกใช้ updateBookingStatus และ XCircle
+          { label: "Cancel Booking", icon: <XCircle size={16} className="text-rose-500" />, onClick: () => handleUpdateStatus(row.id, "Cancelled") },
+          { label: "Delete", icon: <Trash2 size={16} />, className: "text-rose-600", onClick: () => handleDeleteBooking(row.id) }]}
       />
-    )}
-  ];
+    )
+  }
+];
 
   return (
     <div className="p-4 lg:p-8 max-w-[1600px] mx-auto w-full pt-10">
@@ -158,7 +216,7 @@ export default function BookingManagement() {
 
             <div className="space-y-1">
               <Controller control={control} name="selectedShopOption" render={({ field }) => (
-                <SearchSelect label="Select Shop" options={shopOptions} value={field.value} onChange={field.onChange} onBlur={field.onBlur} />
+                <SearchSelect label="Select Shop" options={shopOptions} value={field.value} onChange={field.onChange} />
               )} />
               {errors.selectedShopOption && <p className="text-xs text-red-500 mt-1">{errors.selectedShopOption.message as string}</p>}
             </div>
