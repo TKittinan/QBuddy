@@ -1,7 +1,7 @@
 import { supabase } from '../../config/supabase';
 
 export class TicketService {
-  // บันทึกกิจกรรมแอดมิน
+  // Log Admin activities
   private async log_activity(userName: string, action: string, type: string, status: string) {
     try {
       await supabase.from('ActivityLog').insert([{ userName, action, type, status }]);
@@ -10,9 +10,8 @@ export class TicketService {
     }
   }
 
-  // ดึงคิวทั้งหมดของร้านค้าหนึ่งร้าน
+  // Get all tickets by placeId
   async get_tickets_by_place(placeId: string) {
-    // 🌟 แก้ชื่อตารางเป็น 'Ticket' และฟิลด์ 'placeId'
     const { data, error } = await supabase
       .from('Ticket')
       .select('*')
@@ -23,18 +22,21 @@ export class TicketService {
     return data;
   }
 
-  // ฟังก์ชันหา Code ประเภทโต๊ะ (A, B, C...)
+  // Map Table Type to Prefix Code (A, B, C, D, E)
   private get_table_code(tableType: string): string {
-    const typeStr = (tableType || '').toLowerCase();
+    // Convert to lowercase and remove all spaces for strict matching
+    const typeStr = String(tableType || '').toLowerCase().replace(/\s/g, '');
+    
     if (typeStr.includes('1-2')) return 'A';
     if (typeStr.includes('3-4')) return 'B';
     if (typeStr.includes('5-6')) return 'C';
     if (typeStr.includes('7-8')) return 'D';
-    if (typeStr.includes('10+')) return 'E';
+    if (typeStr.includes('10')) return 'E'; 
+    
     return 'X';
   }
 
-  // สร้าง ID คิวพิเศษ (เช่น AAA001A-CM001)
+  // Generate custom queue ID
   private async generate_id(placeId: string, tableType: string) {
     const now = new Date();
     const cycleStart = new Date(now);
@@ -58,7 +60,7 @@ export class TicketService {
     return `${placeId.replace(/-/g, '')}${tableCode}-CM${runningNumber}`;
   }
 
-  // ดูสถานะคิวรายบุคคล (ใช้โดย Client)
+  // Get queue status for client
   async get_queue_status(ticketId: string) {
     const { data: currentTicket, error } = await supabase
       .from('Ticket')
@@ -84,13 +86,12 @@ export class TicketService {
     };
   }
 
-  // จองคิวใหม่
+  // Create new ticket
   async create_ticket(data: any): Promise<any> {
     const targetPlaceId = data.placeId || data.shopId;
     const targetTableType = data.tableType || '1-2 คน';
     const bookDate = data.bookDate;
 
-    // เช็คจำนวนโต๊ะว่างจากความจุร้าน
     const { data: tableInfo } = await supabase
       .from('TableType')
       .select('capacity')
@@ -126,13 +127,12 @@ export class TicketService {
         bookTime: data.bookTime,
         tableType: targetTableType,
         status: 'Waiting',
-        placeId: targetPlaceId, // 🌟 ใช้ placeId ตาม DB
+        placeId: targetPlaceId,
       }])
       .select().single();
 
     if (ticketError) throw new Error(ticketError.message);
 
-    // บวกยอดคิวในตารางร้านค้า
     const { data: place } = await supabase.from('Place').select('queueCount').eq('id', targetPlaceId).single();
     await supabase.from('Place').update({ queueCount: (place?.queueCount || 0) + 1 }).eq('id', targetPlaceId);
 
@@ -140,7 +140,7 @@ export class TicketService {
     return ticket;
   }
 
-  // แก้ไขสถานะคิว
+  // Update ticket status
   async update_ticket_status(id: string, status: string) {
     const { data: ticket, error: updateError } = await supabase
       .from('Ticket')
@@ -150,7 +150,6 @@ export class TicketService {
       
     if (updateError) throw new Error(updateError.message);
 
-    // ถ้าจบหรือยกเลิกคิว ให้ลบยอดคิวในร้านออก
     if (['Completed', 'Cancelled', 'Skipped'].includes(status)) {
       const { data: place } = await supabase.from('Place').select('queueCount').eq('id', ticket.placeId).single();
       const newCount = Math.max(0, (place?.queueCount || 0) - 1);
@@ -161,7 +160,7 @@ export class TicketService {
     return ticket;
   }
 
-  // ลบคิวทิ้ง
+  // Delete ticket
   async delete_ticket(id: string) {
     const { data: ticket } = await supabase.from('Ticket').select('name, placeId, status').eq('id', id).single();
     
