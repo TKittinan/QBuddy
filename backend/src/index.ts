@@ -1,4 +1,3 @@
-
 import express from 'express';
 import userRoutes from './modules/users/user_routes';
 import place_routes from './modules/places/place_routes';
@@ -11,7 +10,7 @@ import cors from 'cors';
 import dashboard_routes from './modules/dashboard/dashboard_routes';
 const app = express();
 app.use(cors());
-app.use(express.json());
+
 app.use(express.json({ limit: '50mb' })); 
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 

@@ -25,6 +25,7 @@ export function SearchSelect<T = unknown>({ label, placeholder, options, value, 
   useEffect(() => {
     setQuery(value ? value.label : "");
   }, [value]);
+
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {

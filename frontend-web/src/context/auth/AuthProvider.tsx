@@ -2,7 +2,6 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 import { AuthContext } from "./auth.context";
 import type { User } from "./auth.type";
-import axios from "axios";
 
 interface Props {
   children: ReactNode;
@@ -26,18 +25,7 @@ export function AuthProvider({ children }: Props) {
     localStorage.setItem("access_token", authToken);
   };
 
-  const logout = async () => {
-  try {
-    // ใส่ ID ของ user คนปัจจุบันที่กำลังจะ logout ออกไป
-    if (user?.id) {
-      await axios.post("http://localhost:3000/api/auth/logout", { 
-        adminId: user.id 
-      });
-    }
-  } catch (error) {
-    console.error("Logout error:", error);
-  } finally {
-    // ไม่ว่าจะยิง API สำเร็จหรือไม่ ก็ต้องล้างค่าในเครื่องเพื่อเตะออกไปหน้า Login
+  const logout = () => {
     setUser(null);
     setToken(null);
     localStorage.removeItem("user");
@@ -49,4 +37,4 @@ export function AuthProvider({ children }: Props) {
       {children}
     </AuthContext.Provider>
   );
-}}
+}

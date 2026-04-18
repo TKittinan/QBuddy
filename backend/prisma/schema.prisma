@@ -12,7 +12,6 @@ enum RoleType {
   ADMIN
   STAFF
   CUSTOMER
->>>>>>> dev
 }
 
 enum UserStatus {
