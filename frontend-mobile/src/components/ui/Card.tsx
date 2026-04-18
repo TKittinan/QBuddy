@@ -5,49 +5,58 @@ import { SaveButton } from './SaveButton';
 import { Place } from '../../types';
 
 interface CardProps {
-  place: Place & { distance?: string | number }; 
+  place?: Place & { distance?: string | number }; 
   onPress: (id: string) => void;
   showBookingBadge?: boolean; 
+  title?: string;
+  imageUri?: string;
+  location?: string;
+  distance?: string | number;
+  category?: string; // 🌟 เปลี่ยนจาก tags เป็น category
 }
 
-export const Card: React.FC<CardProps> = ({ place, onPress, showBookingBadge }) => {
+export const Card: React.FC<CardProps> = ({ 
+  place, 
+  title, 
+  imageUri, 
+  location, 
+  distance, 
+  category, 
+  onPress, 
+  showBookingBadge 
+}) => {
+  const displayTitle = place?.name || title || 'Unknown';
+  const displayImage = place?.image || imageUri || 'https://via.placeholder.com/400x200';
+  const displayLocation = place?.branch || location || 'Unknown Location';
+  const displayDistance = place?.distance || distance;
+  const displayCategory = place?.category || category || ''; // 🌟 ดึงค่า category
+  const placeId = place?.id || 'unknown_id';
+
   return (
-    <TouchableOpacity style={styles.card} activeOpacity={0.9} onPress={() => onPress(place.id)}>
+    <TouchableOpacity style={styles.card} activeOpacity={0.9} onPress={() => onPress(placeId)}>
       <View style={styles.imageWrapper}>
-        <Image source={{ uri: place.image || 'https://via.placeholder.com/400x200' }} style={styles.cardImage} />
+        <Image source={{ uri: displayImage }} style={styles.cardImage} />
         
-        {showBookingBadge && place.monthlyBookings !== undefined && place.monthlyBookings > 0 && (
+        {showBookingBadge && place?.monthlyBookings !== undefined && place.monthlyBookings > 0 && (
           <View style={styles.bookingBadge}>
             <Users size={12} color="#FFF" style={{ marginRight: 4 }} />
             <Text style={styles.bookingBadgeText}>{place.monthlyBookings.toLocaleString()} จองเดือนนี้</Text>
           </View>
         )}
         
-        <SaveButton placeId={place.id} style={styles.saveButton} />
+        <SaveButton placeId={placeId} style={styles.saveButton} />
       </View>
       <View style={styles.cardContent}>
-        <Text style={styles.placeName}>{place.name}</Text>
-        
-        {place.branch && (
-          <View style={styles.branchRow}>
-            <Store size={14} color="#718096" style={{ marginRight: 4 }} />
-            <Text style={styles.branchText}>สาขา {place.branch}</Text>
-          </View>
-        )}
-        
-        {place.distance ? (
-          <View style={styles.infoRow}>
-            <MapPin size={14} color="#6FA4A1" style={{ marginRight: 4 }} />
-            <Text style={styles.distanceText}>
-              {typeof place.distance === 'number' ? `${place.distance} กม.` : place.distance}
-            </Text>
-          </View>
-        ) : null}
-
+        <Text style={styles.placeName}>{displayTitle}</Text>
+        <View style={styles.infoRow}>
+          <MapPin size={14} color="#718096" style={{ marginRight: 4 }} />
+          <Text style={styles.distanceText}>{displayDistance || 'ไม่ทราบระยะทาง'}</Text>
+        </View>
         <View style={styles.tagsRow}>
-          {place.tags?.map((tag: string, idx: number) => (
-            <Text key={idx} style={styles.tagText}>{tag}{idx < place.tags.length - 1 ? '    ' : ''}</Text>
-          ))}
+          {/* 🌟 แสดง category ตรงๆ ไม่ต้อง map แล้ว */}
+          {displayCategory ? (
+            <Text style={styles.tagText}>{displayCategory}</Text>
+          ) : null}
         </View>
       </View>
     </TouchableOpacity>
@@ -63,10 +72,8 @@ const styles = StyleSheet.create({
   saveButton: { position: 'absolute', top: 12, right: 12 },
   cardContent: { padding: 16 },
   placeName: { fontSize: 18, fontWeight: '800', color: '#2D3748', marginBottom: 8 },
-  branchRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
-  branchText: { fontSize: 13, color: '#718096', fontWeight: '600' },
   infoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   distanceText: { fontSize: 13, color: '#718096' },
   tagsRow: { flexDirection: 'row', flexWrap: 'wrap' },
-  tagText: { fontSize: 13, color: '#6FA4A1', fontWeight: '500', marginBottom: 4 },
+  tagText: { fontSize: 13, color: '#6FA4A1', fontWeight: '500', marginBottom: 4 }
 });

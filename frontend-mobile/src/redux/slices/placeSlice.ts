@@ -1,12 +1,11 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import axios from 'axios';
 import { Place } from '../../types';
-
-const API_URL = "http://192.168.1.X:5000/api/places";
+// 🌟 1. นำเข้า API_BASE_URL
+import { API_BASE_URL } from "../../config";
 
 interface PlaceState {
   places: Place[];
-  // 🌟 [เพิ่มใหม่] ตัวแปรเก็บรายชื่อร้านที่ AI คัดกรองมาให้
   recommendedPlaces: Place[]; 
   isLoading: boolean;
   error: string | null;
@@ -14,7 +13,7 @@ interface PlaceState {
 
 const initialState: PlaceState = {
   places: [],
-  recommendedPlaces: [], // 🌟 [เพิ่มใหม่]
+  recommendedPlaces: [], 
   isLoading: false,
   error: null,
 };
@@ -23,7 +22,8 @@ export const fetchPlacesAsync = createAsyncThunk(
   "places/fetchPlaces",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await axios.get(API_URL);
+      // 🌟 2. ใช้ API_BASE_URL
+      const response = await axios.get(`${API_BASE_URL}/places`);
       return response.data;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || "Failed to fetch places");
@@ -31,12 +31,12 @@ export const fetchPlacesAsync = createAsyncThunk(
   }
 );
 
-// 🌟 [เพิ่มใหม่] Thunk สำหรับยิงไปขอร้านที่ AI คำนวณมาให้
 export const fetchRecommendedPlacesAsync = createAsyncThunk(
   "places/fetchRecommended",
   async (userName: string, { rejectWithValue }) => {
     try {
-      const response = await axios.get(`${API_URL}/recommend?user_name=${userName}`);
+      // 🌟 3. ใช้ API_BASE_URL
+      const response = await axios.get(`${API_BASE_URL}/places/recommend?user_name=${userName}`);
       return response.data;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || "Failed to fetch recommendations");
@@ -59,17 +59,25 @@ const placeSlice = createSlice({
       })
       .addCase(fetchPlacesAsync.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.places = action.payload;
+        // 🌟 ดักจับ Array ป้องกันหน้าจอขาว
+        state.places = Array.isArray(action.payload) ? action.payload : (action.payload?.data || []);
       })
       .addCase(fetchPlacesAsync.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string;
       })
-      // 🌟 [เพิ่มใหม่] จัดการ State ตอนดึงร้านแนะนำสำเร็จ
+      .addCase(fetchRecommendedPlacesAsync.pending, (state) => {
+        state.isLoading = true;
+      })
       .addCase(fetchRecommendedPlacesAsync.fulfilled, (state, action) => {
-        state.recommendedPlaces = action.payload;
+        state.isLoading = false;
+        state.recommendedPlaces = Array.isArray(action.payload) ? action.payload : (action.payload?.data || []);
+      })
+      .addCase(fetchRecommendedPlacesAsync.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
       });
-  }
+  },
 });
 
 export const { setPlaces } = placeSlice.actions;

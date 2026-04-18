@@ -7,22 +7,31 @@ import { useAppSelector } from '../../redux/useRedux';
 export default function SmartFeedPage() {
   const router = useRouter();
   
-  const user = useAppSelector((state: any) => state.auth?.user) || { name: 'Taggsh' }; 
-  const allPlaces = useAppSelector((state: any) => state.places?.places || []);
-  // 🌟 เปลี่ยน allTickets เป็น tickets
-  const allTickets = useAppSelector((state: any) => state.queue?.tickets || []);
+  const user = useAppSelector((state: any) => state.auth?.user); 
+  const placesState = useAppSelector((state: any) => state.places);
+  const rawPlaces = placesState?.places?.data || placesState?.places || [];
+  const allPlaces = Array.isArray(rawPlaces) ? rawPlaces : [];
+
+  const queueState = useAppSelector((state: any) => state.queue);
+  const rawTickets = queueState?.tickets?.data || queueState?.tickets || queueState?.allTickets?.data || queueState?.allTickets || [];
+  const allTickets = Array.isArray(rawTickets) ? rawTickets : [];
 
   const aiRecommendedPlaces = useMemo(() => {
+    if (!user) return [];
     const completedTickets = allTickets.filter((t: any) => t.name === user.name && t.status === 'Completed');
     const bookedShopIds = completedTickets.map((t: any) => t.shopId);
     const bookedShops = allPlaces.filter((p: any) => bookedShopIds.includes(p.id));
     
-    const favoriteTags = new Set<string>();
-    bookedShops.forEach((shop: any) => shop.tags?.forEach((tag: string) => favoriteTags.add(tag)));
+    // 🌟 เปลี่ยนจากเก็บ tags เป็นเก็บ category ร้านที่เคยไป
+    const favoriteCategories = new Set<string>();
+    bookedShops.forEach((shop: any) => {
+      if (shop.category) favoriteCategories.add(shop.category);
+    });
 
+    // เลือกร้านที่หมวดหมู่ตรงกับที่เคยไป แต่ยังไม่เคยไปสาขานั้น
     let recommended = allPlaces.filter((p: any) => {
       if (bookedShopIds.includes(p.id)) return false; 
-      return p.tags?.some((tag: string) => favoriteTags.has(tag)); 
+      return favoriteCategories.has(p.category); 
     });
 
     if (recommended.length === 0) {
@@ -30,7 +39,7 @@ export default function SmartFeedPage() {
     }
 
     return recommended;
-  }, [allPlaces, allTickets, user.name]);
+  }, [allPlaces, allTickets, user]);
 
   const handleViewDetail = (id: string) => {
     router.push({
@@ -51,9 +60,8 @@ export default function SmartFeedPage() {
           <Text style={styles.distanceText}>{place.distance}</Text>
         </View>
         <View style={styles.tagsRow}>
-          {place.tags?.map((tag: string, idx: number) => (
-            <Text key={idx} style={styles.tagText}>{tag}{idx < place.tags.length - 1 ? '    ' : ''}</Text>
-          ))}
+          {/* 🌟 แสดง Category ร้านตรงๆ */}
+          {place.category && <Text style={styles.tagText}>{place.category}</Text>}
         </View>
       </View>
     </TouchableOpacity>
@@ -76,7 +84,7 @@ export default function SmartFeedPage() {
       
       <View style={styles.descriptionContainer}>
         <Text style={styles.descriptionText}>
-          วิเคราะห์จากประวัติและสไตล์ร้านที่คุณชื่นชอบ เพื่อค้นหาร้านใหม่ๆ ที่คุณยังไม่เคยไป
+          วิเคราะห์จากประวัติและหมวดหมู่ร้านที่คุณชื่นชอบ เพื่อค้นหาร้านใหม่ๆ ที่คุณยังไม่เคยไป
         </Text>
       </View>
 

@@ -1,13 +1,12 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
-
-const API_URL = "http://192.168.1.X:5000/api/ai-chat";
+import { API_BASE_URL } from "../../config";
 
 export const fetchAiHistoryAsync = createAsyncThunk(
   "aichat/fetchHistory",
   async (userId: string, { rejectWithValue }) => {
     try {
-      const response = await axios.get(`${API_URL}/${userId}`);
+      const response = await axios.get(`${API_BASE_URL}/ai-chat/${userId}`);
       return response.data;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || "Failed to load AI history");

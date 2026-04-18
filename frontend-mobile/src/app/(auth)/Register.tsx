@@ -7,7 +7,6 @@ import { AuthLayout } from '../../components/layout/AuthLayout';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 
-// 🌟 1. นำเข้า Redux Dispatch และ registerAsync (ของจริง)
 import { useAppDispatch, useAppSelector } from '../../redux/useRedux';
 import { registerAsync } from '../../redux/slices/authSlice'; 
 
@@ -38,8 +37,8 @@ type RegisterFormData = z.infer<typeof registerSchema>;
 
 export default function RegisterPage() {
   const router = useRouter();
-  const dispatch = useAppDispatch(); // 🌟 เรียกใช้ dispatch
-  const isLoading = useAppSelector(state => state.auth.isLoading); // 🌟 ดึงสถานะโหลดจาก Redux
+  const dispatch = useAppDispatch(); 
+  const isLoading = useAppSelector(state => state.auth.isLoading); 
   
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -56,16 +55,14 @@ export default function RegisterPage() {
   const onRegisterSubmit = (data: RegisterFormData) => {
     setApiError('');
     
-    // 🌟 2. จัดรูปแบบข้อมูลให้ตรงกับที่ Backend ต้องการ
     const payload = {
       name: data.fullName,
       email: data.email,
       phone: data.phone,
       password: data.password,
-      role: 'CUSTOMER' // ระบุ Role ตาม Database
+      role: 'CUSTOMER' 
     };
 
-    // 🌟 3. ยิง API จริงไปที่ Backend
     dispatch(registerAsync(payload)).then((res: any) => {
       if (res.meta.requestStatus === 'fulfilled') {
         Alert.alert('สำเร็จ', 'สมัครสมาชิกเรียบร้อยแล้ว', [

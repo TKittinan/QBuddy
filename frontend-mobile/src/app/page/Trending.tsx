@@ -10,7 +10,10 @@ import { Place } from '../../types';
 
 export default function Trending() {
   const router = useRouter();
-  const allPlaces = useAppSelector(state => state.places.places);
+  
+  const placesState = useAppSelector((state: any) => state.places);
+  const rawPlaces = placesState?.places?.data || placesState?.places || [];
+  const allPlaces = Array.isArray(rawPlaces) ? rawPlaces : [];
 
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTag, setActiveTag] = useState<string>('ทั้งหมด');
@@ -21,58 +24,77 @@ export default function Trending() {
 
   const processedPlaces = useMemo(() => {
     let result = [...allPlaces];
-    if (activeTag !== 'ทั้งหมด') result = result.filter((place: Place) => place.tags?.includes(activeTag));
+    // 🌟 แก้ให้เช็ค category ตรงๆ 
+    if (activeTag !== 'ทั้งหมด') result = result.filter((place: Place) => place.category === activeTag);
     if (searchQuery) result = result.filter((place: Place) => place.name.toLowerCase().includes(searchQuery.toLowerCase()));
     
-    // 🌟 ระบุ Type ใน Sort
-    return result.sort((a: Place, b: Place) => b.monthlyBookings - a.monthlyBookings);
-  }, [searchQuery, activeTag, allPlaces]);
+    return result.sort((a: Place, b: Place) => (b.monthlyBookings || 0) - (a.monthlyBookings || 0));
+  }, [allPlaces, activeTag, searchQuery]);
 
-  const displayedPlaces = useMemo(() => processedPlaces.slice(0, displayedCount), [processedPlaces, displayedCount]);
+  const displayedPlaces = useMemo(() => {
+    return processedPlaces.slice(0, displayedCount);
+  }, [processedPlaces, displayedCount]);
 
   const loadMorePlaces = useCallback(() => {
-    if (loadingMore || displayedCount >= processedPlaces.length) return; 
-    setLoadingMore(true);
-    setTimeout(() => { setDisplayedCount(prev => prev + 8); setLoadingMore(false); }, 1000); 
-  }, [loadingMore, displayedCount, processedPlaces.length]);
+    if (displayedCount < processedPlaces.length && !loadingMore) {
+      setLoadingMore(true);
+      setTimeout(() => {
+        setDisplayedCount(prev => prev + 8);
+        setLoadingMore(false);
+      }, 500); 
+    }
+  }, [displayedCount, processedPlaces.length, loadingMore]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={{ padding: 4 }}><ArrowLeft size={24} color="#1F2937" /></TouchableOpacity>
-        <Text style={styles.headerTitle}>กำลังมาแรง 🔥</Text>
-        <View style={{ width: 24 }} />
+        <TouchableOpacity onPress={() => router.back()} style={{ padding: 4 }}>
+          <ArrowLeft size={24} color="#1F2937" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>ยอดฮิต 🚀</Text>
+        <View style={{ width: 24 }} /> 
       </View>
 
       <View style={styles.searchPadding}>
         <View style={styles.searchMinimalWrapper}>
-          <Search size={20} color="#A0AEC0" />
-          <TextInput style={styles.searchInput} placeholder="ค้นหาร้านฮิต..." placeholderTextColor="#A0AEC0" value={searchQuery} onChangeText={setSearchQuery} />
+          <Search size={18} color="#DD6B20" />
+          <TextInput 
+            style={styles.searchInput}
+            placeholder="ค้นหาร้านยอดฮิต..."
+            placeholderTextColor="#FBD38D"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
         </View>
       </View>
 
-      <View>
-        <CategoryChips 
-          tags={filterTags} 
-          activeTag={activeTag} 
-          onTagPress={setActiveTag} 
-          showFlameOn="ทั้งหมด"
-        />
+      <View style={{ paddingLeft: 20, paddingBottom: 16, backgroundColor: '#FFFFFF' }}>
+        <CategoryChips tags={filterTags} activeTag={activeTag} onTagPress={setActiveTag} />
       </View>
 
       <FlatList
         data={displayedPlaces}
         keyExtractor={(item: Place) => item.id}
-        renderItem={({ item }: { item: Place }) => (
-          <Card 
-            place={item}
-            onPress={(id: string) => router.push({ pathname: '/page/PlaceDetail', params: { id } })}
-            showBookingBadge={true}
-          />
+        renderItem={({ item, index }) => (
+          <View style={{ position: 'relative' }}>
+            <Card 
+              title={item.name} 
+              imageUri={item.image} 
+              location={item.branch} 
+              distance={typeof item.distance === 'number' ? `${item.distance} กม.` : item.distance} 
+              category={item.category} // 🌟 ส่ง category เข้า Component 
+              onPress={(id: string) => router.push({ pathname: '/page/PlaceDetail', params: { id } })}
+            />
+            {index < 3 && (
+              <View style={styles.rankBadge}>
+                <Text style={styles.rankText}>#{index + 1}</Text>
+              </View>
+            )}
+          </View>
         )}
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
-        ListEmptyComponent={<Text style={styles.emptyText}>ไม่พบร้านที่คุณค้นหา</Text>}
+        ListEmptyComponent={<Text style={styles.emptyText}>ไม่พบข้อมูลร้านยอดฮิต</Text>}
         onEndReached={loadMorePlaces}
         onEndReachedThreshold={0.5}
         ListHeaderComponent={
@@ -94,9 +116,11 @@ const styles = StyleSheet.create({
   searchPadding: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 10, backgroundColor: '#FFFFFF' },
   searchMinimalWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF7ED', paddingHorizontal: 16, borderRadius: 24, height: 48, borderWidth: 1, borderColor: '#FEEBC8' }, 
   searchInput: { flex: 1, fontSize: 15, color: '#DD6B20', marginLeft: 8, height: '100%' },
-  listHeader: { marginBottom: 16 },
-  listTitle: { fontSize: 16, fontWeight: '800', color: '#2D3748', marginBottom: 4 },
-  listSubtitle: { fontSize: 13, color: '#A0AEC0' },
-  listContainer: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 40 },
-  emptyText: { textAlign: 'center', marginTop: 40, color: '#A0AEC0', fontSize: 16 },
+  listHeader: { marginBottom: 20 },
+  listTitle: { fontSize: 20, fontWeight: '900', color: '#2D3748', marginBottom: 4 },
+  listSubtitle: { fontSize: 13, color: '#718096' },
+  listContainer: { paddingHorizontal: 20, paddingBottom: 40, paddingTop: 10 },
+  emptyText: { textAlign: 'center', color: '#A0AEC0', marginTop: 40, fontSize: 14 },
+  rankBadge: { position: 'absolute', top: -10, left: -10, backgroundColor: '#DD6B20', width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: '#FFFFFF', zIndex: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
+  rankText: { color: '#FFFFFF', fontSize: 14, fontWeight: '900' }
 });

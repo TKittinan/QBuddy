@@ -1,6 +1,5 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Platform, StatusBar } from 'react-native';
-// 🌟 เปลี่ยนมาใช้ SafeAreaView จาก library นี้แทนเพื่อแก้ Warning
 import { SafeAreaView } from 'react-native-safe-area-context'; 
 import { Utensils, Coffee, Scissors, Users, Sparkles } from 'lucide-react-native';
 import { useRouter, Href, useFocusEffect } from 'expo-router';
@@ -13,7 +12,9 @@ import { useAppSelector } from '../../redux/useRedux';
 
 export default function HomePage() {
   const router = useRouter();
-  const user = useAppSelector((state) => state.auth.user);
+  
+  // 🌟 ลบ Mock ทิ้ง ดึง User จาก DB จริง
+  const user = useAppSelector((state: any) => state.auth?.user);
   
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -126,7 +127,7 @@ export default function HomePage() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#2D3748' }, // เปลี่ยนเป็นสีพื้นหลัง Header เพื่อไม่ให้ขอบบนเป็นสีขาว
+  safeArea: { flex: 1, backgroundColor: '#2D3748' }, 
   headerContainer: { backgroundColor: '#2D3748', paddingBottom: 30, paddingHorizontal: 20, borderBottomLeftRadius: 30, borderBottomRightRadius: 30 },
   userInfoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   greetText: { fontSize: 13, color: '#CBD5E0', fontWeight: '500' },
