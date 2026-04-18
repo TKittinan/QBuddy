@@ -8,7 +8,7 @@ export class AuthService {
     const hashed_password = await bcrypt.hash(data.password, 10);
     
     const { data: newUser, error } = await supabase
-      .from('users')
+      .from('User')
       .insert([{
         name: data.name,
         email: data.email,
@@ -30,7 +30,7 @@ export class AuthService {
 
   async login(data: any) {
     const { data: user, error } = await supabase
-      .from('users')
+      .from('User')
       .select('*')
       .eq('email', data.email)
       .single();
@@ -44,7 +44,7 @@ export class AuthService {
       throw new Error('Email or password incorrect');
     }
     const { error: updateError } = await supabase
-      .from('users')
+      .from('User')
       .update({ status: 'ACTIVE' })
       .eq('id', user.id);
 
