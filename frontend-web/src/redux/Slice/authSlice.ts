@@ -16,6 +16,26 @@ const initialState: AuthState = {
   error: null,
 };
 
+export const logoutAsync = createAsyncThunk(
+  "auth/logout",
+  async (_, { getState }) => {
+    try {
+      const state = getState() as any;
+      const user = state.auth.user;
+
+      if (user?.id) {
+        await axios.put(`${API_BASE_URL}/users/${user.id}`, {
+          ...user,
+          status: "INACTIVE"
+        });
+      }
+    } catch (error) {
+      console.error("Failed to update status on logout", error);
+    }
+    return true; 
+  }
+);
+
 export const loginAsync = createAsyncThunk(
   "auth/login",
   async (credentials: { email: string; password: string }, { rejectWithValue }) => {
@@ -37,21 +57,6 @@ const authSlice = createSlice({
   name: "auth",
   initialState,
   reducers: {
-    logout: (state) => {
-      // 1. ล้าง State ใน Redux
-      state.user = null;
-      state.token = null;
-      state.error = null;
-
-      // 2. ล้างกุญแจใน Browser
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-
-      // 3. (สำคัญ) บังคับเด้งไปหน้า Login และรีเฟรชความจำ Browser
-      if (typeof window !== 'undefined') {
-        window.location.href = "/login";
-      }
-    },
     clearError: (state) => {
       state.error = null;
     }
@@ -71,9 +76,21 @@ const authSlice = createSlice({
       .addCase(loginAsync.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
+      })
+      .addCase(logoutAsync.fulfilled, (state) => {
+        state.user = null;
+        state.token = null;
+        state.error = null;
+
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+
+        if (typeof window !== 'undefined') {
+          window.location.href = "/login";
+        }
       });
   },
 });
 
-export const { logout, clearError } = authSlice.actions;
+export const { clearError } = authSlice.actions;
 export default authSlice.reducer;

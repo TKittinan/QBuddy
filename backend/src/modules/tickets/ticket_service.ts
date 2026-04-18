@@ -1,7 +1,6 @@
 import { supabase } from '../../config/supabase';
 
 export class TicketService {
-  // Log Admin activities
   private async log_activity(userName: string, action: string, type: string, status: string) {
     try {
       await supabase.from('ActivityLog').insert([{ userName, action, type, status }]);
@@ -10,7 +9,6 @@ export class TicketService {
     }
   }
 
-  // Get all tickets by placeId
   async get_tickets_by_place(placeId: string) {
     const { data, error } = await supabase
       .from('Ticket')
@@ -22,9 +20,7 @@ export class TicketService {
     return data;
   }
 
-  // Map Table Type to Prefix Code (A, B, C, D, E)
   private get_table_code(tableType: string): string {
-    // Convert to lowercase and remove all spaces for strict matching
     const typeStr = String(tableType || '').toLowerCase().replace(/\s/g, '');
     
     if (typeStr.includes('1-2')) return 'A';
@@ -36,7 +32,6 @@ export class TicketService {
     return 'X';
   }
 
-  // Generate custom queue ID
   private async generate_id(placeId: string, tableType: string) {
     const now = new Date();
     const cycleStart = new Date(now);
@@ -60,7 +55,6 @@ export class TicketService {
     return `${placeId.replace(/-/g, '')}${tableCode}-CM${runningNumber}`;
   }
 
-  // Get queue status for client
   async get_queue_status(ticketId: string) {
     const { data: currentTicket, error } = await supabase
       .from('Ticket')
@@ -86,7 +80,6 @@ export class TicketService {
     };
   }
 
-  // Create new ticket
   async create_ticket(data: any): Promise<any> {
     const targetPlaceId = data.placeId || data.shopId;
     const targetTableType = data.tableType || '1-2 คน';
@@ -140,7 +133,30 @@ export class TicketService {
     return ticket;
   }
 
-  // Update ticket status
+  // 🌟 ฟังก์ชันใหม่: อัปเดตข้อมูลการจองแบบเต็ม (รวมถึงการแก้จำนวนคน)
+  async update_ticket(id: string, data: any) {
+    const { data: ticket, error: updateError } = await supabase
+      .from('Ticket')
+      .update({ 
+        name: data.name,
+        email: data.email,
+        guests: data.guests, // อัปเดตจำนวนคนที่ส่งเข้ามา
+        bookDate: data.bookDate,
+        bookTime: data.bookTime,
+        tableType: data.tableType,
+        service: data.service,
+        status: data.status,
+        placeId: data.placeId
+      })
+      .eq('id', id)
+      .select().single();
+      
+    if (updateError) throw new Error(updateError.message);
+
+    await this.log_activity(ticket.name, `แก้ไขข้อมูลการจอง: ${id}`, 'Booking', ticket.status);
+    return ticket;
+  }
+
   async update_ticket_status(id: string, status: string) {
     const { data: ticket, error: updateError } = await supabase
       .from('Ticket')
@@ -160,7 +176,6 @@ export class TicketService {
     return ticket;
   }
 
-  // Delete ticket
   async delete_ticket(id: string) {
     const { data: ticket } = await supabase.from('Ticket').select('name, placeId, status').eq('id', id).single();
     

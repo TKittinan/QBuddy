@@ -22,10 +22,10 @@ export class TicketController {
     }
   }
 
+  // 🌟 จุดที่แก้ไข: เปลี่ยนมาใช้ update_ticket เพื่ออัปเดตข้อมูลทั้งหมด (ไม่ใช่แค่ Status)
   async update(req: Request, res: Response) {
     try {
-      // หมายเหตุ: ใน ticket_service ต้องมีฟังก์ชัน update_ticket ด้วย (ดูที่ข้อ 2 ด้านล่าง)
-      const updated_ticket = await ticket_service.update_ticket_status(req.params.id as string, req.body.status);
+      const updated_ticket = await ticket_service.update_ticket(req.params.id as string, req.body);
       res.json(updated_ticket);
     } catch (error: any) {
       res.status(400).json({ message: error.message });
@@ -50,7 +50,6 @@ export class TicketController {
     }
   }
 
-  // 6. ดูสถานะคิวปัจจุบัน
   async get_status(req: Request, res: Response) {
     try {
       const statusData = await ticket_service.get_queue_status(req.params.id as string);

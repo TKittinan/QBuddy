@@ -6,23 +6,20 @@ import {
   GearIcon,
   EnvelopeClosedIcon
 } from "@radix-ui/react-icons";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 import { MessageSquare } from "lucide-react";
 
 // นำเข้า Hooks จาก Redux
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
-import { logout } from "../../../redux/Slice/authSlice";
-
+import { logoutAsync } from "../../../redux/Slice/authSlice";
 const Sidebar = () => {
-  const navigate = useNavigate();
   const dispatch = useAppDispatch(); 
   
   const { user } = useAppSelector((state) => state.auth);
   const isAdmin = user?.role === "ADMIN";
 
-  const handleLogout = () => {
-    dispatch(logout());
-    navigate("/login");
+const handleLogout = () => {
+    dispatch(logoutAsync());
   };
 
   return (

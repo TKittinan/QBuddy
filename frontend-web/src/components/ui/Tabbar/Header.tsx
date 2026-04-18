@@ -12,7 +12,7 @@ import { Dropdown } from "../Dropdown";
 import { useNavigate, Link } from "react-router-dom"; 
 
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
-import { logout } from "../../../redux/Slice/authSlice";
+import { logoutAsync } from "../../../redux/Slice/authSlice";
 
 interface HeaderProps {
   title: string;
@@ -49,9 +49,8 @@ export default function Header({ title, onMenuClick, searchQuery, setSearchQuery
     return () => window.removeEventListener("storage", checkPendingTickets);
   }, []);
 
-  const handleLogout = () => {
-    dispatch(logout());
-    navigate("/login");
+ const handleLogout = () => {
+    dispatch(logoutAsync());
   };
 
   return (

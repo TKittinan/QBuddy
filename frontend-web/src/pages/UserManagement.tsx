@@ -13,7 +13,6 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 
-// 🌟 Import supabase client จาก config ที่เราตั้งค่าไว้
 import { supabase } from "../config";
 
 const userSchema = z.object({
@@ -38,7 +37,6 @@ export default function UserManagement() {
   const [roleFilter, setRoleFilter] = useState<string>("All");
   const [statusFilter, setStatusFilter] = useState<string>("All");
 
-  // 🌟 State สำหรับเก็บรายชื่อ ID ของผู้ใช้ที่ออนไลน์อยู่ ณ ขณะนั้น
   const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
 
   const { control, handleSubmit, reset, formState: { errors } } = useForm<UserFormData>({
@@ -46,12 +44,15 @@ export default function UserManagement() {
     defaultValues: { name: "", email: "", phone: "", role: "CUSTOMER", password: "" }
   });
 
-  // ดึงข้อมูลผู้ใช้จาก API ตามปกติ
+  // 🌟 จุดที่แก้ 1: เพิ่มการ Refresh อัตโนมัติทุก 5 วินาที
   useEffect(() => { 
     dispatch(fetchUsers()); 
+    const interval = setInterval(() => {
+      dispatch(fetchUsers());
+    }, 5000);
+    return () => clearInterval(interval);
   }, [dispatch]);
 
-  // 🌟 ระบบ Realtime Presence: คอยฟังว่าใครออนไลน์บ้าง
   useEffect(() => {
     const channel = supabase.channel('online-status', {
       config: {
@@ -64,7 +65,6 @@ export default function UserManagement() {
     channel
       .on('presence', { event: 'sync' }, () => {
         const newState = channel.presenceState();
-        // ดึง user_id จากทุกคนที่อยู่ใน Channel มาเก็บใน Array
         const onlineIds = Object.values(newState)
           .flat()
           .map((presence: any) => presence.user_id);
@@ -158,11 +158,13 @@ export default function UserManagement() {
       key: "status", 
       className: "w-[15%] text-center", 
       render: (row) => {
-        // 🌟 ตัดสินสถานะจากรายชื่อคนออนไลน์ Realtime
-        const isOnline = onlineUsers.includes(row.id);
+        // 🌟 จุดที่แก้ 2: บังคับแปลง Type เป็น String ให้เหมือนกันก่อนเช็ค
+        const isOnline = onlineUsers.some(id => String(id) === String(row.id));
+        const displayStatus = isOnline ? "ACTIVE" : row.status;
+
         return (
           <div className="flex justify-center">
-            <StatusBadge status={isOnline ? "ACTIVE" : "INACTIVE"} />
+            <StatusBadge status={displayStatus} />
           </div>
         );
       } 

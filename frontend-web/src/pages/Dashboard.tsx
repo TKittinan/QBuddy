@@ -31,7 +31,7 @@ export default function Dashboard() {
     // เชื่อมต่อ Channel เดียวกับที่หน้า UserManagement รอฟังอยู่
     const channel = supabase.channel('online-status', {
       config: { 
-        presence: { key: user.id } 
+        presence: { key: String(user.id) }
       }
     });
 
