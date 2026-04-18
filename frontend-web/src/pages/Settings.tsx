@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAppDispatch, useAppSelector } from "../redux/hooks";
-import { fetchSettings, updateSettingsAsync } from "../redux/settingSlice";
+import { fetchSettings, updateSettingsAsync } from "../redux/Slice/settingSlice";
 import { Building2, ShieldCheck, Save, Phone, Mail, Clock, Hash } from "lucide-react";
 import { Input } from "../components/ui/Input";
 import { Button } from "../components/ui/Button";

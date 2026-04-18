@@ -46,6 +46,7 @@ export interface Place {
   monthlyBookings?: number;
   tableTypes?: TableType[];
   createdAt?: string;
+  TableType?: TableType[];
 }
 
 export interface Ticket {
@@ -60,6 +61,8 @@ export interface Ticket {
   waitTime?: number;
   status: TicketStatus;
   createdAt: string;
+  place_id?: string;
+  email?: string;
 }
 
 export interface Guest {
@@ -121,7 +124,7 @@ export type SettingsState = {
   autoCancelMins: number;
 };
 
-export type Column<T> = {
+export type Column<T> = { 
   header: string;
   key: keyof T | string;
   render?: (row: T) => React.ReactNode;

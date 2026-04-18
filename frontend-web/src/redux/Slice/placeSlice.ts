@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
-import { API_BASE_URL } from "../config";
-import type { Place } from "../types";
+import { API_BASE_URL } from "../../config";
+import type { Place } from "../../types";
 
 // 1. AsyncThunk สำหรับดึงสถานที่ทั้งหมด
 export const fetchPlaces = createAsyncThunk("places/fetchAll", async (_, { rejectWithValue }) => {

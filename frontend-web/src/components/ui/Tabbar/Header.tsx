@@ -12,7 +12,7 @@ import { Dropdown } from "../Dropdown";
 import { useNavigate, Link } from "react-router-dom"; 
 
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
-import { logout } from "../../../redux/authSlice";
+import { logout } from "../../../redux/Slice/authSlice";
 
 interface HeaderProps {
   title: string;

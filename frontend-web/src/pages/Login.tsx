@@ -8,7 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 
 import { useAppDispatch, useAppSelector } from "../redux/hooks"; 
-import { loginAsync } from "../redux/authSlice";
+import { loginAsync } from "../redux/Slice/authSlice";
 
 const loginSchema = z.object({
   email: z.string().min(1, "Email is required").email("Invalid email format"),

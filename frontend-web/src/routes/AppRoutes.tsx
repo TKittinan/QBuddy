@@ -1,6 +1,5 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import DashboardLayout from "../layout/DashboardLayout";
-import LiveQueueLayout from "../layout/LiveQueueLayout";
 import UserManageLayout from "../layout/UserManageLayout";
 import PlaceManagementLayout from "../layout/PlacemanagementLayout";
 import BookingManagementLayout from "../layout/BookingManagementLayout";
@@ -9,7 +8,6 @@ import InboxLayout from "../layout/InboxLayout";
 import PostManagementLayout from "../layout/PostManagementLayout";
 
 import Dashboard from "../pages/Dashboard";
-import LiveQueue from "../pages/LiveQueue";
 import UserManagement from "../pages/UserManagement";
 import PlaceManagement from "../pages/PlaceManagement";
 import BookingManagement from "../pages/BookingManagement";
@@ -30,10 +28,6 @@ export default function AppRoutes() {
         
         <Route path="/dashboard" element={<DashboardLayout />}>
           <Route index element={<Dashboard />} />
-        </Route>
-
-        <Route path="/livequeue" element={<LiveQueueLayout />}>
-          <Route index element={<LiveQueue />} />
         </Route>
 
         <Route path="/usermanage" element={<UserManageLayout />}>

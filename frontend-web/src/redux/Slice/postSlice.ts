@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
-import { API_BASE_URL } from "../config";
-import type { PartyActivity, ActivityStatus } from "../types";
+import { API_BASE_URL } from "../../config";
+import type { PartyActivity, ActivityStatus } from "../../types";
 
 //  1. AsyncThunk สำหรับดึงโพสต์กิจกรรมทั้งหมด
 export const fetchPosts = createAsyncThunk("post/fetchAll", async (_, { rejectWithValue }) => {

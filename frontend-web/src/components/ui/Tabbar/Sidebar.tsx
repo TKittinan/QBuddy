@@ -11,7 +11,7 @@ import { MessageSquare } from "lucide-react";
 
 // นำเข้า Hooks จาก Redux
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
-import { logout } from "../../../redux/authSlice";
+import { logout } from "../../../redux/Slice/authSlice";
 
 const Sidebar = () => {
   const navigate = useNavigate();

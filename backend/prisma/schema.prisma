@@ -116,6 +116,7 @@ model TableType {
 model Ticket {
   id         String       @id @default(cuid())
   name       String       // ชื่อผู้จอง
+  email      String?
   service    String
   guests     Int
   bookDate   String?

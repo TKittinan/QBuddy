@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
-import { API_BASE_URL } from "../config";
-import type { SettingsState } from "../types";
+import { API_BASE_URL } from "../../config";
+import type { SettingsState } from "../../types";
 
 //  1. AsyncThunk สำหรับดึงข้อมูลการตั้งค่าจาก Server
 export const fetchSettings = createAsyncThunk("settings/fetch", async (_, { rejectWithValue }) => {

@@ -1,19 +1,17 @@
 import { configureStore } from "@reduxjs/toolkit";
-import inboxReducer from "./inboxSlice";
-import placeReducer from "./placeSlice";
-import queueReducer from "./queueSlice";
-import bookingReducer from "./bookingSlice";
-import settingsReducer from "./settingSlice";
-import userReducer from "./userSlice";
-import postReducer from './postSlice';
-import authReducer from "./authSlice";
+import inboxReducer from "./Slice/inboxSlice";
+import placeReducer from "./Slice/placeSlice";
+import bookingReducer from "./Slice/bookingSlice";
+import settingsReducer from "./Slice/settingSlice";
+import userReducer from "./Slice/userSlice";
+import postReducer from './Slice/postSlice';
+import authReducer from "./Slice/authSlice";
 
 export const store = configureStore({
   reducer: {
     inbox: inboxReducer,
     places: placeReducer,
     post: postReducer,
-    queue: queueReducer,
     booking: bookingReducer,
     settings: settingsReducer,
     users: userReducer,

@@ -24,6 +24,19 @@ export class TicketController {
     }
   }
 
+  // 🌟 เพิ่มฟังก์ชันสำหรับ Edit Booking
+  async update(req: Request, res: Response) {
+    try {
+      const updated_ticket = await ticket_service.update_ticket(
+        req.params.id as string,
+        req.body
+      );
+      res.json(updated_ticket);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  }
+
   // อัปเดตสถานะคิว (เช่น เรียกคิว หรือ ยกเลิก)
   async update_status(req: Request, res: Response) {
     try {

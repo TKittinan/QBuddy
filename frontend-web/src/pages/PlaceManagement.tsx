@@ -6,7 +6,7 @@ import {
   addPlaceAsync, 
   updatePlaceAsync, 
   deletePlaceAsync 
-} from "../redux/placeSlice"; 
+} from "../redux/Slice/placeSlice"; 
 import { 
   Plus, MoreHorizontal, Trash2, Edit, Clock, 
   Image as ImageIcon, MapPin, Phone, FileText, 

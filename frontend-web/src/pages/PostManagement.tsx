@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../redux/hooks";
-import { fetchPosts, deletePostAsync } from "../redux/postSlice"; 
+import { fetchPosts, deletePostAsync } from "../redux/Slice/postSlice"; 
 import { MapPin, Clock, Users, Trash2, MoreHorizontal, Eye } from "lucide-react";
 import { Table } from "../components/ui/Table/Table";
 import { Dropdown } from "../components/ui/Dropdown";

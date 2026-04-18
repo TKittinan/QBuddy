@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAppSelector, useAppDispatch } from "../redux/hooks";
 import { Send, CheckCircle2, ArrowLeft, AlertCircle } from "lucide-react";
-import { fetchInboxTickets, sendReplyAsync, resolveTicketAsync } from "../redux/inboxSlice"; 
+import { fetchInboxTickets, sendReplyAsync, resolveTicketAsync } from "../redux/Slice/inboxSlice"; 
 import { Button } from "../components/ui/Button";
 import { StatusBadge } from "../components/ui/StatusBadge";
 import { ChatMessage } from "../components/ui/User/ChatMessage";

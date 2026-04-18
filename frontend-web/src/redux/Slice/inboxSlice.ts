@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
-import { API_BASE_URL } from "../config";
-import type { SupportTicket, Message } from "../types";
+import { API_BASE_URL } from "../../config";
+import type { SupportTicket, Message } from "../../types";
 
 // 1. AsyncThunk สำหรับดึง Ticket ทั้งหมด
 export const fetchInboxTickets = createAsyncThunk("inbox/fetchAll", async (_, { rejectWithValue }) => {

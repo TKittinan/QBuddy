@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useAppDispatch, useAppSelector } from "../redux/hooks"; 
-import { fetchUsers, addUserAsync, deleteUserAsync, updateUserAsync } from "../redux/userSlice"; 
+import { fetchUsers, addUserAsync, deleteUserAsync, updateUserAsync } from "../redux/Slice/userSlice"; 
 import { Plus, MoreHorizontal, Edit, Trash2, Mail, Shield, User as UserIcon, Phone, BrainCircuit, Filter, ChevronDown } from "lucide-react"; 
 import { Table } from "../components/ui/Table/Table";
 import { Dropdown } from "../components/ui/Dropdown";

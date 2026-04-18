@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
-import { API_BASE_URL } from "../config";
-import type { User } from "../types";
+import { API_BASE_URL } from "../../config";
+import type { User } from "../../types";
 
 //  1. AsyncThunk สำหรับดึงข้อมูลผู้ใช้ทั้งหมด
 export const fetchUsers = createAsyncThunk("users/fetchAll", async (_, { rejectWithValue }) => {

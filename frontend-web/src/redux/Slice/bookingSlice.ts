@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk, type PayloadAction } from "@reduxjs/toolkit";
 import axios from "axios";
-import { API_BASE_URL } from "../config";
-import type { Ticket, TicketStatus } from "../types";
+import { API_BASE_URL } from "../../config";
+import type { Ticket, TicketStatus } from "../../types";
 
 // 1. แก้ไข Endpoint จาก /bookings เป็น /tickets ตาม Backend
 // และเพิ่มการรับค่า placeId เพราะ Backend บังคับใช้ route: /tickets/place/:place_id
