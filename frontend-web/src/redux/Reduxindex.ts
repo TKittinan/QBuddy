@@ -1,51 +1,24 @@
 import { configureStore } from "@reduxjs/toolkit";
-import inboxReducer from "./inboxSlice";
-import placeReducer from "./placeSlice";
-import queueReducer from "./queueSlice";
-import bookingReducer from "./bookingSlice";
-import settingsReducer from "./settingSlice";
-import userReducer from "./userSlice";
-import staffReducer from "./staffSlice";
-import postReducer from './postSlice';
-import authReducer from "./authSlice";
-
-const loadPreloadedState = () => {
-  try {
-    const token = localStorage.getItem("token");
-    const userJson = localStorage.getItem("user"); 
-    
-    if (token && userJson) {
-      const user = JSON.parse(userJson);
-      return {
-        auth: {
-          token: token,
-          user: user,
-          role: user.role, 
-          isAuthenticated: true,
-          loading: false,
-          error: null
-        }
-      };
-    }
-  } catch (e) {
-    console.error("Could not load preloaded state", e);
-  }
-  return undefined;
-};
+import inboxReducer from "./Slice/inboxSlice";
+import placeReducer from "./Slice/placeSlice";
+import bookingReducer from "./Slice/bookingSlice";
+import settingsReducer from "./Slice/settingSlice";
+import userReducer from "./Slice/userSlice";
+import postReducer from './Slice/postSlice';
+import authReducer from "./Slice/authSlice";
+import dashboardReducer from "./Slice/dashboardSlice";
 
 export const store = configureStore({
   reducer: {
     inbox: inboxReducer,
     places: placeReducer,
     post: postReducer,
-    queue: queueReducer,
     booking: bookingReducer,
     settings: settingsReducer,
     users: userReducer,
     auth: authReducer,
-    staffs: staffReducer
-  },
-  preloadedState: loadPreloadedState(),
+    dashboard: dashboardReducer,
+  }
 });
 
 export type RootState = ReturnType<typeof store.getState>;

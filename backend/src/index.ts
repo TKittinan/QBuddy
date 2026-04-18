@@ -1,68 +1,31 @@
-import express from "express";
-import cors from "cors";
-import dotenv from "dotenv";
 
-import userRoute from "./routes/user_route";
-import adminRoute from "./routes/admin_route";
-import authRoute from "./routes/auth_route";
-
-import restaurantRoute from "./routes/restaurant_route";
-import categoryRoute from "./routes/category_route";
-import restaurantCategoryRoute from "./routes/restaurant_category_route";
-
-import queueRoute from "./routes/queue_route";
-
-import bookingRoute from "./routes/booking_route";
-
-import promotionRoute from "./routes/promotion_route";
-
-import activityRoute from "./routes/activity_route";
-
-import chatRoute from "./routes/chat_route";
-
-import aiRoute from "./routes/ai_route";
-
-import aiChatRoute from "./routes/ai_chat_route";
-
-import locationRoute from "./routes/location_route";
-
-// import upload route for handling image uploads to Supabase
-import uploadRoute from "./routes/upload_route";
-
-dotenv.config();
-
+import express from 'express';
+import userRoutes from './modules/users/user_routes';
+import place_routes from './modules/places/place_routes';
+import ticket_routes from './modules/tickets/ticket_routes';
+import party_routes from './modules/party/party_routes';
+import support_routes from './modules/support/support_routes';
+import settings from './modules/settings/settings_routes';
+import auth_routes from './modules/auth/auth_routes';
+import cors from 'cors';
+import dashboard_routes from './modules/dashboard/dashboard_routes';
 const app = express();
-
 app.use(cors());
 app.use(express.json());
+app.use(express.json({ limit: '50mb' })); 
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-app.use("/api/users", userRoute);
-app.use("/api/admin", adminRoute);
-app.use("/api/auth", authRoute);
+// ลงทะเบียนเส้นทางทั้งหมด
+app.use('/api/auth', auth_routes);
+app.use('/api/users', userRoutes);
+app.use('/api/places', place_routes);
+app.use('/api/tickets', ticket_routes);
+app.use('/api/parties', party_routes);
+app.use('/api/support', support_routes);
+app.use('/api/settings', settings);
+app.use('/api/dashboard', dashboard_routes);
 
-app.use("/api/restaurants", restaurantRoute);
-app.use("/api/categories", categoryRoute);
-app.use("/api/restaurant-category", restaurantCategoryRoute);
-
-app.use("/api/queue", queueRoute);
-
-app.use("/api/booking" , bookingRoute);
-
-app.use("/api/promotion", promotionRoute);
-
-app.use("/api/activity" , activityRoute)
-
-app.use("/api/chat", chatRoute);
-
-app.use("/api/ai", aiRoute);
-
-app.use("/api/ai-chat", aiChatRoute);
-
-app.use("/api/location", locationRoute);
-
-// use upload route for uploading images to Supabase
-app.use("/api/upload", uploadRoute);
-
-app.listen(3000, () => {
-  console.log("Server running on 3000");
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server is running on http://localhost:${PORT}`);
 });

@@ -6,240 +6,204 @@ datasource db {
   provider = "postgresql"
 }
 
-// Table User (สำหรับลูกค้า CUSTOMER เท่านั้น)
+// --- Enums ---
+
+enum RoleType {
+  ADMIN
+  STAFF
+  CUSTOMER
+>>>>>>> dev
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  ONLINE
+  OFFLINE
+  UNVERIFIED
+}
+
+enum TicketStatus {
+  Waiting
+  Serving
+  Completed
+  Skipped
+  Cancelled
+}
+
+enum PlaceStatus {
+  Active
+  Inactive
+}
+
+enum ActivityStatus {
+  Open
+  Closed
+  Completed
+  Cancelled
+}
+
+enum SupportCategory {
+  Bug
+  Shop_Issue
+  General
+}
+
+enum SupportStatus {
+  Pending
+  Resolved
+}
+
+// --- Models ---
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userName  String
+  action    String
+  type      String
+  status    String
+  createdAt DateTime @default(now())
+}
+
 model User {
-  user_id  Int    @id @default(autoincrement())
-  name     String
-  email    String @unique
-  password String
+  id           String       @id @default(cuid())
+  name         String
+  email        String       @unique
+  password     String?
+  phone        String?
+  avatarUrl    String?
+  role         RoleType     @default(CUSTOMER)
+  status       UserStatus   @default(ACTIVE)
+  aiConsented  Boolean      @default(false)
+  createdAt    DateTime     @default(now())
+  interests    String[]
+
+  // Relations
+  hostedActivities PartyActivity[] @relation("HostRelation")
+  joinedActivities Guest[]
+  supportTickets   SupportTicket[]
+  messages         Message[]
+}
+
+model Place {
+  id              String       @id @default(cuid())
+  name            String
+  branch          String
+  category        String
+  status          PlaceStatus  @default(Active)
+  description     String?
+  address         String?
+  phone           String?
+  lat             Float
+  lng             Float
+  openTime        String
+  closeTime       String
+  avgServiceTime  Int
+  queueCount      Int          @default(0)
+  logoUrl         String?
+  coverUrl        String?
+  isRecommended   Boolean      @default(false)
+  monthlyBookings Int          @default(0)
+  createdAt       DateTime     @default(now())
+
+  // Relations
+  tableTypes      TableType[]
+  tickets         Ticket[]
+  activities      PartyActivity[]
+}
+
+model TableType {
+  id        String @id @default(cuid())
+  label     String
+  capacity  Int
   
-  // ลูกค้าจะมี Preference, Bookings, ฯลฯ
-  preference User_Preference?
-
-  bookings      Booking[]
-  queue_entries Queue_Entry[]
-  activities    Activity[]
-  participants  Activity_Participant[]
-  messages      Message[]
-
-  conversation_participants Conversation_Participant[]
-  ai_recommendations         AI_Recommendation[]
-  locations                 UserLocation[]
+  placeId   String
+  place     Place  @relation(fields: [placeId], references: [id])
 }
 
-// Table Admin (สำหรับ Staff และ Admin เท่านั้น)
-model Admin {
-  id         Int      @id @default(autoincrement()) // เปลี่ยนจาก admin_id เป็น id
-  name       String   
-  email      String   @unique
-  password   String
-  role       String   
-  status     String   @default("OFFLINE")
-  created_at DateTime @default(now())
+model Ticket {
+  id         String       @id @default(cuid())
+  name       String
+  email      String?
+  service    String
+  guests     Int
+  bookDate   String?
+  bookTime   String?
+  tableType  String?
+  waitTime   Int?
+  status     TicketStatus @default(Waiting)
+  createdAt  DateTime     @default(now())
+
+  placeId    String
+  place      Place        @relation(fields: [placeId], references: [id])
 }
 
-// Table User_Preference
-model User_Preference {
-  preference_id     Int      @id @default(autoincrement())
-  user_id           Int      @unique
-  favorite_category String?
-  budget_range      String?
-  preferred_time    String?
-  updated_at        DateTime @updatedAt
-
-  user User @relation(fields: [user_id], references: [user_id])
-}
-
-// Table Restaurant
-model Restaurant {
-  restaurant_id  Int      @id @default(autoincrement())
-  name           String
-  description    String?
-  address        String
-  latitude       Float?
-  longitude      Float?
-  phone          String?
-  opening_hours  String?
-  price_range    String?
-  average_rating Float?
-  created_at     DateTime @default(now())
-  status         String
-  image_url      String?
-
-  categories   Restaurant_Category[]
-  promotions   Promotion[]
-  queue        Queue?
-  bookings     Booking[]
-  ai_recommend AI_Recommendation[]
-}
-
-// Table Category
-model Category {
-  category_id Int     @id @default(autoincrement())
-  name        String
-  icon        String?
-
-  restaurants Restaurant_Category[]
-}
-
-// Restaurant_Category (M:N)
-model Restaurant_Category {
-  rc_id         Int @id @default(autoincrement())
-  restaurant_id Int
-  category_id   Int
-  image_url     String?
-
-  restaurant Restaurant @relation(fields: [restaurant_id], references: [restaurant_id])
-  category   Category   @relation(fields: [category_id], references: [category_id])
-
-  @@unique([restaurant_id, category_id])
-}
-
-// Promotion
-model Promotion {
-  promo_id         Int      @id @default(autoincrement())
-  restaurant_id    Int
+model PartyActivity {
+  id               String         @id @default(cuid())
   title            String
   description      String?
-  discount_percent Float?
-  start_date       DateTime
-  end_date         DateTime
-  status           String
+  category         String
+  tags             String[]
+  meetingDate      String
+  meetingTime      String
+  lat              Float
+  lng              Float
+  maxGuests        Int
+  status           ActivityStatus @default(Open)
+  createdAt        DateTime       @default(now())
 
-  restaurant Restaurant @relation(fields: [restaurant_id], references: [restaurant_id])
+  // Relations
+  hostId           String
+  host             User           @relation("HostRelation", fields: [hostId], references: [id])
+  placeId          String
+  place            Place          @relation(fields: [placeId], references: [id])
+  joinedGuests     Guest[]
+  
+  // Optional: Link to a specific booking/ticket
+  bookingId        String?
 }
 
-// Queue
-model Queue {
-  queue_id            Int    @id @default(autoincrement())
-  restaurant_id       Int    @unique
-  current_number      Int
-  estimated_wait_time Int?
-  status              String
+model Guest {
+  id         String   @id @default(cuid())
+  pax        Int
+  status     String   @default("pending")
 
-  restaurant Restaurant    @relation(fields: [restaurant_id], references: [restaurant_id])
-  entries    Queue_Entry[]
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  activityId String
+  activity   PartyActivity @relation(fields: [activityId], references: [id])
+
+  @@unique([userId, activityId])
 }
 
-// Queue_Entry
-model Queue_Entry {
-  entry_id   Int      @id @default(autoincrement())
-  queue_id   Int
-  user_id    Int
-  party_size Int
-  position   Int
-  status     String
-  created_at DateTime @default(now())
+model SupportTicket {
+  id        String          @id @default(cuid())
+  subject   String
+  category  SupportCategory
+  status    SupportStatus   @default(Pending)
+  createdAt DateTime        @default(now())
 
-  queue Queue @relation(fields: [queue_id], references: [queue_id])
-  user  User  @relation(fields: [user_id], references: [user_id])
+  userId    String
+  user      User            @relation(fields: [userId], references: [id])
+  messages  Message[]
 }
 
-// Booking
-model Booking {
-  booking_id       Int      @id @default(autoincrement())
-  user_id          Int
-  restaurant_id    Int
-  booking_datetime DateTime
-  party_size       Int
-  status           String
-  special_request  String?
-  created_at       DateTime @default(now())
-
-  user       User       @relation(fields: [user_id], references: [user_id])
-  restaurant Restaurant @relation(fields: [restaurant_id], references: [restaurant_id])
-}
-
-// AI_Recommendation
-model AI_Recommendation {
-  recommendation_id Int      @id @default(autoincrement())
-  user_id           Int
-  restaurant_id     Int
-  score             Float
-  reason_text       String?
-  created_at        DateTime @default(now())
-
-  user       User       @relation(fields: [user_id], references: [user_id])
-  restaurant Restaurant @relation(fields: [restaurant_id], references: [restaurant_id])
-}
-
-// Activity
-model Activity {
-  activity_id       Int      @id @default(autoincrement())
-  creator_id        Int
-  title             String
-  description       String?
-  category          String?
-  location          String?
-  activity_datetime DateTime
-  max_participants  Int?
-  status            String
-  created_at        DateTime @default(now())
-
-  creator      User                   @relation(fields: [creator_id], references: [user_id])
-  participants Activity_Participant[]
-  conversation Conversation?
-}
-
-// Activity_Participant
-model Activity_Participant {
-  ap_id       Int      @id @default(autoincrement())
-  activity_id Int
-  user_id     Int
-  status      String
-  joined_at   DateTime @default(now())
-
-  activity Activity @relation(fields: [activity_id], references: [activity_id])
-  user     User     @relation(fields: [user_id], references: [user_id])
-
-  @@unique([activity_id, user_id])
-}
-
-// Conversation
-model Conversation {
-  conversation_id Int  @id @default(autoincrement())
-  activity_id     Int? @unique
-
-  created_at DateTime @default(now())
-
-  activity     Activity?                  @relation(fields: [activity_id], references: [activity_id])
-  participants Conversation_Participant[]
-  messages     Message[]
-}
-
-// Conversation_Participant
-model Conversation_Participant {
-  cp_id           Int @id @default(autoincrement())
-  conversation_id Int
-  user_id         Int
-
-  conversation Conversation @relation(fields: [conversation_id], references: [conversation_id])
-  user         User         @relation(fields: [user_id], references: [user_id])
-
-  @@unique([conversation_id, user_id])
-}
-
-// Message
 model Message {
-  message_id      Int      @id @default(autoincrement())
-  conversation_id Int
-  sender_id       Int
-  message_text    String
-  sent_at         DateTime @default(now())
+  id        String   @id @default(cuid())
+  text      String
+  timestamp DateTime @default(now())
 
-  conversation Conversation @relation(fields: [conversation_id], references: [conversation_id])
-  sender       User         @relation(fields: [sender_id], references: [user_id])
+  senderId  String
+  sender    User     @relation(fields: [senderId], references: [id])
+  ticketId  String
+  ticket    SupportTicket @relation(fields: [ticketId], references: [id])
 }
 
-// Location
-model UserLocation {
-  location_id Int @id @default(autoincrement())
-
-  user_id   Int
-  latitude  Float
-  longitude Float
-
-  created_at DateTime @default(now())
-
-  user User @relation(fields: [user_id], references: [user_id])
+model Settings {
+  id             Int    @id @default(1)
+  businessName   String
+  phone          String
+  email          String
+  maxQueuePerDay Int
+  autoCancelMins Int
 }

@@ -1,490 +1,417 @@
 import { useState, useMemo, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
-import { useDispatch, useSelector } from "react-redux";
-import type { RootState } from "../redux/Reduxindex";
-import { addPlace, updatePlace, deletePlace, type Place } from "../redux/placeSlice";
-import { Plus, MapPin, MoreHorizontal, ChevronDown, Building2, CheckCircle2, Trash2, Edit, Phone, Map, Clock, Image as ImageIcon, Upload } from "lucide-react";
+import { useAppDispatch, useAppSelector } from "../redux/hooks";
+import { 
+  fetchPlaces, 
+  addPlaceAsync, 
+  updatePlaceAsync, 
+  deletePlaceAsync 
+} from "../redux/Slice/placeSlice"; 
+import { 
+  Plus, MoreHorizontal, Trash2, Edit, Clock, 
+  Image as ImageIcon, MapPin, Phone, FileText, 
+  ImagePlus, AlignLeft, UploadCloud, X, Filter, ChevronDown, Activity, Users
+} from "lucide-react";
 import { Table } from "../components/ui/Table/Table";
-import { Button } from "../components/ui/Button";
 import { Dropdown } from "../components/ui/Dropdown";
+import { Input } from "../components/ui/Input";
 import { Pagination } from "../components/ui/Pagination";
 import { SidePanelEdit } from "../components/ui/Tabbar/SidePanelEdit";
-import { Input } from "../components/ui/Input"; 
-import { Status } from "../components/ui/Status";
-import type { Column } from "../types";
-import { generateShopId } from "../utils/generateShopId";
-import { CategorySelect, CATEGORY_LIST } from "../components/ui/CategorySelect";
-
-// 🌟 นำเข้า useForm และ Zod
+import { StatusBadge } from "../components/ui/StatusBadge"; 
+import type { Column, Place } from "../types"; 
 import { useForm, Controller } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
 
-// 🌟 กำหนด Schema กฎเหล็กในการกรอกฟอร์ม
-const placeSchema = z.object({
-  name: z.string().min(1, "กรุณากรอกชื่อร้าน"),
-  branch: z.string().optional(),
-  categories: z.array(z.string()).min(1, "กรุณาเลือกหมวดหมู่อย่างน้อย 1 อย่าง"),
-  description: z.string().min(1, "กรุณากรอกรายละเอียด"),
-  phone: z.string().length(10, "เบอร์โทรศัพท์ต้องมี 10 หลัก"),
-  address: z.string().min(1, "กรุณากรอกที่อยู่"),
-  latitude: z.string().min(1, "จำเป็น"),
-  longitude: z.string().min(1, "จำเป็น"),
-  openTime: z.string().min(1, "ระบุเวลา"),
-  closeTime: z.string().min(1, "ระบุเวลา"),
-  logoUrl: z.string().optional(),
-  coverUrl: z.string().optional(),
-  status: z.enum(["Active", "Disabled"])
-});
+const CATEGORY_OPTIONS = ["ร้านอาหาร", "คาเฟ่", "เสริมสวยอื่นๆ"];
 
-type PlaceFormData = z.infer<typeof placeSchema>;
-
-// ค่าเริ่มต้นสำหรับฟอร์มเปล่าๆ
-const defaultFormValues: PlaceFormData = {
-  name: "", branch: "", categories: [], description: "", phone: "",
-  address: "", latitude: "", longitude: "", openTime: "09:00", closeTime: "20:00",
-  logoUrl: "", coverUrl: "", status: "Disabled"
-};
+const TABLE_SIZE_OPTIONS = [
+  { label: "1-2 คน", value: "1-2 People" },
+  { label: "3-4 คน", value: "3-4 People" },
+  { label: "5-6 คน", value: "5-6 People" },
+  { label: "7-8 คน", value: "7-8 People" },
+  { label: "10 คนขึ้นไป", value: "10+ People" },
+];
 
 export default function PlaceManagement() {
-  const dispatch = useDispatch();
-  const places = useSelector((state: RootState) => state.places.places);
-
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 6;
-  const [statusFilter, setStatusFilter] = useState<string>("All");
-  const [categoryFilter, setCategoryFilter] = useState<string>("All"); 
-
-  const context = useOutletContext<{ searchQuery: string }>();
+  const dispatch = useAppDispatch();
+  const { places, loading } = useAppSelector((state) => state.places);
+  const context = useOutletContext<{ searchQuery: string } | null>();
   const searchQuery = context?.searchQuery || "";
 
+  const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [editingPlace, setEditingPlace] = useState<Place | null>(null);
-  const [isAddPanelOpen, setIsAddPanelOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 6;
+  
+  const [statusFilter, setStatusFilter] = useState<"All" | "Active" | "Inactive">("All");
 
-  // 🌟 ติดตั้ง useForm 
-  const { control, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<PlaceFormData>({
-    resolver: zodResolver(placeSchema),
-    defaultValues: defaultFormValues,
-    mode: "onChange"
+  const { control, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<any>({
+    defaultValues: { 
+      status: "Inactive", 
+      openTime: "10:00", closeTime: "22:00", name: "", branch: "", 
+      avgServiceTime: 15, lat: 13.7563, lng: 100.5018, category: "", 
+      description: "", phone: "", logoUrl: "", coverUrls: [],
+      table_types: [] 
+    }
   });
 
-  const currentLogoUrl = watch("logoUrl");
-  const currentCoverUrl = watch("coverUrl");
+  const selectedTables = watch("table_types") || [];
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, fieldName: "logoUrl" | "coverUrl") => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const tempLocalUrl = URL.createObjectURL(file);
-    setValue(fieldName, tempLocalUrl, { shouldValidate: true, shouldDirty: true });
-  };
+  useEffect(() => { 
+    dispatch(fetchPlaces()); 
+  }, [dispatch]);
 
-  const handleOpenAdd = () => {
-    reset(defaultFormValues);
-    setIsAddPanelOpen(true);
-  };
-
-  const handleEditClick = (place: Place) => {
-    setEditingPlace(place);
-    reset({
-      name: place.name.split(" (")[0], 
-      branch: place.branch || "",
-      address: place.address,
-      status: place.status as "Active" | "Disabled",
-      categories: place.categories || [],
-      description: place.description || "",
-      phone: place.phone || "",
-      latitude: place.latitude || "",
-      longitude: place.longitude || "",
-      openTime: place.openTime || "09:00",
-      closeTime: place.closeTime || "20:00",
-      logoUrl: place.logoUrl || "",
-      coverUrl: place.coverUrl || ""
-    });
-  };
-
-  // =====================================================================
-  // 🌟 ศูนย์กลางการ Save (แก้ปัญหา ID ชนกันที่นี่)
-  // =====================================================================
-  const onSubmit = (data: PlaceFormData) => {
-    if (isAddPanelOpen) {
-      // --- ADD MODE ---
-      const generatedData = generateShopId(data.name, data.branch || "", data.categories, places);
-      
-      const newPlace: Place = {
-        id: `sys_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`, 
-        placeId: generatedData.displayId, 
-        name: generatedData.fullName, 
-        branch: data.branch?.trim() || "",
-        address: data.address.trim(),
-        status: data.status, 
-        queueCount: 0,
-        categories: data.categories,
-        description: data.description.trim(),
-        phone: data.phone.trim(),
-        latitude: data.latitude.trim(),
-        longitude: data.longitude.trim(),
-        openTime: data.openTime,
-        closeTime: data.closeTime,
-        avgServiceTime: 15,
-        createdAt: new Date().toISOString(),
-        logoUrl: data.logoUrl || "", 
-        coverUrl: data.coverUrl || "" 
+  const onSubmit = async (data: any) => {
+    try {
+      const payloadToSave = {
+        ...data,
+        coverUrl: JSON.stringify(data.coverUrls || [])
       };
+      delete payloadToSave.coverUrls;
 
-      dispatch(addPlace(newPlace));
-      setIsAddPanelOpen(false);
-
-    } else if (editingPlace) {
-      // --- EDIT MODE ---
-      let newDisplayId = editingPlace.placeId;
-      let newFullName = editingPlace.name;
-
-      // 🌟 แก้ไข: ถอด .sort() ออก เพื่อให้ถ้าแอดมินสลับลำดับแท็ก ถือว่าหมวดหมู่เปลี่ยนทันที!
-      const oldCategoriesStr = JSON.stringify(editingPlace.categories || []);
-      const newCategoriesStr = JSON.stringify(data.categories || []);
-      const isCategoryChanged = oldCategoriesStr !== newCategoriesStr;
-
-      if (
-        data.name.trim() !== editingPlace.name.split(" (")[0] || 
-        data.branch?.trim() !== (editingPlace.branch || "") ||
-        isCategoryChanged
-      ) {
-        const otherPlaces = places.filter(p => p.id !== editingPlace.id);
-        const generated = generateShopId(data.name, data.branch || "", data.categories, otherPlaces);
-        newDisplayId = generated.displayId;
-        newFullName = generated.fullName;
+      if (editingPlace) {
+        await dispatch(updatePlaceAsync({ ...editingPlace, ...payloadToSave })).unwrap();
+        alert("อัปเดตข้อมูลสำเร็จ!");
+      } else {
+        const { id, ...newPlaceData } = payloadToSave;
+        await dispatch(addPlaceAsync({ ...newPlaceData, status: "Inactive" })).unwrap();
+        alert("เพิ่มสถานที่สำเร็จ! (สถานะ: Inactive)");
       }
-
-      dispatch(updatePlace({
-        ...editingPlace, 
-        name: newFullName, 
-        branch: data.branch?.trim() || "", 
-        address: data.address.trim(), 
-        status: data.status, 
-        id: editingPlace.id, 
-        placeId: newDisplayId, 
-        categories: data.categories,
-        description: data.description.trim(), 
-        phone: data.phone.trim(), 
-        latitude: data.latitude.trim(), 
-        longitude: data.longitude.trim(), 
-        openTime: data.openTime, 
-        closeTime: data.closeTime,
-        logoUrl: data.logoUrl || "", 
-        coverUrl: data.coverUrl || "" 
-      }));
-
-      setEditingPlace(null);
+      
+      dispatch(fetchPlaces());
+      setIsPanelOpen(false);
+      reset();
+    } catch (error: any) { 
+      alert(error || "Error saving place"); 
     }
   };
 
-  const handleDeletePlace = (id: string) => {
-    if (confirm("Are you sure you want to delete this place?")) {
-      dispatch(deletePlace(id));
+  // 🌟 จุดที่แก้ไข: ใส่ Logic แมปค่ากลับเข้าฟอร์ม โดยไม่แตะต้อง Style ครับ
+  const handleEdit = (place: any) => {
+    setEditingPlace(place);
+    let parsedCovers: string[] = [];
+    try {
+      if (place.coverUrl) {
+        parsedCovers = JSON.parse(place.coverUrl);
+      }
+    } catch(e) { parsedCovers = []; }
+
+    // ค้นหาข้อมูลโต๊ะจากชื่อ Property ที่เป็นไปได้ทั้งหมด
+    const dbTables = place.tableTypes || place.TableType || [];
+    
+    // 🌟 แมปค่า label จาก DB กลับเป็น value (English) เพื่อให้ปุ่มใน UI แสดงสถานะ "ถูกเลือก"
+    const currentTables = dbTables.map((t: any) => {
+      const foundOption = TABLE_SIZE_OPTIONS.find(opt => opt.label === t.label);
+      return {
+        name: foundOption ? foundOption.value : t.label, // ใช้ value เพื่อเช็คสีปุ่ม
+        label: t.label,
+        capacity: t.capacity
+      };
+    });
+
+    reset({ 
+      ...place, 
+      coverUrls: parsedCovers.filter(Boolean),
+      table_types: currentTables 
+    });
+    setIsPanelOpen(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (window.confirm("คุณแน่ใจหรือไม่ว่าต้องการลบสถานที่นี้?")) {
+      try {
+        await dispatch(deletePlaceAsync(id)).unwrap();
+      } catch (error: any) { alert(error || "Delete failed"); }
     }
   };
 
-  // =====================================================================
-  // การจัดการตาราง
-  // =====================================================================
-  const filteredData = useMemo(() => {
-    let result = [...places];
-    if (statusFilter !== "All") result = result.filter(p => p.status === statusFilter);
-    if (categoryFilter !== "All") result = result.filter(p => p.categories?.includes(categoryFilter));
-    if (searchQuery) {
-      const lowerQ = searchQuery.toLowerCase();
-      result = result.filter(p => p.name.toLowerCase().includes(lowerQ) || p.placeId.toLowerCase().includes(lowerQ));
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, onChange: (url: string) => void) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 50 * 1024 * 1024) { alert("⚠️ ขนาดไฟล์รูปภาพใหญ่เกินไป (สูงสุด 50MB)"); return; }
+      const reader = new FileReader();
+      reader.onloadend = () => { onChange(reader.result as string); };
+      reader.readAsDataURL(file);
     }
-    result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    return result;
-  }, [places, statusFilter, categoryFilter, searchQuery]);
+    if (e.target) e.target.value = '';
+  };
 
-  useEffect(() => { setCurrentPage(1); }, [statusFilter, categoryFilter, searchQuery, places.length]);
+  const displayPlaces = useMemo(() => {
+    return (places || []).filter(p => {
+      const matchesSearch = p.name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                            p.branch?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesStatus = statusFilter === "All" || p.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [places, searchQuery, statusFilter]);
 
-  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
-  const paginatedData = filteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const currentData = displayPlaces.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
+  // 🌟 จัด Layout ของตารางใหม่ทั้งหมดให้สวยและตรงตามที่ต้องการ
   const columns: Column<Place>[] = [
-    { header: "PLACE NAME", key: "name", className: "text-left w-[25%]", render: (item) => (
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center border border-slate-200 overflow-hidden shrink-0">
-            {item.logoUrl ? <img src={item.logoUrl} alt={item.name} className="w-full h-full object-cover" /> : <Building2 size={18} className="text-slate-400" />}
+    { 
+      header: "Place Info", 
+      key: "info", 
+      className: "w-[40%] text-left pl-4", // ชิดซ้าย
+      render: (row) => (
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-slate-50 flex items-center justify-center overflow-hidden border border-slate-100 shrink-0 shadow-sm">
+            {row.logoUrl ? <img src={row.logoUrl} className="w-full h-full object-cover" alt="logo" /> : <ImageIcon className="text-slate-300" size={20} />}
           </div>
-          <div className="text-left"><p className="font-bold text-slate-800 text-sm">{item.name}</p><p className="text-[10px] font-medium text-slate-400">ID: {item.placeId}</p></div>
+          <div className="flex flex-col">
+            <p className="font-bold text-slate-800 text-left text-sm">{row.name}</p>
+            <p className="text-xs text-slate-400 text-left mt-0.5">{row.branch}</p>
+          </div>
         </div>
       )
     },
-    { header: "CATEGORY", key: "categories", className: "text-left w-[20%]", render: (item) => (
-        <div className="flex flex-wrap gap-1">
-          {item.categories?.map((cat, idx) => (
-            <span key={idx} className="px-2 py-0.5 bg-indigo-50 text-indigo-600 border border-indigo-100 rounded-md text-[10px] font-bold">{cat}</span>
-          ))}
+    { 
+      header: "Category", 
+      key: "category", 
+      className: "w-[25%] text-center", // จัดให้อยู่กึ่งกลางคอลัมน์
+      render: (row) => (
+        <div className="flex flex-wrap items-center justify-center gap-1.5">
+          {row.category ? (
+            row.category.split(',').filter(Boolean).map((cat, idx) => (
+              <span key={idx} className="text-[11px] font-bold px-3 py-1 bg-slate-50 rounded-lg text-slate-500 border border-slate-200 whitespace-nowrap shadow-sm">
+                {cat.trim()}
+              </span>
+            ))
+          ) : (
+            <span className="text-slate-300 text-xs">-</span>
+          )}
         </div>
       )
     },
-    { header: "ADDRESS", key: "address", className: "text-left w-[20%]", render: (item) => (
-        <div className="flex items-center justify-start gap-2 text-slate-500 max-w-[200px] lg:max-w-xs"><MapPin size={14} className="shrink-0" /><span className="text-xs truncate">{item.address}</span></div>
-      )
+    { 
+      header: "Status", 
+      key: "status", 
+      className: "w-[20%] text-center", // จัดให้อยู่กึ่งกลางคอลัมน์
+      render: (row) => (
+        <div className="flex justify-center">
+          <StatusBadge status={row.status} />
+        </div>
+      ) 
     },
-    { header: "STATUS", key: "status", className: "text-center w-[15%]", render: (item) => (
-        <div className="flex justify-center"><Status status={item.status} /></div>
-      )
-    },
-    { header: "QUEUE", key: "queueCount", className: "text-center w-[10%]", render: (item) => (
-        <div className="flex justify-center"><span className="inline-block px-3 py-1 bg-slate-50 border border-slate-100 rounded-lg font-bold text-slate-700 text-xs min-w-[32px] text-center">{item.queueCount}</span></div>
-      )
-    },
-    { header: "ACTIONS", key: "id", className: "text-right w-[10%]", render: (item) => (
+    { 
+      header: "Actions", 
+      key: "actions", 
+      className: "text-right w-[15%] pr-6", // ชิดขวาสุด
+      render: (row) => (
         <div className="flex justify-end">
-          <Dropdown align="right" trigger={<button className="p-2 hover:bg-slate-100 rounded-full text-slate-400"><MoreHorizontal size={18} /></button>}
+          <Dropdown align="right" trigger={<button className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-all"><MoreHorizontal size={18} /></button>}
             items={[
-              { label: "Edit Place", icon: <Edit size={16} />, onClick: () => handleEditClick(item) },
-              { label: "Delete", icon: <Trash2 size={16} />, className: "text-red-600", divider: true, onClick: () => handleDeletePlace(item.id) }
+              { label: "Edit Details", icon: <Edit size={14} />, onClick: () => handleEdit(row) },
+              { label: "Delete", icon: <Trash2 size={14} />, className: "text-rose-500", onClick: () => handleDelete(row.id) }
             ]}
           />
         </div>
-      )},
+      )
+    }
   ];
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <Dropdown align="left" trigger={<Button variant="outline" className="bg-white min-w-[140px] flex items-center justify-between whitespace-nowrap shadow-sm"><span className="font-medium text-slate-600">Status: {statusFilter}</span> <ChevronDown size={14} className="ml-2 text-slate-400 shrink-0" /></Button>} 
-            items={[{ label: "All Status", onClick: () => setStatusFilter("All") }, { label: "Active", onClick: () => setStatusFilter("Active") }, { label: "Disabled", onClick: () => setStatusFilter("Disabled") }]} 
-          />
-          <Dropdown align="left" trigger={<Button variant="outline" className="bg-white min-w-[160px] flex items-center justify-between whitespace-nowrap shadow-sm"><span className="font-medium text-slate-600">Category: {categoryFilter}</span> <ChevronDown size={14} className="ml-2 text-slate-400 shrink-0" /></Button>} 
-            items={[{ label: "All Categories", onClick: () => setCategoryFilter("All") }, ...CATEGORY_LIST.map(cat => ({ label: cat, onClick: () => setCategoryFilter(cat) }))]}
-          />
+    <div className="p-4 lg:p-10 max-w-[1600px] mx-auto w-full pt-12">
+      <div className="flex justify-between items-center mb-10">
+        <div className="flex items-center gap-4">
+          <div className="relative group">
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Filter size={15} /></div>
+            <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value as any); setCurrentPage(1); }}
+              className="appearance-none pl-11 pr-10 py-2.5 bg-white border border-slate-200 rounded-2xl text-sm font-semibold text-slate-600 outline-none hover:border-[#5AB2A8] focus:ring-4 focus:ring-teal-50 transition-all cursor-pointer shadow-sm"
+            >
+              <option value="All">All Places</option>
+              <option value="Active">Active</option>
+              <option value="Inactive">Inactive</option>
+            </select>
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none"><ChevronDown size={14} /></div>
+          </div>
         </div>
-        <Button className="bg-[#5AB2A8] hover:bg-[#4a968d] text-white shadow-lg flex items-center justify-center gap-2 px-6" onClick={handleOpenAdd}><Plus size={18} /> New Place</Button>
+        <button onClick={() => { setEditingPlace(null); reset({ status: "Inactive", openTime: "10:00", closeTime: "22:00", name: "", branch: "", avgServiceTime: 15, lat: 13.7563, lng: 100.5018, category: "", description: "", phone: "", logoUrl: "", coverUrls: [], table_types: [] }); setIsPanelOpen(true); }} 
+          className="bg-[#5AB2A8] hover:bg-[#4a968d] text-white px-7 py-2.5 rounded-2xl text-sm font-bold flex items-center gap-2.5 transition-all shadow-md active:scale-95"
+        >
+          <Plus size={18} strokeWidth={3}/> New Place
+        </button>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-4">
-        <Table data={paginatedData} columns={columns} />
-        <Pagination currentPage={currentPage} totalPages={totalPages} totalItems={filteredData.length} itemsPerPage={itemsPerPage} onChange={setCurrentPage} />
+      <div className="bg-white rounded-[2rem] border border-slate-100 shadow-xl shadow-slate-200/50 overflow-hidden">
+        <Table data={currentData} columns={columns} emptyMessage={loading ? "Loading..." : "No places found."} />
       </div>
+      
+      {displayPlaces.length > itemsPerPage && (
+        <div className="mt-8">
+          <Pagination currentPage={currentPage} totalPages={Math.ceil(displayPlaces.length / itemsPerPage)} onChange={setCurrentPage} />
+        </div>
+      )}
 
-      {/* ========================================================== */}
-      {/* 🌟 NEW PLACE PANEL */}
-      {/* ========================================================== */}
-      <SidePanelEdit isOpen={isAddPanelOpen} onClose={() => setIsAddPanelOpen(false)} title="Add New Place"
-        footer={<button onClick={handleSubmit(onSubmit)} className="w-full flex items-center justify-center gap-2 py-4 bg-[#5AB2A8] rounded-2xl text-white font-bold hover:bg-[#4a968d] shadow-lg shadow-teal-100 transition-all active:scale-[0.98]"><Plus size={18} /> Create Place</button>}
-      >
-        <div className="space-y-6 pb-6">
-          <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Basic Information</h4>
-          <div className="space-y-4">
-            <Controller control={control} name="name" render={({ field: { onChange, value } }) => (
-              <div><Input label="Place Name" icon={<Building2 size={16} />} type="text" value={value} onChange={onChange} placeholder="e.g. QBuddy Cafe" className={`bg-slate-50 border-slate-200 py-2.5 ${errors.name ? 'border-red-400' : ''}`} maxLength={40} />
-              {errors.name && <p className="text-xs text-red-500 mt-1">{errors.name.message}</p>}</div>
-            )}/>
-            
-            <Controller control={control} name="branch" render={({ field: { onChange, value } }) => (
-              <Input label="Branch (Optional)" icon={<MapPin size={16} />} type="text" value={value} onChange={onChange} placeholder="e.g. Mega Bangna" className="bg-slate-50 border-slate-200 py-2.5" maxLength={40} />
-            )}/>
-
-            <div className="space-y-2 pt-1">
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Categories</label>
-              <Controller control={control} name="categories" render={({ field: { onChange, value } }) => (
-                <div><CategorySelect selectedCategories={value} onChange={onChange} />
-                {errors.categories && <p className="text-xs text-red-500 mt-1">{errors.categories.message}</p>}</div>
-              )}/>
+      <SidePanelEdit isOpen={isPanelOpen} onClose={() => setIsPanelOpen(false)} title={editingPlace ? "Edit Place Information" : "Create New Place"}>
+        <div className="p-8">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+            <div className="space-y-4">
+              <Controller control={control} name="name" rules={{ required: "กรุณากรอกชื่อร้าน" }} render={({ field }) => (
+                <Input label="Shop Name" icon={<FileText size={16}/>} {...field} error={errors.name?.message as string} />
+              )} />
+              <Controller control={control} name="branch" rules={{ required: "กรุณากรอกสาขา" }} render={({ field }) => (
+                <Input label="Branch" icon={<MapPin size={16}/>} {...field} error={errors.branch?.message as string} />
+              )} />
             </div>
 
-            <div className="space-y-2 pt-1">
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Description</label>
-              <Controller control={control} name="description" render={({ field: { onChange, value } }) => (
-                <div><textarea value={value} onChange={onChange} placeholder="รายละเอียดสถานที่เบื้องต้น..." className={`w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-[#5AB2A8] outline-none min-h-[80px] ${errors.description ? 'border-red-400' : ''}`} />
-                {errors.description && <p className="text-xs text-red-500 mt-1">{errors.description.message}</p>}</div>
-              )}/>
-            </div>
-          </div>
-          
-          <div className="h-px w-full bg-slate-100 my-6"></div>
-          
-          <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Media & Images</h4>
-          <div className="space-y-5">
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Logo Image</label>
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center shrink-0">
-                  {currentLogoUrl ? <img src={currentLogoUrl} alt="Logo" className="w-full h-full object-cover" /> : <ImageIcon className="text-slate-400" size={24} />}
-                </div>
-                <div className="flex-1">
-                  <input type="file" id="addLogo" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, "logoUrl")} />
-                  <label htmlFor="addLogo" className="inline-flex items-center justify-center px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-50 cursor-pointer shadow-sm"><Upload size={16} className="mr-2 text-slate-400" /> Upload Logo</label>
-                </div>
+            <div className="space-y-4 pt-4 border-t border-slate-100">
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                <Users size={14}/> Table Management
+              </label>
+              
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {TABLE_SIZE_OPTIONS.map((opt) => {
+                  const isSelected = selectedTables.some((t: any) => t.name === opt.value);
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => {
+                        if (isSelected) {
+                          setValue("table_types", selectedTables.filter((t: any) => t.name !== opt.value));
+                        } else {
+                          setValue("table_types", [...selectedTables, { name: opt.value, label: opt.label, capacity: 1 }]);
+                        }
+                      }}
+                      className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all ${
+                        isSelected ? "bg-[#5AB2A8] text-white border-[#5AB2A8]" : "bg-white text-slate-500 border-slate-200 hover:border-[#5AB2A8]"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="space-y-3 mt-4">
+                {selectedTables.map((table: any, index: number) => (
+                  <div key={table.name} className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl">
+                    <span className="text-sm font-bold text-slate-700">{table.label || TABLE_SIZE_OPTIONS.find(o => o.value === table.name)?.label}</span>
+                    <div className="flex items-center gap-3">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase">จำนวนโต๊ะ:</label>
+                      <input 
+                        type="number"
+                        min="1"
+                        value={table.capacity}
+                        onChange={(e) => {
+                          const newTables = [...selectedTables];
+                          newTables[index] = { ...table, capacity: parseInt(e.target.value) || 1 };
+                          setValue("table_types", newTables);
+                        }}
+                        className="w-16 p-2 bg-white border border-slate-200 rounded-lg text-sm font-bold text-center outline-none focus:ring-2 focus:ring-[#5AB2A8]"
+                      />
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Cover Image</label>
-              <div className="flex flex-col gap-3">
-                <div className="w-full h-32 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center shrink-0">
-                  {currentCoverUrl ? <img src={currentCoverUrl} alt="Cover" className="w-full h-full object-cover" /> : <ImageIcon className="text-slate-400" size={32} />}
-                </div>
-                <div>
-                  <input type="file" id="addCover" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, "coverUrl")} />
-                  <label htmlFor="addCover" className="inline-flex items-center justify-center px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-50 cursor-pointer shadow-sm"><Upload size={16} className="mr-2 text-slate-400" /> Upload Cover</label>
-                </div>
+            {editingPlace && (
+              <div className="space-y-2">
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest block">Operational Status</label>
+                <Controller control={control} name="status" render={({ field }) => (
+                  <div className="relative">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Activity size={16}/></div>
+                    <select {...field} className="appearance-none w-full pl-11 pr-10 py-4 bg-slate-50 border-none rounded-2xl text-sm font-semibold outline-none focus:ring-2 focus:ring-[#5AB2A8] transition-all cursor-pointer">
+                      <option value="Active">Active (Open)</option>
+                      <option value="Inactive">Inactive (Closed)</option>
+                    </select>
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none"><ChevronDown size={14} /></div>
+                  </div>
+                )} />
               </div>
+            )}
+
+            <div className="space-y-2">
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest block">Main Category <span className="text-rose-500">*</span></label>
+              <Controller control={control} name="category" rules={{ validate: (val) => (val && val.length > 0) || "กรุณาเลือกอย่างน้อย 1 หมวดหมู่" }}
+                render={({ field: { onChange, value } }) => {
+                  const selectedCats = typeof value === 'string' && value ? value.split(',') : [];
+                  return (
+                    <div className="flex flex-wrap gap-2">
+                      {CATEGORY_OPTIONS.map(cat => (
+                        <button type="button" key={cat} onClick={() => onChange(selectedCats.includes(cat) ? selectedCats.filter(c => c !== cat).join(',') : [...selectedCats, cat].join(','))}
+                          className={`px-4 py-2 rounded-full text-xs font-bold border transition-all ${selectedCats.includes(cat) ? "bg-[#E6FFFA] text-[#38B2AC] border-[#38B2AC]" : "bg-white text-slate-400 border-slate-200 hover:bg-slate-50"}`}
+                        >
+                          {cat}
+                        </button>
+                      ))}
+                    </div>
+                  );
+                }} 
+              />
             </div>
-          </div>
 
-          <div className="h-px w-full bg-slate-100 my-6"></div>
-
-          <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Contact & Location</h4>
-          <div className="space-y-4">
-            <Controller control={control} name="phone" render={({ field: { onChange, value } }) => (
-              <div><Input label="Phone Number" icon={<Phone size={16} />} type="tel" value={value} onChange={(e) => onChange(e.target.value.replace(/\D/g, '').slice(0, 10))} className={`bg-slate-50 border-slate-200 py-2.5 ${errors.phone ? 'border-red-400' : ''}`} maxLength={10}/>
-              {errors.phone && <p className="text-xs text-red-500 mt-1">{errors.phone.message}</p>}</div>
-            )}/>
-            
-            <Controller control={control} name="address" render={({ field: { onChange, value } }) => (
-              <div><Input label="Full Address" icon={<MapPin size={16} />} type="text" value={value} onChange={onChange} className={`bg-slate-50 border-slate-200 py-2.5 ${errors.address ? 'border-red-400' : ''}`} />
-              {errors.address && <p className="text-xs text-red-500 mt-1">{errors.address.message}</p>}</div>
-            )}/>
+            <div className="space-y-2">
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest block">Description</label>
+              <Controller control={control} name="description" render={({ field }) => (
+                <div className="relative">
+                  <div className="absolute top-4 left-4 text-slate-400"><AlignLeft size={16}/></div>
+                  <textarea {...field} value={field.value || ""} placeholder="Shop description..." className="w-full pl-11 pr-4 py-4 bg-slate-50 border-none rounded-2xl text-sm font-semibold outline-none focus:ring-2 focus:ring-[#5AB2A8] min-h-[120px] resize-y transition-all" />
+                </div>
+              )} />
+            </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <Controller control={control} name="latitude" render={({ field: { onChange, value } }) => (
-                <div><Input label="Latitude" icon={<Map size={16} />} type="number" value={value} onChange={onChange} className="bg-slate-50 border-slate-200 py-2.5" />
-                {errors.latitude && <p className="text-xs text-red-500 mt-1">{errors.latitude.message}</p>}</div>
-              )}/>
-              <Controller control={control} name="longitude" render={({ field: { onChange, value } }) => (
-                <div><Input label="Longitude" icon={<Map size={16} />} type="number" value={value} onChange={onChange} className="bg-slate-50 border-slate-200 py-2.5" />
-                {errors.longitude && <p className="text-xs text-red-500 mt-1">{errors.longitude.message}</p>}</div>
-              )}/>
-            </div>
-          </div>
-
-          <div className="h-px w-full bg-slate-100 my-6"></div>
-          <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Operating Hours</h4>
-          <div className="grid grid-cols-2 gap-4">
-            <Controller control={control} name="openTime" render={({ field: { onChange, value } }) => (
-              <div className="space-y-2"><label className="text-xs font-bold text-slate-500 uppercase block">Open Time</label>
-              <div className="relative"><div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><Clock size={16} /></div><input type="time" value={value} onChange={onChange} className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm" /></div></div>
-            )}/>
-            <Controller control={control} name="closeTime" render={({ field: { onChange, value } }) => (
-              <div className="space-y-2"><label className="text-xs font-bold text-slate-500 uppercase block">Close Time</label>
-              <div className="relative"><div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><Clock size={16} /></div><input type="time" value={value} onChange={onChange} className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm" /></div></div>
-            )}/>
-          </div>
-        </div>
-      </SidePanelEdit>
-
-      {/* ========================================================== */}
-      {/* 🌟 EDIT PLACE PANEL */}
-      {/* ========================================================== */}
-      <SidePanelEdit isOpen={!!editingPlace} onClose={() => setEditingPlace(null)} title="Edit Place Details"
-        footer={<button onClick={handleSubmit(onSubmit)} className="w-full flex items-center justify-center gap-2 py-4 bg-[#5AB2A8] rounded-2xl text-white font-bold hover:bg-[#4a968d] shadow-lg shadow-teal-100 transition-all active:scale-[0.98]"><CheckCircle2 size={18} /> Save Changes</button>}
-      >
-        {editingPlace && (
-          <>
-            <div className="flex flex-col items-center text-center mb-8">
-              <div className="w-20 h-20 rounded-xl bg-slate-100 flex items-center justify-center border border-slate-200 overflow-hidden mb-3 shadow-sm relative group">
-                {currentLogoUrl ? <img src={currentLogoUrl} alt="Logo" className="w-full h-full object-cover" /> : <Building2 size={32} className="text-slate-300" />}
-                <label htmlFor="fastEditLogo" className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity"><Edit size={20} className="text-white" /></label>
-                <input type="file" id="fastEditLogo" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, "logoUrl")} />
-              </div>
-              <h3 className="text-2xl font-bold text-slate-800">{editingPlace.name}</h3><p className="text-slate-500 text-sm mt-1 font-medium">{editingPlace.placeId}</p>
+              <Controller control={control} name="openTime" render={({ field }) => <Input label="Open Time" type="time" icon={<Clock size={16}/>} {...field} />} />
+              <Controller control={control} name="closeTime" render={({ field }) => <Input label="Close Time" type="time" icon={<Clock size={16}/>} {...field} />} />
             </div>
             
-            <div className="space-y-6 pb-6">
-              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Basic Information</h4>
-              <div className="space-y-4">
-                <Controller control={control} name="name" render={({ field: { onChange, value } }) => (
-                  <div><Input label="Place Name" icon={<Building2 size={16} />} type="text" value={value} onChange={onChange} className={`bg-slate-50 border-slate-200 py-2.5 ${errors.name ? 'border-red-400' : ''}`} maxLength={40} />
-                  {errors.name && <p className="text-xs text-red-500 mt-1">{errors.name.message}</p>}</div>
-                )}/>
-                <Controller control={control} name="branch" render={({ field: { onChange, value } }) => (
-                  <Input label="Branch (Optional)" icon={<MapPin size={16} />} type="text" value={value} onChange={onChange} className="bg-slate-50 border-slate-200 py-2.5" maxLength={40} />
-                )}/>
-                <div className="space-y-2 pt-1"><label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Categories</label>
-                  <Controller control={control} name="categories" render={({ field: { onChange, value } }) => (
-                    <div><CategorySelect selectedCategories={value} onChange={onChange} />
-                    {errors.categories && <p className="text-xs text-red-500 mt-1">{errors.categories.message}</p>}</div>
-                  )}/>
-                </div>
-                <div className="space-y-2 pt-1"><label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Description</label>
-                  <Controller control={control} name="description" render={({ field: { onChange, value } }) => (
-                    <div><textarea value={value} onChange={onChange} className={`w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm min-h-[80px] ${errors.description ? 'border-red-400' : ''}`} />
-                    {errors.description && <p className="text-xs text-red-500 mt-1">{errors.description.message}</p>}</div>
-                  )}/>
-                </div>
-              </div>
-              
-              <div className="h-px w-full bg-slate-100 my-6"></div>
-              
-              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Media & Images</h4>
-              <div className="space-y-5">
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Logo Image</label>
-                  <div className="flex flex-col gap-3">
-                    <input type="file" id="editLogo" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, "logoUrl")} />
-                    <label htmlFor="editLogo" className="inline-flex items-center justify-center px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 cursor-pointer shadow-sm"><Upload size={16} className="mr-2 text-slate-400" /> Change Logo</label>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Cover Image</label>
-                  <div className="flex flex-col gap-3">
-                    <div className="w-full h-32 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center shrink-0">
-                      {currentCoverUrl ? <img src={currentCoverUrl} alt="Cover" className="w-full h-full object-cover" /> : <ImageIcon className="text-slate-400" size={32} />}
-                    </div>
-                    <input type="file" id="editCover" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, "coverUrl")} />
-                    <label htmlFor="editCover" className="inline-flex items-center justify-center px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 cursor-pointer shadow-sm"><Upload size={16} className="mr-2 text-slate-400" /> Change Cover</label>
-                  </div>
-                </div>
-              </div>
-
-              <div className="h-px w-full bg-slate-100 my-6"></div>
-              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Contact & Location</h4>
-              <div className="space-y-4">
-                <Controller control={control} name="phone" render={({ field: { onChange, value } }) => (
-                  <div><Input label="Phone Number" icon={<Phone size={16} />} type="tel" value={value} onChange={(e) => onChange(e.target.value.replace(/\D/g, '').slice(0, 10))} className={`bg-slate-50 border-slate-200 py-2.5 ${errors.phone ? 'border-red-400' : ''}`} maxLength={10}/>
-                  {errors.phone && <p className="text-xs text-red-500 mt-1">{errors.phone.message}</p>}</div>
-                )}/>
-                <Controller control={control} name="address" render={({ field: { onChange, value } }) => (
-                  <div><Input label="Full Address" icon={<MapPin size={16} />} type="text" value={value} onChange={onChange} className={`bg-slate-50 border-slate-200 py-2.5 ${errors.address ? 'border-red-400' : ''}`} />
-                  {errors.address && <p className="text-xs text-red-500 mt-1">{errors.address.message}</p>}</div>
-                )}/>
-                <div className="grid grid-cols-2 gap-4">
-                  <Controller control={control} name="latitude" render={({ field: { onChange, value } }) => (
-                    <div><Input label="Latitude" icon={<Map size={16} />} type="number" value={value} onChange={onChange} className="bg-slate-50 border-slate-200 py-2.5" /></div>
-                  )}/>
-                  <Controller control={control} name="longitude" render={({ field: { onChange, value } }) => (
-                    <div><Input label="Longitude" icon={<Map size={16} />} type="number" value={value} onChange={onChange} className="bg-slate-50 border-slate-200 py-2.5" /></div>
-                  )}/>
-                </div>
-              </div>
-
-              <div className="h-px w-full bg-slate-100 my-6"></div>
-              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Operating & Status</h4>
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <Controller control={control} name="openTime" render={({ field: { onChange, value } }) => (
-                    <div className="space-y-2"><label className="text-xs font-bold text-slate-500 uppercase block">Open Time</label><div className="relative"><div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><Clock size={16} /></div><input type="time" value={value} onChange={onChange} className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm" /></div></div>
-                  )}/>
-                  <Controller control={control} name="closeTime" render={({ field: { onChange, value } }) => (
-                    <div className="space-y-2"><label className="text-xs font-bold text-slate-500 uppercase block">Close Time</label><div className="relative"><div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><Clock size={16} /></div><input type="time" value={value} onChange={onChange} className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm" /></div></div>
-                  )}/>
-                </div>
-                <div className="space-y-2 pt-2">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">System Status</label>
-                  <Controller control={control} name="status" render={({ field: { onChange, value } }) => (
-                    <div className="relative">
-                      <select value={value} onChange={onChange} className="w-full pl-4 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 appearance-none">
-                        <option value="Active">Active</option>
-                        <option value="Disabled">Disabled</option>
-                      </select>
-                      <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                    </div>
-                  )}/>
-                </div>
-              </div>
+            <div className="grid grid-cols-2 gap-4">
+              <Controller control={control} name="lat" render={({ field }) => <Input label="Latitude" type="number" step="any" icon={<MapPin size={16}/>} value={field.value} onChange={e => field.onChange(parseFloat(e.target.value))} />} />
+              <Controller control={control} name="lng" render={({ field }) => <Input label="Longitude" type="number" step="any" icon={<MapPin size={16}/>} value={field.value} onChange={e => field.onChange(parseFloat(e.target.value))} />} />
             </div>
-          </>
-        )}
+
+            <Controller control={control} name="phone" render={({ field: { onChange, value, ...field } }) => (
+                <Input label="Contact Phone" icon={<Phone size={16}/>} value={value || ""} maxLength={10} onChange={(e: any) => onChange(e.target.value.replace(/[^0-9]/g, '').slice(0, 10))} {...field} />
+            )} />
+
+            <div className="space-y-4 pt-4 border-t border-slate-100">
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest block">Visual Assets</label>
+              <Controller control={control} name="logoUrl" render={({ field }) => (
+                <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl">
+                  <div className="w-16 h-16 rounded-xl bg-white border border-slate-100 flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
+                    {field.value ? <img src={field.value} alt="Logo" className="w-full h-full object-cover" /> : <ImagePlus className="text-slate-200" size={24} />}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-xs font-bold text-slate-600 mb-1">Logo Image</p>
+                    <label className="cursor-pointer inline-flex items-center gap-1.5 text-[11px] font-black text-[#5AB2A8] uppercase tracking-wider px-3 py-2 bg-white rounded-lg shadow-sm border border-slate-100 hover:bg-teal-50 transition-all">
+                      <UploadCloud size={14}/> Upload <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, field.onChange)} />
+                    </label>
+                  </div>
+                </div>
+              )} />
+
+              <Controller control={control} name="coverUrls" render={({ field }) => {
+                const covers: string[] = field.value || [];
+                return (
+                  <div className="p-4 bg-slate-50 rounded-2xl">
+                    <div className="flex justify-between items-center mb-3">
+                      <p className="text-xs font-bold text-slate-600">Cover Gallery ({covers.length}/3)</p>
+                      {covers.length < 3 && (
+                        <label className="cursor-pointer inline-flex items-center gap-1.5 text-[11px] font-black text-[#5AB2A8] uppercase tracking-wider px-3 py-2 bg-white rounded-lg shadow-sm border border-slate-100 hover:bg-teal-50 transition-all">
+                          <Plus size={14}/> Add Photo <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, (newUrl) => field.onChange([...covers, newUrl]))} />
+                        </label>
+                      )}
+                    </div>
+                    <div className="flex gap-3 overflow-x-auto pb-1">
+                      {covers.map((url, idx) => (
+                        <div key={idx} className="relative w-20 h-20 rounded-xl bg-white border border-slate-100 overflow-hidden shrink-0 group shadow-sm">
+                          <img src={url} alt={`Cover ${idx}`} className="w-full h-full object-cover" />
+                          <button type="button" onClick={() => { let n = [...covers]; n.splice(idx, 1); field.onChange(n); }} className="absolute top-1 right-1 bg-rose-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><X size={10}/></button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              }} />
+            </div>
+            
+            <button type="submit" disabled={loading} className="w-full py-4 bg-[#5AB2A8] hover:bg-[#4a968d] text-white font-black rounded-2xl shadow-lg mt-6 active:scale-95 transition-all disabled:opacity-50 uppercase tracking-widest">
+              {loading ? "Processing..." : "Save Information"}
+            </button>
+          </form>
+        </div>
       </SidePanelEdit>
     </div>
   );

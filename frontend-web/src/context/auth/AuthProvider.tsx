@@ -42,12 +42,11 @@ export function AuthProvider({ children }: Props) {
     setToken(null);
     localStorage.removeItem("user");
     localStorage.removeItem("access_token");
-  }
-};
+  };
 
   return (
     <AuthContext.Provider value={{ user, token, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
-}
+}}

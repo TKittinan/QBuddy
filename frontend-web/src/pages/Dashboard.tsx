@@ -1,234 +1,101 @@
-import { useState, useEffect } from "react";
-import StatCard from "../components/ui/StatCard";
+import { useState, useEffect, useMemo } from "react";
+import { useAppDispatch, useAppSelector } from "../redux/hooks";
+import { fetchDashboardData } from "../redux/Slice/dashboardSlice";
+
 import { Table } from "../components/ui/Table/Table";
 import { Dropdown } from "../components/ui/Dropdown";
-import { Button } from "../components/ui/Button";
-import { RefreshCcw, Calendar, ChevronDown, Clock } from "lucide-react";
-import { Status } from "../components/ui/Status";
+import { Pagination } from "../components/ui/Pagination";
+import { StatusBadge } from "../components/ui/StatusBadge";
+import { Clock, Filter, Calendar, ChevronDown, BarChart2, Hourglass, CheckCircle2 } from "lucide-react";
 import type { Column } from "../types";
 
-type ActivityItem = {
-  id: string;
-  user: string;
-  action: string;
-  time: string;
-  status: string;
-  timestamp: number;
-};
-
 export default function Dashboard() {
-  const [range, setRange] = useState<"Day" | "Week" | "Month">("Day");
-  const [activities, setActivities] = useState<ActivityItem[]>([]);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const dispatch = useAppDispatch();
   
-  const [statsData, setStatsData] = useState({
-    totalVisitors: { value: 0, trend: 0 },
-    activeQueues: { value: 0, trend: 0 },
-    avgWaitTime: { value: 0, trend: 0 },
-    completed: { value: 0, trend: 0 }
-  });
+  const { stats, activities, loading } = useAppSelector((state: any) => state.dashboard);
 
-  const getTimeBoundaries = (selectedRange: string) => {
-    const now = new Date();
-    const start = new Date(now);
-    
-    start.setHours(0, 0, 0, 0);
-
-    if (selectedRange === "Week") {
-      const day = start.getDay();
-      const diff = start.getDate() - day + (day === 0 ? -6 : 1); 
-      start.setDate(diff);
-    } else if (selectedRange === "Month") {
-      start.setDate(1);
-    }
-    
-    return start.getTime(); 
-  };
-
-  /*
-  const fetchDashboardDataFromDB = async (startTimeStamp: number) => {
-    try {
-      const response = await fetch(`/api/dashboard/summary?startDate=${startTimeStamp}`);
-      const data = await response.json();
-    } catch (error) {
-      console.error("Failed to fetch database:", error);
-    }
-  };
-  */
-
-  const loadData = () => {
-    setIsRefreshing(true);
-
-    try {
-      const queues = JSON.parse(localStorage.getItem("live_queue_tickets") || "[]");
-      const bookings = JSON.parse(localStorage.getItem("booking_db") || "[]");
-
-      const startTime = getTimeBoundaries(range);
-
-      let totalCount = 0;
-      let activeCount = 0;
-      let completedCount = 0;
-      let totalWaitTime = 0;
-      let queueWithWaitTimeCount = 0;
-
-      const combinedActivities: ActivityItem[] = [];
-
-      const processItems = (items: any[], type: "Queue" | "Booking") => {
-        items.forEach((item: any) => {
-          const itemDate = new Date(item.createdAt || Date.now());
-          const itemTimestamp = itemDate.getTime();
-
-          if (itemTimestamp >= startTime) {
-            totalCount++;
-
-            const status = (item.status || "Waiting").toUpperCase();
-            
-            if (status === "WAITING" || status === "SERVING") activeCount++;
-            if (status === "COMPLETED") completedCount++;
-
-            if (type === "Queue" && typeof item.waitTime === "number") {
-              totalWaitTime += item.waitTime;
-              queueWithWaitTimeCount++;
-            }
-
-            let displayDate = itemDate;
-            if (type === "Booking" && item.dateTime) {
-              displayDate = new Date(item.dateTime);
-            }
-
-            const formattedTime = displayDate.toLocaleString('en-US', { 
-              month: 'short', 
-              day: 'numeric', 
-              hour: 'numeric', 
-              minute: '2-digit', 
-              hour12: true 
-            });
-
-            const customerName = type === "Queue" ? item.name : (item.user?.name || "Unknown");
-
-            combinedActivities.push({
-              id: item.id || Math.random().toString(),
-              user: customerName,
-              action: type === "Queue" ? "Joined Queue" : "Created Booking",
-              time: formattedTime,
-              status: status,
-              timestamp: itemTimestamp
-            });
-          }
-        });
-      };
-
-      processItems(queues, "Queue");
-      processItems(bookings, "Booking");
-
-      combinedActivities.sort((a, b) => b.timestamp - a.timestamp);
-
-      setActivities(combinedActivities);
-      setStatsData({
-        totalVisitors: { value: totalCount, trend: totalCount > 0 ? 5 : 0 }, 
-        activeQueues: { value: activeCount, trend: activeCount > 0 ? 2 : 0 },
-        avgWaitTime: { value: queueWithWaitTimeCount > 0 ? Math.floor(totalWaitTime / queueWithWaitTimeCount) : 0, trend: -1 },
-        completed: { value: completedCount, trend: 0 }
-      });
-
-    } catch (error) {
-      console.error("Error loading dashboard data:", error);
-    } finally {
-      setTimeout(() => setIsRefreshing(false), 500); 
-    }
-  };
+  const [range, setRange] = useState<"All" | "Today" | "Week" | "Month">("All");
+  const [statusFilter, setStatusFilter] = useState<string>("All");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 6;
 
   useEffect(() => {
-    loadData();
-
-    const handleStorageChange = () => loadData();
-    window.addEventListener("storage", handleStorageChange);
+    dispatch(fetchDashboardData(range));
     
-    const intervalId = setInterval(loadData, 60000);
+    // ตั้งเวลาให้ Refresh อัตโนมัติทุกๆ 30 วินาที
+    const interval = setInterval(() => {
+      dispatch(fetchDashboardData(range));
+    }, 30000);
+    
+    return () => clearInterval(interval);
+  }, [dispatch, range]);
 
-    return () => {
-      window.removeEventListener("storage", handleStorageChange);
-      clearInterval(intervalId);
-    };
-  }, [range]);
+  const filteredActivities = useMemo(() => {
+    if (statusFilter === "All") return activities;
+    return activities.filter((act: any) => act.status === statusFilter);
+  }, [activities, statusFilter]);
 
-  const columns: Column<ActivityItem>[] = [
-    { 
-      header: "USER", 
-      key: "user", 
-      className: "w-[30%] text-left font-medium text-slate-700" 
-    },
-    { 
-      header: "ACTION", 
-      key: "action", 
-      className: "w-[30%] text-left text-slate-500" 
-    },
-    { 
-      header: "TIME", 
-      key: "time", 
-      className: "w-[25%] text-left",
-      render: (row) => (
-        <div className="flex items-center gap-2 text-slate-500 font-medium">
-          <Clock size={14} className="text-slate-400 shrink-0" />
-          <span className="text-xs">{row.time}</span>
+  const totalPages = Math.ceil(filteredActivities.length / itemsPerPage);
+  const currentData = filteredActivities.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  useEffect(() => { setCurrentPage(1); }, [statusFilter, range]);
+
+  const columns: Column<any>[] = [
+    { header: "USER", key: "userName", className: "w-[25%] font-bold text-slate-700" },
+    { header: "ACTION TYPE", key: "action", className: "w-[40%] text-slate-500 font-medium" },
+    { header: "TIME", key: "createdAt", className: "w-[20%]", render: (row) => (
+        <div className="flex items-center gap-2 text-slate-500">
+          <Clock size={14} className="text-slate-400" />
+          <span className="text-xs">
+            {new Date(row.createdAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+          </span>
         </div>
       )
     },
-    { 
-      header: "STATUS", 
-      key: "status",
-      className: "w-[15%] text-center",
-      render: (row) => (
-        <div className="flex justify-center">
-          <Status status={row.status} />
-        </div>
-      )
-    },
+    { header: "STATUS", key: "status", className: "w-[15%] text-right", render: (row) => <div className="flex justify-end"><StatusBadge status={row.status} /></div> }
   ];
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h2 className="text-xl font-bold text-slate-800">Summary</h2>
-        <div className="flex items-center gap-3">
-          <Button 
-            variant="outline" 
-            className="flex items-center gap-2 bg-white"
-            onClick={loadData}
-            disabled={isRefreshing}
-          >
-            <RefreshCcw size={16} className={isRefreshing ? "animate-spin text-teal-500" : ""} /> 
-            {isRefreshing ? "Refreshing..." : "Refresh"}
-          </Button>
-          <Dropdown
-            align="right"
-            trigger={
-              <Button variant="outline" className="flex items-center gap-2 bg-white min-w-[120px] justify-between">
-                <div className="flex items-center gap-2"><Calendar size={16} /> {range}</div>
-                <ChevronDown size={16} className="text-slate-400" />
-              </Button>
-            }
-            items={[
-              { label: "Today (00:00 - 23:59)", onClick: () => setRange("Day") },
-              { label: "This Week (From Mon)", onClick: () => setRange("Week") },
-              { label: "This Month (From 1st)", onClick: () => setRange("Month") },
-            ]}
-          />
+    <div className="p-4 lg:p-8 max-w-[1600px] mx-auto w-full pt-10">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <Dropdown align="left" trigger={<button className="bg-white border border-slate-200 text-slate-600 px-4 py-2.5 rounded-xl text-sm font-bold flex items-center shadow-sm"><Filter size={14} className="mr-2"/> Status: {statusFilter} <ChevronDown size={14} className="ml-2"/></button>}
+          items={[
+            { label: "All Status", onClick: () => setStatusFilter("All") },
+            { label: "Waiting", onClick: () => setStatusFilter("Waiting") },
+            { label: "Completed", onClick: () => setStatusFilter("Completed") },
+            { label: "Cancelled", onClick: () => setStatusFilter("Cancelled") }
+          ]}
+        />
+        <Dropdown align="right" trigger={<button className="bg-white border border-slate-200 text-slate-600 px-4 py-2.5 rounded-xl text-sm font-bold flex items-center shadow-sm"><Calendar size={14} className="mr-2 text-[#5AB2A8]"/> Period: {range} <ChevronDown size={14} className="ml-2"/></button>}
+          items={[
+            { label: "All Time", onClick: () => setRange("All") },
+            { label: "Today", onClick: () => setRange("Today") },
+            { label: "This Week", onClick: () => setRange("Week") },
+            { label: "This Month", onClick: () => setRange("Month") },
+          ]}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+          <div><p className="text-sm font-medium text-slate-500 mb-1">Total Bookings</p><h3 className="text-3xl font-black text-slate-800">{stats?.totalVisitors || 0}</h3></div>
+          <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-slate-500"><BarChart2 size={24} /></div>
+        </div>
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+          <div><p className="text-sm font-medium text-slate-500 mb-1">Active Queues</p><h3 className="text-3xl font-black text-[#5AB2A8]">{stats?.activeQueues || 0}</h3></div>
+          <div className="w-12 h-12 rounded-xl bg-teal-50 flex items-center justify-center text-[#5AB2A8]"><Hourglass size={24} /></div>
+        </div>
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+          <div><p className="text-sm font-medium text-slate-500 mb-1">Completed ({range})</p><h3 className="text-3xl font-black text-emerald-600">{stats?.completed || 0}</h3></div>
+          <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-500"><CheckCircle2 size={24} /></div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
-        <StatCard title="Total Visitors" value={statsData.totalVisitors.value} change={statsData.totalVisitors.trend > 0 ? `+${statsData.totalVisitors.trend}%` : `${statsData.totalVisitors.trend}%`} />
-        <StatCard title="Active Queues" value={statsData.activeQueues.value} change={statsData.activeQueues.trend > 0 ? `+${statsData.activeQueues.trend}` : `${statsData.activeQueues.trend}`} />
-        <StatCard title="Avg. Wait Time" value={`${statsData.avgWaitTime.value} mins`} change={statsData.avgWaitTime.trend > 0 ? `+${statsData.avgWaitTime.trend}%` : `${statsData.avgWaitTime.trend}%`} />
-        <StatCard title={`Completed ${range}`} value={statsData.completed.value} />
-      </div>
-
-      <div className="space-y-4 bg-white p-4 lg:p-6 rounded-2xl shadow-sm border border-slate-100">
-        <h2 className="text-lg font-bold text-slate-800 border-b pb-4">Recent Activity</h2>
-        <div className="pt-2">
-          <Table data={activities} columns={columns} emptyMessage="No recent activities found in this time range." />
-        </div>
+      <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 overflow-hidden relative">
+        {loading && <div className="absolute inset-0 bg-white/60 backdrop-blur-sm z-10 flex items-center justify-center font-bold text-[#5AB2A8]">Loading Data...</div>}
+        <h3 className="text-lg font-bold text-slate-800 mb-4 px-2">Global Activity Log</h3>
+        <Table data={currentData} columns={columns} emptyMessage="ไม่พบกิจกรรมในช่วงเวลานี้" />
+        {totalPages > 1 && <Pagination currentPage={currentPage} totalPages={totalPages} onChange={setCurrentPage} />}
       </div>
     </div>
   );
