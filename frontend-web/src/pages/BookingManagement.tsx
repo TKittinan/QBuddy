@@ -3,7 +3,7 @@ import { useOutletContext } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../redux/hooks";
 import { fetchBookings, updateStatusAsync, deleteBooking } from "../redux/Slice/bookingSlice"; 
 import { fetchUsers } from "../redux/Slice/userSlice"; 
-import { fetchPlaces } from "../redux/Slice/placeSlice"; // 🌟 ต้องมีตัวนี้เพื่อดึงชื่อร้าน
+import { fetchPlaces } from "../redux/Slice/placeSlice"; 
 import { Plus, Clock, CheckCircle2, XCircle, MoreHorizontal, Trash2, User, CalendarDays, Filter, ChevronDown, Users, Calendar } from "lucide-react";  
 import { Table } from "../components/ui/Table/Table";
 import { Dropdown } from "../components/ui/Dropdown";
@@ -94,7 +94,7 @@ export default function BookingManagement() {
 
   useEffect(() => {
     dispatch(fetchUsers());
-    dispatch(fetchPlaces()); // 🌟 สำคัญ: ต้องโหลดร้านค้าทั้งหมดมาเก็บไว้ใน Store
+    dispatch(fetchPlaces()); 
   }, [dispatch]);
 
   useEffect(() => {
@@ -132,7 +132,7 @@ export default function BookingManagement() {
       const tableName = table.label || table.name;
       
       const bookedCount = bookings.filter(b => 
-        (b.placeId === watchedShop.id) && // 🌟 ตรวจสอบด้วย placeId
+        (b.placeId === watchedShop.id) && 
         b.tableType === tableName &&
         b.bookDate === selectedDate &&
         (b.status === "Waiting" || b.status === "Serving")
@@ -182,7 +182,7 @@ export default function BookingManagement() {
         name: data.name,
         email: data.selectedEmail?.label, 
         guests: data.pax,
-        placeId: data.selectedShopOption?.id, // 🌟 ส่งไปเป็น placeId ตามความต้องการของ Service
+        placeId: data.selectedShopOption?.id, 
         service: "ร้านอาหาร", 
         tableType: data.tableType,
         bookDate: data.dateTime.split("T")[0],
@@ -309,10 +309,9 @@ export default function BookingManagement() {
     },
     { 
       header: "SHOP NAME", 
-      key: "placeId", // 🌟 ใช้ placeId เป็น key
+      key: "placeId", 
       className: "w-[25%] text-left text-slate-700 font-medium text-sm", 
       render: (row) => { 
-        // 🌟 ค้นหาชื่อร้านค้าจาก allShops โดยใช้ placeId
         const shop = allShops.find((p: Place) => p.id === row.placeId); 
         return <span>{shop ? shop.name : "Unknown"}</span>; 
       }
@@ -512,11 +511,11 @@ export default function BookingManagement() {
               )} />
             </div>
 
-            <div className="space-y-1">
+            {/* 🌟 จุดที่แก้ไข: ลบ disabled ออก แล้วล็อกด้วย CSS แทน */}
+            <div className="space-y-1 pointer-events-none opacity-80">
               <label className="text-xs font-bold text-slate-500 uppercase block">4. Table Type (Auto-selected)</label>
               <select 
                 {...control.register("tableType")}
-                disabled
                 className="w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-xl text-sm outline-none text-slate-600 transition-all cursor-not-allowed"
               >
                 {!watchedShop ? (
