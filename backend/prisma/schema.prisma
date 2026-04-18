@@ -203,6 +203,4 @@ model Settings {
   businessName   String
   phone          String
   email          String
-  maxQueuePerDay Int
-  autoCancelMins Int
 }

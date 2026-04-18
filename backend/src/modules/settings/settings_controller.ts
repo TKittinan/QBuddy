@@ -26,6 +26,7 @@ export class SettingsController {
       // ส่งข้อมูลที่อัปเดตแล้วกลับไป
       res.json(updated);
     } catch (error: any) {
+      console.error("Controller Update Error:", error.message);
       res.status(400).json({ message: error.message });
     }
   }
