@@ -2,14 +2,27 @@ import { supabase } from '../../config/supabase';
 
 export class PlaceService {
   async get_all_places() {
-    // 🌟 เปลี่ยนแค่บรรทัด select ให้เป็น tableTypes:TableType(*) เพื่อให้ชื่อ key แน่นอน
     const { data, error } = await supabase.from('Place').select('*, tableTypes:TableType(*)'); 
     if (error) throw new Error(error.message);
     return data;
   }
 
+  // ฟังก์ชันใหม่สำหรับ AI Chatbot ดึงข้อมูลไปวิเคราะห์
+  async findAll() {
+    try {
+      const { data, error } = await supabase
+        .from('Place')
+        .select('name, type, description');
+      
+      if (error) throw error;
+      return data;
+    } catch (error: any) {
+      console.error("Error in findAll places:", error);
+      throw new Error("Could not fetch places data for AI");
+    }
+  }
+
   async get_place_by_id(id: string) {
-    // 🌟 เปลี่ยนบรรทัดนี้เหมือนกันครับ
     const { data, error } = await supabase.from('Place').select('*, tableTypes:TableType(*)').eq('id', id).single();
     if (error) throw new Error(error.message);
     return data;
@@ -78,12 +91,10 @@ export class PlaceService {
   }
 
   async update_place(id: string, data: any) {
-    // 🌟 แก้ไขจุดนี้เพื่อแยกข้อมูลโต๊ะออกจากข้อมูลร้านค้าหลัก
     const { table_types, tableTypes, TableType, tags, ...place_data } = data;
     const { error: placeError } = await supabase.from('Place').update(place_data).eq('id', id);
     if (placeError) throw new Error(placeError.message);
 
-    // 🌟 จัดการข้อมูลโต๊ะ: ลบของเก่าแล้วเพิ่มของใหม่
     const targetTables = table_types || tableTypes || TableType;
     if (targetTables) {
       await supabase.from('TableType').delete().eq('placeId', id);

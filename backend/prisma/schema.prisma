@@ -76,7 +76,8 @@ model User {
   aiConsented  Boolean      @default(false)
   createdAt    DateTime     @default(now())
   interests    String[]
-
+  resetPasswordToken    String?
+  resetPasswordExpires  DateTime?
   // Relations
   hostedActivities PartyActivity[] @relation("HostRelation")
   joinedActivities Guest[]

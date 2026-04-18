@@ -27,6 +27,25 @@ export class AuthController {
     }
   }
 
+  // ฟังก์ชันสำหรับขอรีเซ็ตรหัสผ่านไว้เชื่อมกับฟีเจอร์ "ลืมรหัสผ่าน" ของ Moblie
+  async forgotPassword(req: Request, res: Response) {
+    try {
+      const { email } = req.body;
+      if (!email) {
+        return res.status(400).json({ message: "กรุณาระบุอีเมล" });
+      }
+
+      // ส่งอีเมลไปให้ service จัดการสร้าง Token และส่งเมลจริง
+      await auth_service.forgotPassword(email);
+
+      // เรามักจะส่งข้อความกลางๆ กลับไปเพื่อความปลอดภัย (ไม่บอกว่ามีเมลนี้ในระบบไหม)
+      res.json({ message: "หากมีอีเมลนี้ในระบบ ระบบจะส่งลิงก์รีเซ็ตรหัสผ่านให้ท่านในเร็วๆ นี้" });
+    } catch (error: any) {
+      // กรณีเกิด Error ทั่วไป เช่น Database พัง หรือระบบส่งเมลมีปัญหา
+      res.status(500).json({ message: error.message });
+    }
+  }
+
   // แถม: ฟังก์ชันสำหรับตรวจสอบสถานะ token (เผื่อหน้าบ้านต้องใช้)
   async get_me(req: Request, res: Response) {
     try {
