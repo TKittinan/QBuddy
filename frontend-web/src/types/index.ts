@@ -119,8 +119,6 @@ export type SettingsState = {
   businessName: string;
   phone: string;
   email: string;
-  maxQueuePerDay: number;
-  autoCancelMins: number;
 };
 
 export type Column<T> = { 

@@ -4,24 +4,39 @@ export class SettingsService {
   // ดึงค่าการตั้งค่าทั้งหมด (ใช้ ID: 1 เสมอ)
   async get_settings() {
     const { data, error } = await supabase
-      .from('settings')
+      .from('Settings')
       .select('*')
       .eq('id', 1)
-      .maybeSingle(); // ใช้ maybeSingle เพราะถ้าไม่เจอจะได้ไม่ Error (ส่ง null กลับไป)
+      .maybeSingle(); //
 
-    if (error) throw new Error(error.message);
+    if (error) {
+      console.error("Error fetching settings:", error.message);
+      throw new Error(error.message);
+    }
     return data;
   }
 
   // อัปเดตหรือสร้างการตั้งค่า (Upsert)
   async update_settings(data: any) {
+    // เตรียมข้อมูลที่จะบันทึก โดยเน้นฟิลด์หลักที่ต้องใช้ร่วมกัน
+    const updateData = {
+      id: 1,
+      businessName: data.businessName,
+      email: data.email,
+      phone: data.phone,
+    };
+
     const { data: updatedSettings, error } = await supabase
-      .from('settings')
-      .upsert({ id: 1, ...data }) // ระบุ id: 1 เพื่อให้ Supabase รู้ว่าต้องทับแถวเดิม
+      .from('Settings')
+      .upsert(updateData) //
       .select()
       .single();
 
-    if (error) throw new Error(error.message);
+    if (error) {
+      console.error("Error updating settings:", error.message);
+      throw new Error(error.message);
+    }
+    
     return updatedSettings;
   }
 }
