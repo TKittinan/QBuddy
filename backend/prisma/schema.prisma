@@ -72,7 +72,7 @@ model User {
   phone        String?
   avatarUrl    String?
   role         RoleType     @default(CUSTOMER)
-  status       UserStatus   @default(ACTIVE)
+  status       UserStatus   @default(INACTIVE)
   aiConsented  Boolean      @default(false)
   createdAt    DateTime     @default(now())
   interests    String[]

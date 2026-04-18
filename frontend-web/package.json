@@ -20,6 +20,7 @@
     "@radix-ui/react-tabs": "^1.1.13",
     "@radix-ui/themes": "^3.3.0",
     "@reduxjs/toolkit": "^2.11.2",
+    "@supabase/supabase-js": "^2.103.3",
     "add": "^2.0.6",
     "axios": "^1.15.0",
     "clsx": "^2.1.1",

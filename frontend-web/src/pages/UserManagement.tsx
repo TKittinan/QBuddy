@@ -13,6 +13,9 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 
+// 🌟 Import supabase client จาก config ที่เราตั้งค่าไว้
+import { supabase } from "../config";
+
 const userSchema = z.object({
   name: z.string().min(1, "กรุณากรอกชื่อ"),
   email: z.string().email("รูปแบบอีเมลไม่ถูกต้อง"),
@@ -35,14 +38,45 @@ export default function UserManagement() {
   const [roleFilter, setRoleFilter] = useState<string>("All");
   const [statusFilter, setStatusFilter] = useState<string>("All");
 
+  // 🌟 State สำหรับเก็บรายชื่อ ID ของผู้ใช้ที่ออนไลน์อยู่ ณ ขณะนั้น
+  const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
+
   const { control, handleSubmit, reset, formState: { errors } } = useForm<UserFormData>({
     resolver: zodResolver(userSchema),
     defaultValues: { name: "", email: "", phone: "", role: "CUSTOMER", password: "" }
   });
 
+  // ดึงข้อมูลผู้ใช้จาก API ตามปกติ
   useEffect(() => { 
     dispatch(fetchUsers()); 
   }, [dispatch]);
+
+  // 🌟 ระบบ Realtime Presence: คอยฟังว่าใครออนไลน์บ้าง
+  useEffect(() => {
+    const channel = supabase.channel('online-status', {
+      config: {
+        presence: {
+          key: 'user_id',
+        },
+      },
+    });
+
+    channel
+      .on('presence', { event: 'sync' }, () => {
+        const newState = channel.presenceState();
+        // ดึง user_id จากทุกคนที่อยู่ใน Channel มาเก็บใน Array
+        const onlineIds = Object.values(newState)
+          .flat()
+          .map((presence: any) => presence.user_id);
+        
+        setOnlineUsers(onlineIds);
+      })
+      .subscribe();
+
+    return () => {
+      channel.unsubscribe();
+    };
+  }, []);
 
   const onSubmit = async (data: UserFormData) => {
     try {
@@ -119,7 +153,20 @@ export default function UserManagement() {
     },
     { header: "Email", key: "email", className: "w-[25%] text-left", render: (row) => <span className="text-sm text-slate-500">{row.email}</span> },
     { header: "Role", key: "role", className: "w-[15%] text-center", render: (row) => <div className="flex justify-center"><span className="text-[10px] font-black tracking-widest uppercase px-2 py-1 bg-slate-50 rounded text-slate-400 border border-slate-100">{row.role}</span></div> },
-    { header: "Status", key: "status", className: "w-[15%] text-center", render: (row) => <div className="flex justify-center"><StatusBadge status={row.status} /></div> },
+    { 
+      header: "Status", 
+      key: "status", 
+      className: "w-[15%] text-center", 
+      render: (row) => {
+        // 🌟 ตัดสินสถานะจากรายชื่อคนออนไลน์ Realtime
+        const isOnline = onlineUsers.includes(row.id);
+        return (
+          <div className="flex justify-center">
+            <StatusBadge status={isOnline ? "ACTIVE" : "INACTIVE"} />
+          </div>
+        );
+      } 
+    },
     { header: "Actions", key: "actions", className: "w-[15%] text-right pr-6", render: (row) => (
       <div className="flex justify-end">
         <Dropdown align="right" trigger={<button className="p-2 text-slate-300 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-all"><MoreHorizontal size={18} /></button>}
@@ -137,7 +184,6 @@ export default function UserManagement() {
   return (
     <div className="p-4 lg:p-10 max-w-[1600px] mx-auto w-full pt-12">
       <div className="flex justify-between items-center mb-10">
-        
         <div className="flex items-center gap-4">
           <div className="relative group">
             <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">

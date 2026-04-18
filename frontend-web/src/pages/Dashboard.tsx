@@ -9,9 +9,14 @@ import { StatusBadge } from "../components/ui/StatusBadge";
 import { Clock, Filter, Calendar, ChevronDown, BarChart2, Hourglass, CheckCircle2 } from "lucide-react";
 import type { Column } from "../types";
 
+// 🌟 ส่วนที่เพิ่ม 1: Import supabase client
+import { supabase } from "../config";
+
 export default function Dashboard() {
   const dispatch = useAppDispatch();
   
+  // 🌟 ส่วนที่เพิ่ม 2: ดึงข้อมูล User จาก Auth State เพื่อใช้ ID ในการส่งสัญญาณ
+  const { user } = useAppSelector((state: any) => state.auth);
   const { stats, activities, loading } = useAppSelector((state: any) => state.dashboard);
 
   const [range, setRange] = useState<"All" | "Today" | "Week" | "Month">("All");
@@ -19,10 +24,32 @@ export default function Dashboard() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
 
+  // ส่วนที่เพิ่ม 3: useEffect สำหรับส่งสัญญาณออนไลน์ (Presence)
+  useEffect(() => {
+    if (!user?.id) return;
+
+    // เชื่อมต่อ Channel เดียวกับที่หน้า UserManagement รอฟังอยู่
+    const channel = supabase.channel('online-status', {
+      config: { 
+        presence: { key: user.id } 
+      }
+    });
+
+    channel.subscribe(async (status) => {
+    if (status === 'SUBSCRIBED') {
+        await channel.track({
+          user_id: user.id, // ส่งค่า ID เข้าไปในก้อนข้อมูลด้วย
+          online_at: new Date().toISOString(),
+        });
+      }
+    });
+
+    return () => { channel.unsubscribe(); };
+  }, [user?.id]);
+
   useEffect(() => {
     dispatch(fetchDashboardData(range));
     
-    // ตั้งเวลาให้ Refresh อัตโนมัติทุกๆ 30 วินาที
     const interval = setInterval(() => {
       dispatch(fetchDashboardData(range));
     }, 30000);
