@@ -6,6 +6,7 @@ import settingsReducer from "./Slice/settingSlice";
 import userReducer from "./Slice/userSlice";
 import postReducer from './Slice/postSlice';
 import authReducer from "./Slice/authSlice";
+import dashboardReducer from "./Slice/dashboardSlice";
 
 export const store = configureStore({
   reducer: {
@@ -16,6 +17,7 @@ export const store = configureStore({
     settings: settingsReducer,
     users: userReducer,
     auth: authReducer,
+    dashboard: dashboardReducer,
   }
 });
 

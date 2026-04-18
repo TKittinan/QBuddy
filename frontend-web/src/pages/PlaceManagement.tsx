@@ -85,6 +85,7 @@ export default function PlaceManagement() {
     }
   };
 
+  // 🌟 จุดที่แก้ไข: ใส่ Logic แมปค่ากลับเข้าฟอร์ม โดยไม่แตะต้อง Style ครับ
   const handleEdit = (place: any) => {
     setEditingPlace(place);
     let parsedCovers: string[] = [];
@@ -94,11 +95,18 @@ export default function PlaceManagement() {
       }
     } catch(e) { parsedCovers = []; }
 
-    const currentTables = (place.TableType || []).map((t: any) => ({
-      name: t.name,
-      label: t.label,
-      capacity: t.capacity
-    }));
+    // ค้นหาข้อมูลโต๊ะจากชื่อ Property ที่เป็นไปได้ทั้งหมด
+    const dbTables = place.tableTypes || place.TableType || [];
+    
+    // 🌟 แมปค่า label จาก DB กลับเป็น value (English) เพื่อให้ปุ่มใน UI แสดงสถานะ "ถูกเลือก"
+    const currentTables = dbTables.map((t: any) => {
+      const foundOption = TABLE_SIZE_OPTIONS.find(opt => opt.label === t.label);
+      return {
+        name: foundOption ? foundOption.value : t.label, // ใช้ value เพื่อเช็คสีปุ่ม
+        label: t.label,
+        capacity: t.capacity
+      };
+    });
 
     reset({ 
       ...place, 

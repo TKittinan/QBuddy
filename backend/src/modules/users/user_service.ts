@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 export class UserService {
   async get_all_users() {
     const { data, error } = await supabase
-      .from('users')
+      .from('User')
       .select('id, name, email, phone, role, status, createdAt');
 
     if (error) throw new Error(error.message);
@@ -13,7 +13,7 @@ export class UserService {
 
   async get_user_by_id(id: string) {
     const { data, error } = await supabase
-      .from('users')
+      .from('User')
       .select('*')
       .eq('id', id)
       .single();
@@ -24,20 +24,19 @@ export class UserService {
 
   async create_user(data: { name: string; email: string; phone?: string; password?: string; role?: any }) {
     let hashed_password = null;
-    
     if (data.password) {
       hashed_password = await bcrypt.hash(data.password, 10);
     }
 
     const { data: newUser, error } = await supabase
-      .from('users')
+      .from('User')
       .insert([{
         name: data.name,
         email: data.email,
         phone: data.phone,
         password: hashed_password,
         role: data.role || 'CUSTOMER',
-        status: 'INACTIVE'
+        status: 'ACTIVE'
       }])
       .select()
       .single();
@@ -51,13 +50,12 @@ export class UserService {
 
   async update_user(id: string, data: any) {
     let updateData = { ...data };
-
     if (updateData.password) {
       updateData.password = await bcrypt.hash(updateData.password, 10);
     }
 
     const { data: updatedUser, error } = await supabase
-      .from('users')
+      .from('User')
       .update(updateData)
       .eq('id', id)
       .select()
@@ -69,7 +67,7 @@ export class UserService {
 
   async delete_user(id: string) {
     const { error } = await supabase
-      .from('users')
+      .from('User')
       .delete()
       .eq('id', id);
 

@@ -111,7 +111,7 @@ export default function UserManagement() {
             <p className="font-bold text-slate-800 text-sm">{row.name}</p>
             <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-0.5">
               <span>{row.phone || "No Phone"}</span>
-              {row.ai_consented && <BrainCircuit size={10} className="text-[#5AB2A8]" />}
+              {row.aiConsented && <BrainCircuit size={10} className="text-[#5AB2A8]" />}
             </div>
           </div>
         </div>

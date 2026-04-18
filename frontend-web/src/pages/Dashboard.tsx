@@ -1,128 +1,101 @@
 import { useState, useEffect, useMemo } from "react";
+import { useAppDispatch, useAppSelector } from "../redux/hooks";
+import { fetchDashboardData } from "../redux/Slice/dashboardSlice";
+
 import { Table } from "../components/ui/Table/Table";
 import { Dropdown } from "../components/ui/Dropdown";
 import { Pagination } from "../components/ui/Pagination";
 import { StatusBadge } from "../components/ui/StatusBadge";
 import { Clock, Filter, Calendar, ChevronDown, BarChart2, Hourglass, CheckCircle2 } from "lucide-react";
 import type { Column } from "../types";
-import { API_BASE_URL } from "../config";
-
-type ActivityItem = {
-  id: string;
-  user: string;
-  action: string;
-  time: string;
-  status: string;
-  timestamp: number;
-};
 
 export default function Dashboard() {
-  const [range, setRange] = useState<"Day" | "Week" | "Month">("Day");
+  const dispatch = useAppDispatch();
+  
+  const { stats, activities, loading } = useAppSelector((state: any) => state.dashboard);
+
+  const [range, setRange] = useState<"All" | "Today" | "Week" | "Month">("All");
   const [statusFilter, setStatusFilter] = useState<string>("All");
-  const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
 
-  const [statsData, setStatsData] = useState({
-    totalVisitors: 0,
-    activeQueues: 0,
-    completed: 0
-  });
-
-  // ==========================================
-  //  1. API: GET - ดึงข้อมูลสถิติและกิจกรรมล่าสุด
-  // ==========================================
-  const loadDashboardData = async () => {
-    try {
-      //  ส่ง Query Params ไปยัง Backend ตามช่วงเวลาที่เลือก (Day/Week/Month)
-      const response = await fetch(`${API_BASE_URL}/dashboard/stats?range=${range}`);
-      if (!response.ok) throw new Error("Fetch error");
-      
-      const data = await response.json();
-      
-      // อัปเดต State ด้วยข้อมูลจริงจาก DB
-      setStatsData(data.stats); 
-      setActivities(data.recentActivities);
-      
-      console.log(`Successfully fetched Dashboard Stats for period: ${range}`);
-    } catch (error) {
-      console.error("Dashboard Load Error:", error);
-    }
-  };
-
-  // ดึงข้อมูลใหม่เมื่อมีการเปลี่ยน range หรือดึงอัตโนมัติทุก 30 วินาที
   useEffect(() => {
-    loadDashboardData();
-    const intervalId = setInterval(loadDashboardData, 30000); 
-    return () => clearInterval(intervalId);
-  }, [range]);
+    dispatch(fetchDashboardData(range));
+    
+    // ตั้งเวลาให้ Refresh อัตโนมัติทุกๆ 30 วินาที
+    const interval = setInterval(() => {
+      dispatch(fetchDashboardData(range));
+    }, 30000);
+    
+    return () => clearInterval(interval);
+  }, [dispatch, range]);
 
   const filteredActivities = useMemo(() => {
     if (statusFilter === "All") return activities;
-    return activities.filter(act => act.status === statusFilter.toUpperCase());
+    return activities.filter((act: any) => act.status === statusFilter);
   }, [activities, statusFilter]);
 
   const totalPages = Math.ceil(filteredActivities.length / itemsPerPage);
   const currentData = filteredActivities.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  useEffect(() => { setCurrentPage(1); }, [statusFilter]);
+  useEffect(() => { setCurrentPage(1); }, [statusFilter, range]);
 
-  const columns: Column<ActivityItem>[] = [
-    { header: "USER", key: "user", className: "w-[30%] text-left font-bold text-slate-700" },
-    { header: "ACTION TYPE", key: "action", className: "w-[30%] text-left text-slate-500 font-medium" },
-    { header: "TIME", key: "time", className: "w-[25%] text-left", render: (row) => (
-        <div className="flex items-center gap-2 text-slate-500 font-medium">
-          <Clock size={14} className="text-slate-400 shrink-0" />
-          <span className="text-xs">{row.time}</span>
+  const columns: Column<any>[] = [
+    { header: "USER", key: "userName", className: "w-[25%] font-bold text-slate-700" },
+    { header: "ACTION TYPE", key: "action", className: "w-[40%] text-slate-500 font-medium" },
+    { header: "TIME", key: "createdAt", className: "w-[20%]", render: (row) => (
+        <div className="flex items-center gap-2 text-slate-500">
+          <Clock size={14} className="text-slate-400" />
+          <span className="text-xs">
+            {new Date(row.createdAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+          </span>
         </div>
       )
     },
-    { header: "STATUS", key: "status", className: "w-[15%] text-right", render: (row) => <div className="flex justify-end"><StatusBadge status={row.status as any} /></div> }
+    { header: "STATUS", key: "status", className: "w-[15%] text-right", render: (row) => <div className="flex justify-end"><StatusBadge status={row.status} /></div> }
   ];
 
   return (
     <div className="p-4 lg:p-8 max-w-[1600px] mx-auto w-full pt-10">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 w-full">
-        <div className="flex flex-wrap items-center gap-3">
-          <Dropdown align="left" trigger={<button className="bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 shadow-sm flex flex-row items-center justify-between min-w-[140px] whitespace-nowrap px-4 py-2.5 rounded-xl text-sm font-bold transition-all"><Filter size={14} className="text-slate-400 mr-2"/> <span>Status: {statusFilter}</span> <ChevronDown size={14} className="ml-2 text-slate-400 shrink-0"/></button>}
-            items={[
-              { label: "All Status", onClick: () => setStatusFilter("All") },
-              { label: "Waiting", onClick: () => setStatusFilter("Waiting") },
-              { label: "Completed", onClick: () => setStatusFilter("Completed") },
-              { label: "Cancelled", onClick: () => setStatusFilter("Cancelled") }
-            ]}
-          />
-        </div>
-
-        <div className="flex items-center">
-          <Dropdown align="right" trigger={<button className="bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 shadow-sm flex flex-row items-center justify-between min-w-[160px] whitespace-nowrap px-4 py-2.5 rounded-xl text-sm font-bold transition-all"><Calendar size={14} className="text-[#5AB2A8] mr-2"/> <span>Period: {range}</span> <ChevronDown size={14} className="ml-2 text-slate-400 shrink-0"/></button>}
-            items={[
-              { label: "Today", onClick: () => setRange("Day") },
-              { label: "This Week", onClick: () => setRange("Week") },
-              { label: "This Month", onClick: () => setRange("Month") },
-            ]}
-          />
-        </div>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <Dropdown align="left" trigger={<button className="bg-white border border-slate-200 text-slate-600 px-4 py-2.5 rounded-xl text-sm font-bold flex items-center shadow-sm"><Filter size={14} className="mr-2"/> Status: {statusFilter} <ChevronDown size={14} className="ml-2"/></button>}
+          items={[
+            { label: "All Status", onClick: () => setStatusFilter("All") },
+            { label: "Waiting", onClick: () => setStatusFilter("Waiting") },
+            { label: "Completed", onClick: () => setStatusFilter("Completed") },
+            { label: "Cancelled", onClick: () => setStatusFilter("Cancelled") }
+          ]}
+        />
+        <Dropdown align="right" trigger={<button className="bg-white border border-slate-200 text-slate-600 px-4 py-2.5 rounded-xl text-sm font-bold flex items-center shadow-sm"><Calendar size={14} className="mr-2 text-[#5AB2A8]"/> Period: {range} <ChevronDown size={14} className="ml-2"/></button>}
+          items={[
+            { label: "All Time", onClick: () => setRange("All") },
+            { label: "Today", onClick: () => setRange("Today") },
+            { label: "This Week", onClick: () => setRange("Week") },
+            { label: "This Month", onClick: () => setRange("Month") },
+          ]}
+        />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between transition-all hover:shadow-md">
-          <div><p className="text-sm font-medium text-slate-500 mb-1">Total Visitors</p><h3 className="text-3xl font-black text-slate-800">{statsData.totalVisitors}</h3></div>
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+          <div><p className="text-sm font-medium text-slate-500 mb-1">Total Bookings</p><h3 className="text-3xl font-black text-slate-800">{stats?.totalVisitors || 0}</h3></div>
           <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-slate-500"><BarChart2 size={24} /></div>
         </div>
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between transition-all hover:shadow-md">
-          <div><p className="text-sm font-medium text-slate-500 mb-1">Active Queues</p><h3 className="text-3xl font-black text-[#5AB2A8]">{statsData.activeQueues}</h3></div>
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+          <div><p className="text-sm font-medium text-slate-500 mb-1">Active Queues</p><h3 className="text-3xl font-black text-[#5AB2A8]">{stats?.activeQueues || 0}</h3></div>
           <div className="w-12 h-12 rounded-xl bg-teal-50 flex items-center justify-center text-[#5AB2A8]"><Hourglass size={24} /></div>
         </div>
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between transition-all hover:shadow-md">
-          <div><p className="text-sm font-medium text-slate-500 mb-1">Completed {range}</p><h3 className="text-3xl font-black text-emerald-600">{statsData.completed}</h3></div>
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+          <div><p className="text-sm font-medium text-slate-500 mb-1">Completed ({range})</p><h3 className="text-3xl font-black text-emerald-600">{stats?.completed || 0}</h3></div>
           <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-500"><CheckCircle2 size={24} /></div>
         </div>
       </div>
 
-      <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-        <Table data={currentData} columns={columns} emptyMessage="No activities found for this period." />
-        <Pagination currentPage={currentPage} totalPages={totalPages} onChange={setCurrentPage} />
+      <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 overflow-hidden relative">
+        {loading && <div className="absolute inset-0 bg-white/60 backdrop-blur-sm z-10 flex items-center justify-center font-bold text-[#5AB2A8]">Loading Data...</div>}
+        <h3 className="text-lg font-bold text-slate-800 mb-4 px-2">Global Activity Log</h3>
+        <Table data={currentData} columns={columns} emptyMessage="ไม่พบกิจกรรมในช่วงเวลานี้" />
+        {totalPages > 1 && <Pagination currentPage={currentPage} totalPages={totalPages} onChange={setCurrentPage} />}
       </div>
     </div>
   );

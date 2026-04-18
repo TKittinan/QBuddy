@@ -3,6 +3,7 @@ import { useOutletContext } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../redux/hooks";
 import { fetchBookings, updateStatusAsync, deleteBooking } from "../redux/Slice/bookingSlice"; 
 import { fetchUsers } from "../redux/Slice/userSlice"; 
+import { fetchPlaces } from "../redux/Slice/placeSlice"; // 🌟 ต้องมีตัวนี้เพื่อดึงชื่อร้าน
 import { Plus, Clock, CheckCircle2, XCircle, MoreHorizontal, Trash2, User, CalendarDays, Filter, ChevronDown, Users, Calendar } from "lucide-react";  
 import { Table } from "../components/ui/Table/Table";
 import { Dropdown } from "../components/ui/Dropdown";
@@ -36,7 +37,6 @@ const bookingSchema = z.object({
 
 type BookingFormData = z.infer<typeof bookingSchema>;
 
-// 🌟 Helper Functions สำหรับ Time Filters
 const isToday = (d: Date) => {
   const today = new Date();
   return d.getDate() === today.getDate() && d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear();
@@ -85,8 +85,7 @@ export default function BookingManagement() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
   
-  // State สำหรับ Time Filter
-  const [timeFilter, setTimeFilter] = useState<"All" | "Today" | "Week" | "Month">("Today"); 
+  const [timeFilter, setTimeFilter] = useState<"All" | "Today" | "Week" | "Month">("All"); 
   const [statusFilter, setStatusFilter] = useState<TicketStatus | "All">("All");
   
   const [isAddPanelOpen, setIsAddPanelOpen] = useState(false);
@@ -95,6 +94,7 @@ export default function BookingManagement() {
 
   useEffect(() => {
     dispatch(fetchUsers());
+    dispatch(fetchPlaces()); // 🌟 สำคัญ: ต้องโหลดร้านค้าทั้งหมดมาเก็บไว้ใน Store
   }, [dispatch]);
 
   useEffect(() => {
@@ -132,7 +132,7 @@ export default function BookingManagement() {
       const tableName = table.label || table.name;
       
       const bookedCount = bookings.filter(b => 
-        (b.shopId === watchedShop.id || (b as any).place_id === watchedShop.id) &&
+        (b.placeId === watchedShop.id) && // 🌟 ตรวจสอบด้วย placeId
         b.tableType === tableName &&
         b.bookDate === selectedDate &&
         (b.status === "Waiting" || b.status === "Serving")
@@ -182,7 +182,7 @@ export default function BookingManagement() {
         name: data.name,
         email: data.selectedEmail?.label, 
         guests: data.pax,
-        shopId: data.selectedShopOption?.id, 
+        placeId: data.selectedShopOption?.id, // 🌟 ส่งไปเป็น placeId ตามความต้องการของ Service
         service: "ร้านอาหาร", 
         tableType: data.tableType,
         bookDate: data.dateTime.split("T")[0],
@@ -228,8 +228,8 @@ export default function BookingManagement() {
 
   const handleEdit = (booking: Ticket) => {
     setEditingBooking(booking);
-    const shop = allShops.find(s => s.id === booking.shopId || s.id === (booking as any).place_id);
-    const user = allUsers?.find(u => u.email === (booking as any).email);
+    const shop = allShops.find(s => s.id === booking.placeId);
+    const user = allUsers?.find(u => u.email === booking.email);
     
     reset({
       name: booking.name,
@@ -239,7 +239,7 @@ export default function BookingManagement() {
       selectedShopOption: shop ? { id: shop.id, label: shop.name, subLabel: shop.branch, originalData: shop } : null,
       selectedEmail: user 
         ? { id: user.id, label: user.email, subLabel: user.name, originalData: user } 
-        : ((booking as any).email ? { id: "temp", label: (booking as any).email, subLabel: booking.name } : null),
+        : (booking.email ? { id: "temp", label: booking.email, subLabel: booking.name } : null),
       selectedPhone: (user && user.phone)
         ? { id: user.id, label: user.phone, subLabel: user.name, originalData: user }
         : null
@@ -261,11 +261,8 @@ export default function BookingManagement() {
 
   const filteredData = useMemo(() => {
     let result = [...bookings];
-
-    // 1. เรียงคิวใหม่สุดไว้บนเสมอ
     result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-    // 2. กรองด้วย Time Filter
     if (timeFilter !== "All") {
       result = result.filter(b => {
         const d = b.bookDate ? new Date(b.bookDate) : new Date(b.createdAt);
@@ -276,12 +273,10 @@ export default function BookingManagement() {
       });
     }
 
-    // 3. กรองด้วย Status Filter
     if (statusFilter !== "All") {
       result = result.filter(b => b.status === statusFilter);
     }
 
-    // 4. กรองด้วยระบบค้นหา
     if (searchQuery) {
       const lowerQ = searchQuery.toLowerCase();
       result = result.filter(b => 
@@ -292,7 +287,6 @@ export default function BookingManagement() {
     return result;
   }, [bookings, statusFilter, timeFilter, searchQuery]);
 
-  // 🌟 ปรับ Columns Table ลบ QUEUES AHEAD และปรับความกว้างให้สวยงาม
   const columns: Column<Ticket>[] = [
     { 
       header: "QUEUE NO", 
@@ -315,10 +309,11 @@ export default function BookingManagement() {
     },
     { 
       header: "SHOP NAME", 
-      key: "shopId", 
+      key: "placeId", // 🌟 ใช้ placeId เป็น key
       className: "w-[25%] text-left text-slate-700 font-medium text-sm", 
       render: (row) => { 
-        const shop = allShops.find((p: Place) => p.id === row.shopId || p.id === (row as any).place_id); 
+        // 🌟 ค้นหาชื่อร้านค้าจาก allShops โดยใช้ placeId
+        const shop = allShops.find((p: Place) => p.id === row.placeId); 
         return <span>{shop ? shop.name : "Unknown"}</span>; 
       }
     },
@@ -429,7 +424,6 @@ export default function BookingManagement() {
         </div>
       )}
 
-      {/* Side Panel (Form) */}
       <SidePanelEdit isOpen={isAddPanelOpen} onClose={() => setIsAddPanelOpen(false)} title={editingBooking ? "Edit Booking" : "New Booking"}>
         <div className="p-8">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -458,7 +452,6 @@ export default function BookingManagement() {
                       }} 
                     />
                   )} />
-                  {errors.selectedEmail && <p className="text-xs text-red-500 mt-1">{errors.selectedEmail.message as string}</p>}
                 </div>
 
                 <div>

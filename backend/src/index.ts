@@ -7,7 +7,7 @@ import support_routes from './modules/support/support_routes';
 import settings from './modules/settings/settings_routes';
 import auth_routes from './modules/auth/auth_routes';
 import cors from 'cors';
-
+import dashboard_routes from './modules/dashboard/dashboard_routes';
 const app = express();
 app.use(cors());
 
@@ -22,6 +22,7 @@ app.use('/api/tickets', ticket_routes);
 app.use('/api/parties', party_routes);
 app.use('/api/support', support_routes);
 app.use('/api/settings', settings);
+app.use('/api/dashboard', dashboard_routes);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

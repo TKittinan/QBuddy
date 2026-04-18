@@ -55,6 +55,14 @@ enum SupportStatus {
 }
 
 // --- Models ---
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userName  String
+  action    String
+  type      String
+  status    String
+  createdAt DateTime @default(now())
+}
 
 model User {
   id           String       @id @default(cuid())
@@ -81,7 +89,6 @@ model Place {
   name            String
   branch          String
   category        String
-  tags            String[]     // PostgreSQL รองรับ String Array
   status          PlaceStatus  @default(Active)
   description     String?
   address         String?
@@ -115,7 +122,7 @@ model TableType {
 
 model Ticket {
   id         String       @id @default(cuid())
-  name       String       // ชื่อผู้จอง
+  name       String
   email      String?
   service    String
   guests     Int
@@ -158,14 +165,14 @@ model PartyActivity {
 model Guest {
   id         String   @id @default(cuid())
   pax        Int
-  status     String   @default("pending") // "pending" | "confirmed"
+  status     String   @default("pending")
 
   userId     String
   user       User     @relation(fields: [userId], references: [id])
   activityId String
   activity   PartyActivity @relation(fields: [activityId], references: [id])
 
-  @@unique([userId, activityId]) // ป้องกันการเข้าร่วมซ้ำ
+  @@unique([userId, activityId])
 }
 
 model SupportTicket {
@@ -192,7 +199,7 @@ model Message {
 }
 
 model Settings {
-  id             Int    @id @default(1) // มีแค่แถวเดียวสำหรับ Global Config
+  id             Int    @id @default(1)
   businessName   String
   phone          String
   email          String

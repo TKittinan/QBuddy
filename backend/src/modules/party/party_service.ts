@@ -34,15 +34,14 @@ export class PartyService {
     };
   }
 
-  // --- แปลงเป็น Supabase ---
   async get_all_parties(userLat?: number, userLng?: number, currentUserId?: string): Promise<PartyWithDetails[]> {
     let query = supabase
-      .from('partyActivities') // ชื่อ Table ใน Supabase
+      .from('PartyActivity') 
       .select(`
         *,
-        host:users!hostId (id, name, avatarUrl, interests),
-        place:places (name, branch),
-        joinedGuests:guests (*)
+        host:User!hostId (id, name, avatarUrl, interests),
+        place:Place (name, branch),
+        joinedGuests:Guest (*)
       `)
       .eq('status', 'Open')
       .order('createdAt', { ascending: false });
@@ -54,12 +53,10 @@ export class PartyService {
     const { data: parties, error } = await query;
     if (error || !parties || parties.length === 0) return [];
 
-    // ดึงสถิติเพื่อคำนวณ Success Rate (ใช้ RPC หรือดึงมา Group เอง)
     const hostIds = [...new Set(parties.map((p: any) => p.hostId))];
     
-    // ดึงข้อมูลกิจกรรมทั้งหมดของ Host เหล่านี้มาคำนวณ Success Rate
     const { data: allStats } = await supabase
-      .from('partyActivities')
+      .from('PartyActivity')
       .select('hostId, status')
       .in('hostId', hostIds);
 
@@ -72,18 +69,16 @@ export class PartyService {
       successRateMap.set(hostId, Math.round(rate));
     });
 
-    // ดึงข้อมูลความสนใจของ User ปัจจุบัน
     let currentUserInterests: string[] = [];
     if (currentUserId) {
       const { data: userData } = await supabase
-        .from('users')
+        .from('User')
         .select('interests')
         .eq('id', currentUserId)
         .single();
       currentUserInterests = userData?.interests || [];
     }
 
-    // Map ข้อมูลกลับไปพร้อมการคำนวณ
     return parties.map((party: any) => {
       const distance = (userLat !== undefined && userLng !== undefined)
         ? parseFloat(this.calculateDistance(userLat, userLng, party.lat, party.lng).toFixed(2))
@@ -115,20 +110,20 @@ export class PartyService {
 
   async create_party(data: any) {
     const { data: newParty, error } = await supabase
-      .from('partyActivities')
+      .from('PartyActivity')
       .insert([{
         title: data.title,
         description: data.description,
         category: data.category,
         tags: data.tags,
-        meetingDate: data.meeting_date,
-        meetingTime: data.meeting_time,
+        meetingDate: data.meetingDate || data.meeting_date,
+        meetingTime: data.meetingTime || data.meeting_time,
         lat: data.lat,
         lng: data.lng,
-        maxGuests: data.max_guests,
+        maxGuests: data.maxGuests || data.max_guests,
         status: 'Open',
-        hostId: data.host_id,
-        placeId: data.place_id
+        hostId: data.hostId || data.host_id,
+        placeId: data.placeId || data.place_id
       }])
       .select()
       .single();
@@ -139,7 +134,7 @@ export class PartyService {
 
   async join_party(data: { activity_id: string; user_id: string; pax: number }) {
     const { data: joinData, error } = await supabase
-      .from('guests')
+      .from('Guest')
       .insert([{
         activityId: data.activity_id,
         userId: data.user_id,
@@ -153,10 +148,9 @@ export class PartyService {
     return joinData;
   }
 
-
   async delete_party(id: string) {
     const { error } = await supabase
-      .from('partyActivities')
+      .from('PartyActivity')
       .delete()
       .eq('id', id);
 

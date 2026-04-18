@@ -14,7 +14,7 @@ export interface User {
   avatarUrl?: string;
   role: RoleType;
   status: "ACTIVE" | "INACTIVE" | "SUSPENDED" | "ONLINE" | "OFFLINE" | "UNVERIFIED";
-  ai_consented?: boolean;
+  aiConsented?: boolean;
   createdAt: string;
 }
 
@@ -51,7 +51,7 @@ export interface Place {
 
 export interface Ticket {
   id: string;
-  shopId: string;
+  placeId: string; // 🌟 แก้จาก shopId/place_id เป็น placeId ให้ตรงกับ Supabase 100%
   name: string;
   service: string;
   guests: number;
@@ -61,7 +61,6 @@ export interface Ticket {
   waitTime?: number;
   status: TicketStatus;
   createdAt: string;
-  place_id?: string;
   email?: string;
 }
 

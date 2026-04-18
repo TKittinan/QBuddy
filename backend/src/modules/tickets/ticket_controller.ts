@@ -4,7 +4,6 @@ import { TicketService } from './ticket_service';
 const ticket_service = new TicketService();
 
 export class TicketController {
-  // ดึงคิวทั้งหมดของร้านค้า
   async list_by_place(req: Request, res: Response) {
     try {
       const tickets = await ticket_service.get_tickets_by_place(req.params.place_id as string);
@@ -14,7 +13,6 @@ export class TicketController {
     }
   }
 
-  // จองคิวใหม่
   async create(req: Request, res: Response) {
     try {
       const new_ticket = await ticket_service.create_ticket(req.body);
@@ -24,49 +22,41 @@ export class TicketController {
     }
   }
 
-  // 🌟 เพิ่มฟังก์ชันสำหรับ Edit Booking
   async update(req: Request, res: Response) {
     try {
-      const updated_ticket = await ticket_service.update_ticket(
-        req.params.id as string,
-        req.body
-      );
+      // หมายเหตุ: ใน ticket_service ต้องมีฟังก์ชัน update_ticket ด้วย (ดูที่ข้อ 2 ด้านล่าง)
+      const updated_ticket = await ticket_service.update_ticket_status(req.params.id as string, req.body.status);
       res.json(updated_ticket);
     } catch (error: any) {
       res.status(400).json({ message: error.message });
     }
   }
 
-  // อัปเดตสถานะคิว (เช่น เรียกคิว หรือ ยกเลิก)
   async update_status(req: Request, res: Response) {
     try {
-      const updated_ticket = await ticket_service.update_ticket_status(
-        req.params.id as string,
-        req.body.status
-      );
+      const updated_ticket = await ticket_service.update_ticket_status(req.params.id as string, req.body.status);
       res.json(updated_ticket);
     } catch (error: any) {
       res.status(400).json({ message: error.message });
     }
   }
 
-  // ดูสถานะคิวปัจจุบันและการคำนวณเวลา (อันนี้ของเดิมที่นายเขียนไว้)
-  async get_status(req: Request, res: Response) {
-    try {
-      const statusData = await ticket_service.get_queue_status(req.params.id as string);
-      res.json(statusData);
-    } catch (error: any) {
-      res.status(404).json({ message: error.message });
-    }
-  }
-
-  // เพิ่มฟังก์ชันลบ Ticket (เพื่อให้ลบข้อมูลที่ผิดพลาดได้)
   async delete(req: Request, res: Response) {
     try {
       await ticket_service.delete_ticket(req.params.id as string);
       res.status(204).send();
     } catch (error: any) {
       res.status(400).json({ message: error.message });
+    }
+  }
+
+  // 6. ดูสถานะคิวปัจจุบัน
+  async get_status(req: Request, res: Response) {
+    try {
+      const statusData = await ticket_service.get_queue_status(req.params.id as string);
+      res.json(statusData);
+    } catch (error: any) {
+      res.status(404).json({ message: error.message });
     }
   }
 }
