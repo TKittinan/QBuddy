@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Image, Alert, Platform, StatusBar } from 'react-native';
 import { Store, Clock, Users, AlertCircle, Calendar as CalendarIcon, Ticket as TicketIcon } from 'lucide-react-native';
 
-import { useAppDispatch, useAppSelector } from '../../hooks/useRedux';
+import { useAppDispatch, useAppSelector } from '../../redux/useRedux';
 import { updateQueueStatus } from '../../redux/slices/queueSlice'; 
 // 🌟 1. ลบ import useQueue ออก
 

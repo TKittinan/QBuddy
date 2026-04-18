@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Image, Platform, StatusBar } from 'react-native';
 import { ArrowLeft, Calendar, Clock, Users, Store } from 'lucide-react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useAppSelector } from '../../hooks/useRedux';
+import { useAppSelector } from '../../redux/useRedux';
 
 export default function BookingConfirm() {
   const router = useRouter();

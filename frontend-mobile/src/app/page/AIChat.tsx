@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Image, TextInput, ScrollView,
 import { ArrowLeft, Send, MapPin } from 'lucide-react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
-import { useAppSelector, useAppDispatch } from '../../hooks/useRedux';
+import { useAppSelector, useAppDispatch } from '../../redux/useRedux';
 import { addMessage } from '../../redux/slices/aichatSlice';
 
 interface PlaceCardType {

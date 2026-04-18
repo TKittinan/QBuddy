@@ -8,7 +8,7 @@ import { AuthLayout } from '../../components/layout/AuthLayout';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 
-import { useAppDispatch } from '../../hooks/useRedux';
+import { useAppDispatch } from '../../redux/useRedux';
 import { loginSuccess } from '../../redux/slices/authSlice'; 
 import { User } from '../../types';
 

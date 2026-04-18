@@ -8,7 +8,7 @@ import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 
 // 🌟 1. นำเข้า Redux Dispatch และ registerAsync (ของจริง)
-import { useAppDispatch, useAppSelector } from '../../hooks/useRedux';
+import { useAppDispatch, useAppSelector } from '../../redux/useRedux';
 import { registerAsync } from '../../redux/slices/authSlice'; 
 
 import { useForm, Controller } from "react-hook-form";

@@ -9,7 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AIChat } from '../../components/ui/AIChat';
 import { CategoryItem } from '../../components/ui/CategoryItem';
 import { Input } from '../../components/ui/Input';
-import { useAppSelector } from '../../hooks/useRedux';
+import { useAppSelector } from '../../redux/useRedux';
 
 export default function HomePage() {
   const router = useRouter();

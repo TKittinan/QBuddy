@@ -1,7 +1,7 @@
 import React from 'react';
 import { TouchableOpacity, StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import { Bookmark } from 'lucide-react-native';
-import { useAppSelector, useAppDispatch } from '../../hooks/useRedux';
+import { useAppSelector, useAppDispatch } from '../../redux/useRedux';
 import { toggleSavePlaceAsync } from '../../redux/slices/savedPlacesSlice';
 
 const EMPTY_ARRAY: string[] = [];

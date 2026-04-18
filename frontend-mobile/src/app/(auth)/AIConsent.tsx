@@ -4,7 +4,7 @@ import { Search, Calendar, Store, LucideIcon, ShieldCheck, Database, BrainCircui
 import { useRouter, Href } from 'expo-router';
 
 import { Button } from '../../components/ui/Button';
-import { useAppDispatch, useAppSelector } from '../../hooks/useRedux';
+import { useAppDispatch, useAppSelector } from '../../redux/useRedux';
 import { updateConsent } from '../../redux/slices/authSlice';
 import { User } from '../../types';
 

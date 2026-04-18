@@ -10,7 +10,7 @@ import * as Location from 'expo-location';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input'; 
 import { Pagination } from '../../components/ui/Pagination'; 
-import { useAppDispatch, useAppSelector } from '../../hooks/useRedux';
+import { useAppDispatch, useAppSelector } from '../../redux/useRedux';
 import { logout } from '../../redux/slices/authSlice';
 import { toggleSavePlace } from '../../redux/slices/savedPlacesSlice'; 
 import { Place } from '../../types';

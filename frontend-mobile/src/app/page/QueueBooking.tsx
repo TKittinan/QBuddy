@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Pla
 import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, ChevronDown, Users, Check } from 'lucide-react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
-import { useAppSelector, useAppDispatch } from '../../hooks/useRedux';
+import { useAppSelector, useAppDispatch } from '../../redux/useRedux';
 // 🌟 1. เปลี่ยนมาใช้ addQueueAsync (ยิงเข้า Backend)
 import { addQueueAsync } from '../../redux/slices/queueSlice'; 
 import { Stepper } from '../../components/ui/Stepper';

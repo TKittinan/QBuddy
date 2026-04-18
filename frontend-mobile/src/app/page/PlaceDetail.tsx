@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Image, Platform, StatusBar, Linking, Alert } from 'react-native';
 import { ArrowLeft, Share, MapPin, Clock, Sparkles, CheckCircle2, Users } from 'lucide-react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useAppSelector } from '../../hooks/useRedux';
+import { useAppSelector } from '../../redux/useRedux';
 
 export default function PlaceDetail() {
   const router = useRouter();

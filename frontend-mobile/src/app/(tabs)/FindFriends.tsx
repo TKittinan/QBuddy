@@ -4,7 +4,7 @@ import { Search, Plus, Minus, X, ArrowLeft, MapPin, MessageCircle, CheckCircle2 
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 
-import { useAppSelector, useAppDispatch } from '../../hooks/useRedux';
+import { useAppSelector, useAppDispatch } from '../../redux/useRedux';
 // 🌟 เปลี่ยน Import เป็น Async Thunk จาก postSlice
 import { addPostAsync, joinPostAsync, fetchPostsAsync, updatePostStatus } from '../../redux/slices/postSlice';
 

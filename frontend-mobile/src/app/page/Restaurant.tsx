@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Platform, Statu
 import { ArrowLeft, Search } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
-import { useAppSelector } from '../../hooks/useRedux';
+import { useAppSelector } from '../../redux/useRedux';
 import { Card } from '../../components/ui/Card';
 import { CategoryChips } from '../../components/ui/CategoryChips';
 import { Place } from '../../types';
