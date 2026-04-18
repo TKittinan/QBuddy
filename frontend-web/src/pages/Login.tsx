@@ -32,23 +32,28 @@ export default function Login() {
     mode: "onSubmit"
   });
 
-  // ถ้า Login สำเร็จ (มี user ใน global state) ให้เด้งไป Dashboard
+
   useEffect(() => {
     if (user) {
-      navigate("/dashboard");
+      navigate("/dashboard", { replace: true });
     }
-  }, [user, navigate]);
+  }, []); 
 
   const onLoginSubmit = async (data: LoginFormData) => {
     setGeneralError("");
 
     try {
-      // เรียกใช้ loginAsync มันจะไปจัดการ Fetch API และเซฟ Token/User ให้เอง
-      // unwrap() ช่วยให้เราดักจับ Error ด้วย try-catch ได้ง่ายๆ
-      await dispatch(loginAsync(data)).unwrap();
+      const result = await dispatch(loginAsync(data)).unwrap();
+      
+      if (result) {
+        setTimeout(() => {
+          navigate("/dashboard", { replace: true });
+        
+        }, 200);
+      }
     } catch (error: any) {
-      // แจ้ง Error บนจอ (เผื่อกรณี redux error ไม่ทำงานหรือไม่แสดง)
-      setGeneralError(error || "Invalid credentials");
+      const errorMessage = typeof error === 'string' ? error : error?.message || "Invalid credentials";
+      setGeneralError(errorMessage);
     }
   };
 
@@ -66,7 +71,7 @@ export default function Login() {
         <div className="p-8 sm:p-10">
           <form onSubmit={handleSubmit(onLoginSubmit)} className="space-y-6">
             {(generalError || reduxError) && (
-              <div className="p-3 bg-red-50 text-red-600 border border-red-100 rounded-xl text-sm font-medium text-center">
+              <div className="p-3 bg-red-50 text-red-600 border border-red-100 rounded-xl text-sm font-medium text-center animate-in fade-in duration-300">
                 {generalError || reduxError}
               </div>
             )}
@@ -83,6 +88,7 @@ export default function Login() {
                     placeholder="name@company.com" 
                     icon={<EnvelopeClosedIcon />} 
                     className={errors.email ? "border-red-400" : ""} 
+                    disabled={loading}
                   />
                   {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email.message}</p>}
                 </div>
@@ -102,6 +108,7 @@ export default function Login() {
                       placeholder="Enter your password" 
                       icon={<LockClosedIcon />} 
                       className={`pr-10 ${errors.password ? "border-red-400" : ""}`} 
+                      disabled={loading}
                     />
                     {errors.password && <p className="text-xs text-red-500 mt-1">{errors.password.message}</p>}
                   </div>
@@ -111,6 +118,7 @@ export default function Login() {
                 type="button" 
                 onClick={() => setShowPassword((prev) => !prev)} 
                 className="absolute right-3 top-[38px] text-slate-400 hover:text-slate-600 transition-colors"
+                disabled={loading}
               >
                 {showPassword ? <EyeNoneIcon /> : <EyeOpenIcon />}
               </button>
@@ -118,10 +126,17 @@ export default function Login() {
 
             <Button 
               type="submit" 
-              disabled={loading} // ปิดปุ่มระหว่างโหลด
-              className="w-full h-12 rounded-xl text-base shadow-lg shadow-teal-100 bg-[#5AB2A8] hover:bg-[#4a968d] mt-2"
+              disabled={loading} 
+              className="w-full h-12 rounded-xl text-base shadow-lg shadow-teal-100 bg-[#5AB2A8] hover:bg-[#4a968d] mt-2 flex items-center justify-center gap-2"
             >
-              {loading ? "Signing in..." : "Sign In to Admin Panel"}
+              {loading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Signing in...
+                </>
+              ) : (
+                "Sign In to Admin Panel"
+              )}
             </Button>
           </form>
         </div>
