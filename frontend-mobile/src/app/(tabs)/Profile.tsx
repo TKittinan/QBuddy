@@ -10,7 +10,7 @@ import * as Location from 'expo-location';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input'; 
 import { Pagination } from '../../components/ui/Pagination'; 
-import { useAppDispatch, useAppSelector } from '../../hooks/useRedux';
+import { useAppDispatch, useAppSelector } from '../../redux/useRedux';
 import { logout } from '../../redux/slices/authSlice';
 import { toggleSavePlace } from '../../redux/slices/savedPlacesSlice'; 
 import { Place } from '../../types';
@@ -31,13 +31,20 @@ interface MenuItemProps { icon: LucideIcon; title: string; subtitle: string; onP
 export default function ProfilePage() {
   const router = useRouter();
   const dispatch = useAppDispatch();
-  const user = useAppSelector(state => state.auth.user) || { name: 'Taggsh', email: '' };
   
-  const allPlaces = useAppSelector(state => state.places?.places || []);
-  const savedPlaceIds = useAppSelector(state => state.savedPlaces?.savedByUser[user.name] || []);
+  // 🌟 ลบ Mock ทิ้ง ดึง User จาก DB
+  const user = useAppSelector((state: any) => state.auth?.user);
+  
+  // 🌟 ดึงข้อมูลจาก Redux แบบดักจับ .data ของจริงจาก DB ป้องกันจอขาว
+  const placesState = useAppSelector((state: any) => state.places);
+  const rawPlaces = placesState?.places?.data || placesState?.places || [];
+  const allPlaces = Array.isArray(rawPlaces) ? rawPlaces : [];
+
+  const savedPlacesState = useAppSelector((state: any) => state.savedPlaces);
+  const savedPlaceIds = savedPlacesState?.savedByUser?.[user?.name || ''] || [];
 
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
-  const [userName, setUserName] = useState(user.name);
+  const [userName, setUserName] = useState(user?.name || '');
   
   const [modals, setModals] = useState({ edit: false, ai: false, privacy: false, saved: false, general: false, report: false });
   const [settings, setSettings] = useState({ notifications: false, location: false });
@@ -47,7 +54,7 @@ export default function ProfilePage() {
 
   const { control, handleSubmit, reset, formState: { errors } } = useForm<EditProfileFormData>({
     resolver: zodResolver(editProfileSchema),
-    defaultValues: { name: user.name, email: user.email }
+    defaultValues: { name: user?.name || '', email: user?.email || '' }
   });
 
   useEffect(() => {
@@ -70,13 +77,12 @@ export default function ProfilePage() {
   const totalPages = Math.ceil(savedPlacesList.length / ITEMS_PER_PAGE);
 
   const openModal = (key: keyof typeof modals) => {
-    if (key === 'edit') reset({ name: user.name, email: user.email }); 
+    if (key === 'edit') reset({ name: user?.name || '', email: user?.email || '' }); 
     setModals({ ...modals, [key]: true });
   };
   const closeModal = (key: keyof typeof modals) => setModals({ ...modals, [key]: false });
 
   const handlePickImage = async () => {
-    // โลจิกถ่ายรูปเหมือนเดิม
   };
 
   const toggleLocation = async (value: boolean) => {
@@ -108,7 +114,7 @@ export default function ProfilePage() {
   };
 
   const removeSavedPlace = (placeId: string) => {
-    dispatch(toggleSavePlace({ username: user.name, placeId }));
+    dispatch(toggleSavePlace({ username: user?.name || '', placeId }));
     if (savedPlacesList.length <= 1) closeModal('saved'); 
   };
 
@@ -179,8 +185,6 @@ export default function ProfilePage() {
         </ScrollView>
       </View>
 
-      {/* (ข้าม Modal Edit, Privacy, General, AI โค้ดเหมือนเดิมเป๊ะ) */}
-
       <Modal visible={modals.saved} animationType="slide" statusBarTranslucent={true}>
         <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
           <View className="flex-1 bg-[#F7FAFC]">
@@ -198,7 +202,6 @@ export default function ProfilePage() {
                   <Text className="text-gray-500 mt-2 text-center">คุณสามารถกดบันทึกร้านอาหารหรือคาเฟ่ที่คุณชอบ เพื่อให้แสดงในหน้านี้ได้</Text>
                 </View>
               ) : (
-                // 🌟 ใส่ Intersection Type Place & { distance... } ตรงนี้ให้ Error หาย
                 savedPlacesList.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE).map((place: Place & { distance?: string | number, category?: string }) => (
                   <View key={place.id} className="bg-white rounded-2xl p-4 mb-4 shadow-sm border border-gray-100 flex-row items-center">
                     <Image source={{ uri: place.image }} className="w-16 h-16 rounded-xl mr-4" />

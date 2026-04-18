@@ -1,22 +1,9 @@
 import React, { ReactNode } from 'react';
 import { SafeAreaView, KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { User } from '../../types';
 
 interface AuthLayoutProps {
   children: ReactNode;
 }
-
-export const UserRegCheck = async (fullName: string, email: string, phone: string) => {
-  const existingUsersJson = await AsyncStorage.getItem('mock_users_db');
-  const existingUsers = existingUsersJson ? JSON.parse(existingUsersJson) as User[] : [];
-
-  return {
-    isNameTaken: existingUsers.some((u) => u.name === fullName),
-    isEmailTaken: existingUsers.some((u) => u.email === email),
-    isPhoneTaken: existingUsers.some((u) => u.phone === phone),
-  };
-};
 
 export const AuthLayout: React.FC<AuthLayoutProps> = ({ children }) => {
   return (
@@ -31,7 +18,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({ children }) => {
 };
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#FFFFFF' },
+  safeArea: { flex: 1, backgroundColor: '#F7FAFC' },
   container: { flex: 1 },
-  scrollContent: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 60, paddingBottom: 40, justifyContent: 'center' }
+  scrollContent: { flexGrow: 1, justifyContent: 'center', padding: 24 }
 });

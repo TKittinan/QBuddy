@@ -1,8 +1,8 @@
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 import axios from "axios";
-import { PartyActivity, Guest, ActivityStatus } from "../../types"; // Note: PartyActivity type might need updates for new fields
-
-const API_URL = "http://192.168.1.X:5000/api/posts";
+import { PartyActivity, Guest, ActivityStatus } from "../../types"; 
+// 🌟 1. นำเข้า API_BASE_URL
+import { API_BASE_URL } from "../../config";
 
 interface PostState {
   posts: PartyActivity[];
@@ -20,11 +20,10 @@ const initialState: PostState = {
 
 export const fetchPostsAsync = createAsyncThunk(
   "post/fetchPosts",
-  /* Remove ? from params and use | void instead */
   async (params: { lat?: number; lng?: number; userId?: string } | void, { rejectWithValue }) => {
     try {
-      /* Build the URL with query parameters if params are provided */
-      const url = new URL(API_URL);
+      // 🌟 2. ใช้ API_BASE_URL
+      const url = new URL(`${API_BASE_URL}/posts`);
       if (params) {
         if (params.lat) url.searchParams.set('lat', String(params.lat));
         if (params.lng) url.searchParams.set('lng', String(params.lng));
@@ -34,31 +33,46 @@ export const fetchPostsAsync = createAsyncThunk(
       const response = await axios.get(url.toString());
       return response.data;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || "Fetch error");
+      return rejectWithValue(error.response?.data?.message || "Failed to load posts");
     }
   }
 );
 
 export const addPostAsync = createAsyncThunk(
   "post/addPost",
-  async (postData: PartyActivity, { rejectWithValue }) => {
+  async (postData: Partial<PartyActivity>, { rejectWithValue }) => {
     try {
-      const response = await axios.post(API_URL, postData);
+      // 🌟 3. ใช้ API_BASE_URL
+      const response = await axios.post(`${API_BASE_URL}/posts`, postData);
       return response.data;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || "Add error");
+      return rejectWithValue(error.response?.data?.message || "Failed to add post");
     }
   }
 );
 
 export const joinPostAsync = createAsyncThunk(
   "post/joinPost",
-  async ({ postId, guest }: { postId: string; guest: Omit<Guest, 'status'> }, { rejectWithValue }) => {
+  async (data: { postId: string; guest: Guest }, { rejectWithValue }) => {
     try {
-      const response = await axios.post(`${API_URL}/${postId}/join`, guest);
-      return response.data;
+      // 🌟 4. ใช้ API_BASE_URL
+      const response = await axios.post(`${API_BASE_URL}/posts/${data.postId}/join`, data.guest);
+      return { postId: data.postId, guest: data.guest, data: response.data };
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || "Join error");
+      return rejectWithValue(error.response?.data?.message || "Failed to join post");
+    }
+  }
+);
+
+export const updatePostStatus = createAsyncThunk(
+  "post/updateStatus",
+  async ({ id, status }: { id: string; status: ActivityStatus }, { rejectWithValue }) => {
+    try {
+      // 🌟 5. ใช้ API_BASE_URL
+      await axios.patch(`${API_BASE_URL}/posts/${id}/status`, { status });
+      return { id, status };
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || "Failed to update status");
     }
   }
 );
@@ -67,20 +81,12 @@ const postSlice = createSlice({
   name: "post",
   initialState,
   reducers: {
-    setPosts: (state, action: PayloadAction<PartyActivity[]>) => {
-      state.posts = action.payload;
+    addJoinedPost: (state, action: PayloadAction<string>) => {
+      if (!state.joinedPosts.includes(action.payload)) {
+        state.joinedPosts.push(action.payload);
+      }
     },
-    addPost: (state, action: PayloadAction<PartyActivity>) => {
-      state.posts.push(action.payload);
-    },
-    updatePostStatus: (state, action: PayloadAction<{ id: string; status: ActivityStatus }>) => {
-      const post = state.posts.find(p => p.id === action.payload.id);
-      if (post) post.status = action.payload.status;
-    },
-    deletePost: (state, action: PayloadAction<string>) => {
-      state.posts = state.posts.filter(p => p.id !== action.payload);
-    },
-    joinPost: (state, action: PayloadAction<{postId: string, guest: Omit<Guest, 'status'>}>) => {
+    optimisticJoin: (state, action: PayloadAction<{postId: string, guest: Guest}>) => {
       const post = state.posts.find(p => p.id === action.payload.postId);
       if (post) post.joinedGuests.push({ ...action.payload.guest, status: 'pending' });
       if (!state.joinedPosts.includes(action.payload.postId)) state.joinedPosts.push(action.payload.postId);
@@ -94,7 +100,8 @@ const postSlice = createSlice({
       })
       .addCase(fetchPostsAsync.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.posts = action.payload;
+        // 🌟 ดักจับ Array ป้องกันหน้าจอขาว
+        state.posts = Array.isArray(action.payload) ? action.payload : (action.payload?.data || []);
       })
       .addCase(fetchPostsAsync.rejected, (state, action) => {
         state.isLoading = false;
@@ -105,18 +112,28 @@ const postSlice = createSlice({
       })
       .addCase(addPostAsync.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.posts.push(action.payload);
+        const newPost = action.payload?.data || action.payload;
+        state.posts.push(newPost);
       })
       .addCase(addPostAsync.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string;
       })
       .addCase(joinPostAsync.fulfilled, (state, action) => {
-        const index = state.posts.findIndex(p => p.id === action.payload.id);
-        if (index !== -1) state.posts[index] = action.payload;
+        const index = state.posts.findIndex(p => p.id === action.payload.postId);
+        if (index !== -1 && !state.posts[index].joinedGuests.some(g => g.userId === action.payload.guest.userId)) {
+           state.posts[index].joinedGuests.push(action.payload.guest);
+        }
+        if (!state.joinedPosts.includes(action.payload.postId)) {
+          state.joinedPosts.push(action.payload.postId);
+        }
+      })
+      .addCase(updatePostStatus.fulfilled, (state, action) => {
+        const post = state.posts.find(p => p.id === action.payload.id);
+        if (post) post.status = action.payload.status;
       });
   }
 });
 
-export const { setPosts, addPost, updatePostStatus, deletePost, joinPost } = postSlice.actions;
+export const { addJoinedPost, optimisticJoin } = postSlice.actions;
 export default postSlice.reducer;

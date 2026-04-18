@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 import axios from "axios";
-
-const API_URL = "http://192.168.1.X:5000/api/chat";
+// 🌟 1. นำเข้า API_BASE_URL
+import { API_BASE_URL } from "../../config";
 
 export interface ChatMessage {
   id: string;
@@ -26,7 +26,8 @@ export const fetchChatHistoryAsync = createAsyncThunk(
   "chat/fetchHistory",
   async (activityId: string, { rejectWithValue }) => {
     try {
-      const response = await axios.get(`${API_URL}/${activityId}`);
+      // 🌟 2. ใช้ API_BASE_URL
+      const response = await axios.get(`${API_BASE_URL}/chat/${activityId}`);
       return response.data;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || "Failed to load chat");
@@ -38,7 +39,8 @@ export const sendChatMessageAsync = createAsyncThunk(
   "chat/sendMessage",
   async (messageData: Partial<ChatMessage>, { rejectWithValue }) => {
     try {
-      const response = await axios.post(API_URL, messageData);
+      // 🌟 3. ใช้ API_BASE_URL
+      const response = await axios.post(`${API_BASE_URL}/chat`, messageData);
       return response.data;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || "Failed to send message");
@@ -57,10 +59,12 @@ const chatSlice = createSlice({
   extraReducers: (builder) => {
     builder
       .addCase(fetchChatHistoryAsync.fulfilled, (state, action) => {
-        state.messages = action.payload;
+        // 🌟 ดักจับ Array ป้องกันหน้าจอขาว
+        state.messages = Array.isArray(action.payload) ? action.payload : (action.payload?.data || []);
       })
       .addCase(sendChatMessageAsync.fulfilled, (state, action) => {
-        state.messages.push(action.payload);
+        const newMessage = action.payload?.data || action.payload;
+        state.messages.push(newMessage);
       });
   }
 });

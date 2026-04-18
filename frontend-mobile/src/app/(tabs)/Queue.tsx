@@ -2,20 +2,25 @@ import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Image, Alert, Platform, StatusBar } from 'react-native';
 import { Store, Clock, Users, AlertCircle, Calendar as CalendarIcon, Ticket as TicketIcon } from 'lucide-react-native';
 
-import { useAppDispatch, useAppSelector } from '../../hooks/useRedux';
+import { useAppDispatch, useAppSelector } from '../../redux/useRedux';
 import { updateQueueStatus } from '../../redux/slices/queueSlice'; 
-// 🌟 1. ลบ import useQueue ออก
 
 type FilterType = 'active' | 'all' | 'success' | 'cancelled';
 
 export default function QueuePage() {
   const dispatch = useAppDispatch();
-  // 🌟 2. ลบ getQueueDetails ออก
   
-  const user = useAppSelector((state: any) => state.auth?.user) || { name: 'Taggsh' }; 
-  const places = useAppSelector((state: any) => state.places?.places || []);
+  // 🌟 ลบ Mock ทิ้ง ดึง User จาก DB
+  const user = useAppSelector((state: any) => state.auth?.user); 
   
-  const allTickets = useAppSelector((state: any) => state.queue?.tickets || []);
+  // 🌟 ดึงข้อมูลจาก Redux แบบดักจับ .data ของจริงจาก DB
+  const placesState = useAppSelector((state: any) => state.places);
+  const rawPlaces = placesState?.places?.data || placesState?.places || [];
+  const places = Array.isArray(rawPlaces) ? rawPlaces : [];
+  
+  const queueState = useAppSelector((state: any) => state.queue);
+  const rawTickets = queueState?.tickets?.data || queueState?.tickets || queueState?.allTickets?.data || queueState?.allTickets || [];
+  const allTickets = Array.isArray(rawTickets) ? rawTickets : [];
 
   const [activeFilter, setActiveFilter] = useState<FilterType>('active');
 
@@ -84,9 +89,8 @@ export default function QueuePage() {
           activeTickets.length > 0 ? (
             <View>
               {activeTickets.map((ticket: any) => {
-                // 🌟 3. เปลี่ยนวิธีการดึงข้อมูลร้าน โดยค้นหาจาก places แทนการใช้ getQueueDetails
                 const shop = places.find((p: any) => p.id === ticket.shopId) || { name: 'Unknown Shop', logoUrl: 'https://via.placeholder.com/150', tableTypes: [] };
-                const queuesAhead = ticket.queuesAhead || 0; // ใส่ค่า Fallback เผื่อ Backend ยังไม่ส่งมา
+                const queuesAhead = ticket.queuesAhead || 0; 
                 const estimatedWaitTime = ticket.estimatedWaitTime || 15;
 
                 const isServing = ticket.status === 'Serving';

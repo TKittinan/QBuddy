@@ -2,8 +2,7 @@ import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 import axios from "axios";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User } from "../../types";
-
-const API_URL = "http://192.168.1.X:5000/api/auth";
+import { API_BASE_URL } from "../../config";
 
 interface AuthState {
   user: User | null;
@@ -23,8 +22,9 @@ export const loginAsync = createAsyncThunk(
   "auth/login",
   async (credentials: any, { rejectWithValue }) => {
     try {
-      const response = await axios.post(`${API_URL}/login`, credentials);
-      const { user, token } = response.data;
+      const response = await axios.post(`${API_BASE_URL}/auth/login`, credentials);
+      const data = response.data?.data || response.data;
+      const { user, token } = data;
       await AsyncStorage.setItem('user_token', token);
       await AsyncStorage.setItem('user_data', JSON.stringify(user));
       return { user, token };
@@ -38,7 +38,7 @@ export const registerAsync = createAsyncThunk(
   "auth/register",
   async (userData: any, { rejectWithValue }) => {
     try {
-      const response = await axios.post(`${API_URL}/register`, userData);
+      const response = await axios.post(`${API_BASE_URL}/auth/register`, userData);
       return response.data;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || "Registration failed");

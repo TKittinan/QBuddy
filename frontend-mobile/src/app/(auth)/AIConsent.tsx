@@ -4,9 +4,8 @@ import { Search, Calendar, Store, LucideIcon, ShieldCheck, Database, BrainCircui
 import { useRouter, Href } from 'expo-router';
 
 import { Button } from '../../components/ui/Button';
-import { useAppDispatch, useAppSelector } from '../../hooks/useRedux';
+import { useAppDispatch, useAppSelector } from '../../redux/useRedux';
 import { updateConsent } from '../../redux/slices/authSlice';
-import { User } from '../../types';
 
 interface FeatureItemProps {
   icon: LucideIcon;
@@ -23,12 +22,8 @@ export default function AIConsentPage() {
   const handleAccept = async () => {
     setIsLoading(true);
     try {
-      // 🌟 อัปเดต Redux State เพียงอย่างเดียว (ไม่ต้อง Mock ลง AsyncStorage แล้ว)
       dispatch(updateConsent(true));
-      
-      // นำทางไปหน้าหลัก (ระบุไฟล์ให้ชัดเจน ป้องกันจอดำ)
       router.replace('/(tabs)/Home' as Href);
-      
     } catch (error) {
       Alert.alert('เกิดข้อผิดพลาด', 'ไม่สามารถบันทึกข้อมูลได้ กรุณาลองใหม่อีกครั้ง');
       console.error('Update failed', error);

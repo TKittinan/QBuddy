@@ -4,7 +4,7 @@ import { Provider } from "react-redux";
 import * as Location from 'expo-location';
 
 import { store } from "../redux";
-import { useAppSelector } from "../hooks/useRedux";
+import { useAppSelector } from "../redux/useRedux";
 import "./global.css";
 
 const RootNavigation = () => {

@@ -2,44 +2,24 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { Mail, EyeOff, Eye, Lock } from 'lucide-react-native';
 import { useRouter, Href } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { AuthLayout } from '../../components/layout/AuthLayout';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 
-import { useAppDispatch } from '../../hooks/useRedux';
-import { loginSuccess } from '../../redux/slices/authSlice'; 
-import { User } from '../../types';
+import { useAppDispatch } from '../../redux/useRedux';
+import { loginAsync } from '../../redux/slices/authSlice'; 
 
-// 🌟 1. นำเข้า Hook Form และ Zod
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 
-// 🌟 2. กำหนด Schema
 const loginSchema = z.object({
   emailOrPhone: z.string().min(1, "กรุณากรอกอีเมลหรือเบอร์โทรศัพท์"),
   password: z.string().min(1, "กรุณากรอกรหัสผ่าน")
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;
-
-const mockLoginAPI = async (loginData: LoginFormData): Promise<User> => {
-  await new Promise(resolve => setTimeout(resolve, 500));
-  const existingUsersJson = await AsyncStorage.getItem('mock_users_db');
-  
-  if (!existingUsersJson) throw new Error('ไม่พบบัญชีผู้ใช้งานในระบบ กรุณาสมัครสมาชิกก่อน');
-
-  const existingUsers = JSON.parse(existingUsersJson) as User[];
-  const foundUser = existingUsers.find((u) => u.email === loginData.emailOrPhone || u.phone === loginData.emailOrPhone);
-  
-  if (!foundUser) throw new Error('ไม่พบบัญชีผู้ใช้งานนี้ในระบบ');
-  if ((foundUser as User & { password?: string }).password !== loginData.password) throw new Error('รหัสผ่านไม่ถูกต้อง');
-
-  const { password, ...userWithoutPassword } = foundUser as any;
-  return userWithoutPassword as User;
-};
 
 export default function LoginPage() {
   const router = useRouter();
@@ -48,7 +28,6 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState('');
 
-  // 🌟 3. ติดตั้ง useForm
   const { control, handleSubmit, formState: { errors } } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
     defaultValues: { emailOrPhone: "", password: "" },
@@ -58,10 +37,17 @@ export default function LoginPage() {
     setApiError('');
     setIsLoading(true);
     try {
-      const userData = await mockLoginAPI(data);
-      dispatch(loginSuccess(userData));
+      // 🌟 ยิงไปที่ Backend จริงผ่าน Redux Async Thunk
+      const payload = {
+        email: data.emailOrPhone, 
+        password: data.password
+      };
+      
+      await dispatch(loginAsync(payload)).unwrap();
+      // หากล็อคอินผ่าน Redux จะจัดการ State และ AsyncStorage ให้เอง เลย์เอาต์หลักจะพาข้ามหน้าให้
+      
     } catch (error: any) {
-      setApiError(error.message || 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ');
+      setApiError(error || 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ');
     } finally {
       setIsLoading(false);
     }

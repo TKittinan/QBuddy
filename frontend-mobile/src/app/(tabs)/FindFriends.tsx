@@ -4,19 +4,24 @@ import { Search, Plus, Minus, X, ArrowLeft, MapPin, MessageCircle, CheckCircle2 
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 
-import { useAppSelector, useAppDispatch } from '../../hooks/useRedux';
-// 🌟 เปลี่ยน Import เป็น Async Thunk จาก postSlice
+import { useAppSelector, useAppDispatch } from '../../redux/useRedux';
 import { addPostAsync, joinPostAsync, fetchPostsAsync, updatePostStatus } from '../../redux/slices/postSlice';
+
+import { PartyActivity, Ticket, Place, User, Guest, TableType } from '../../types';
+// 🌟 นำเข้า RootState จาก Redux store โดยตรง
+import { RootState } from '../../redux'; 
 
 export default function FindFriendsPage() {
   const router = useRouter();
-  const dispatch = useAppDispatch();
+  const dispatch = useAppDispatch(); 
   
-  const user = useAppSelector((state: any) => state.auth?.user) || { id: 'me_1', name: 'Taggsh' };
-  // 🌟 ดึงข้อมูลจาก state.post.posts (ของจริงจาก Backend)
-  const allActivities = useAppSelector((state: any) => state.post?.posts || []);
-  const allTickets = useAppSelector((state: any) => state.queue?.allTickets || []);
-  const places = useAppSelector((state: any) => state.places?.places || []);
+  // 🌟 ใช้ RootState ของจริงจากระบบ แทน LocalRootState ที่สร้างมั่ว
+  const user: User | null = useAppSelector((state: RootState) => state.auth.user);
+  
+  // 🌟 ดึงข้อมูลโดยไม่ต้องแปลงโครงสร้าง เพราะ RootState รู้จักโครงสร้างของจริงแล้ว
+  const allActivities: PartyActivity[] = useAppSelector((state: RootState) => state.post.posts || []);
+  const allTickets: Ticket[] = useAppSelector((state: RootState) => state.queue.tickets || []);
+  const places: Place[] = useAppSelector((state: RootState) => state.places.places || []);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('ร้านอาหาร');
@@ -27,18 +32,19 @@ export default function FindFriendsPage() {
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
 
   const [isJoinModalVisible, setIsJoinModalVisible] = useState(false);
-  const [selectedActivityToJoin, setSelectedActivityToJoin] = useState<any>(null);
+  const [selectedActivityToJoin, setSelectedActivityToJoin] = useState<PartyActivity | null>(null);
   const [joinPax, setJoinPax] = useState<number>(1);
 
   const [isChatListModalVisible, setIsChatListModalVisible] = useState(false);
 
   const myActiveTickets = useMemo(() => {
-    return allTickets.filter((t: any) => 
+    if (!user) return [];
+    return allTickets.filter((t: Ticket) => 
       t.name === user.name && 
       (t.status === 'Waiting' || t.status === 'Serving') &&
       t.tableType 
     );
-  }, [allTickets, user.name]);
+  }, [allTickets, user]);
 
   useEffect(() => {
     (async () => {
@@ -54,9 +60,8 @@ export default function FindFriendsPage() {
     })();
   }, []);
 
-  // 🌟 สั่งให้ดึงข้อมูลจาก Backend พร้อมส่งพิกัดไปให้คำนวณ
   useEffect(() => {
-    if (location && user) {
+    if (location && user?.id) {
       dispatch(fetchPostsAsync({ 
         lat: location.coords.latitude, 
         lng: location.coords.longitude, 
@@ -68,85 +73,92 @@ export default function FindFriendsPage() {
   }, [location, user]);
 
   const processedData = useMemo(() => {
-    let nearby: any[] = [];
-    let aiRecommended: any[] = [];
+    let nearby: PartyActivity[] = [];
+    let aiRecommended: PartyActivity[] = [];
 
-    allActivities.forEach((act: any) => {
+    allActivities.forEach((act: PartyActivity) => {
       if (act.status !== 'open' && act.status !== 'Open') return;
       if (act.category !== activeFilter) return;
       if (searchQuery && !act.activity?.includes(searchQuery) && !act.name?.includes(searchQuery)) return;
-      const distance = act.distance !== undefined ? act.distance : 0;
+      
+      const distance = Number(act.distance) || 0;
       
       if (distance <= 10) {
         const matchRate = act.matchRate || 0;
         const isRecommended = act.isRecommended || false;
         
-        const confirmedJoinedPax = act.joinedGuests?.filter((g:any)=>g.status==='confirmed').reduce((sum: number, g: any) => sum + g.pax, 0) || 0;
-        const remainingSeats = act.linkedTicket?.tableCapacity - act.linkedTicket?.hostPax - confirmedJoinedPax;
+        const confirmedJoinedPax = act.joinedGuests?.filter((g: Guest) => g.status === 'confirmed').reduce((sum: number, g: Guest) => sum + g.pax, 0) || 0;
+        
+        let remainingSeats = 0;
+        if (act.linkedTicket && act.linkedTicket.tableCapacity) {
+          remainingSeats = act.linkedTicket.tableCapacity - act.linkedTicket.hostPax - confirmedJoinedPax;
+        }
 
         const actWithDetails = { 
           ...act, 
-          distance: typeof distance === 'number' ? distance.toFixed(1) : distance, 
+          distance: distance.toFixed(1), 
           matchRate, 
           remainingSeats 
         };
         
         nearby.push(actWithDetails);
-        if (isRecommended && act.hostId !== user.id) aiRecommended.push(actWithDetails);
+        if (isRecommended && act.hostId !== user?.id) aiRecommended.push(actWithDetails);
       }
     });
 
-    return { nearby, aiRecommended: aiRecommended.sort((a, b) => b.matchRate - a.matchRate) };
-  }, [allActivities, activeFilter, searchQuery, user.id]);
+    return { nearby, aiRecommended: aiRecommended.sort((a, b) => (b.matchRate || 0) - (a.matchRate || 0)) };
+  }, [allActivities, activeFilter, searchQuery, user]);
 
   const handleCreateActivity = () => {
+    if (!user) return;
     if (!activityDesc || !selectedTicketId) {
       Alert.alert('แจ้งเตือน', 'กรุณาระบุรายละเอียดและเลือกคิวของคุณ');
       return;
     }
 
-    const linkedTicket = myActiveTickets.find((t: any) => t.id === selectedTicketId);
+    const linkedTicket = myActiveTickets.find((t: Ticket) => t.id === selectedTicketId);
     if (!linkedTicket) return;
 
-    const shop = places.find((p: any) => p.id === linkedTicket.shopId);
-    const tableInfo = shop?.tableTypes?.find((t: any) => t.id === linkedTicket.tableType);
+    const shop = places.find((p: Place) => p.id === linkedTicket.shopId);
+    
+    const tableInfo = shop?.tableTypes?.find((t: TableType) => t.id === linkedTicket.tableType);
 
     if (!tableInfo || tableInfo.capacity <= linkedTicket.guests) {
       Alert.alert('สร้างไม่ได้', 'โต๊ะที่คุณจองมีความจุพอดีกับจำนวนคนของคุณแล้ว ไม่มีที่ว่างให้เพื่อนร่วมโต๊ะครับ');
       return;
     }
 
-    const newActivity = {
+    const newActivity: Partial<PartyActivity> = {
       hostId: user.id, 
       name: user.name, 
       activity: activityDesc,
-      category: linkedTicket.service,
+      category: linkedTicket.service || 'ร้านอาหาร',
       avatar: 'https://i.pravatar.cc/150?u=me', 
       lat: location ? location.coords.latitude : 13.7563, 
       lng: location ? location.coords.longitude : 100.5018,
       linkedTicket: {
-        shopId: linkedTicket.shopId,
-        shopName: `${shop.name} (${shop.branch})`,
+        shopId: linkedTicket.shopId || '',
+        shopName: shop ? `${shop.name} (${shop.branch})` : 'Unknown Shop',
         bookTime: linkedTicket.bookTime,
         bookDate: linkedTicket.bookDate,
-        tableType: linkedTicket.tableType,
+        tableType: linkedTicket.tableType || 'General',
         tableCapacity: tableInfo.capacity,
         hostPax: linkedTicket.guests
       },
       status: 'Open'
     };
 
-    // 🌟 เปลี่ยนมาใช้ Async Thunk
-    dispatch(addPostAsync(newActivity as any));
+    dispatch(addPostAsync(newActivity));
     Alert.alert('สำเร็จ', 'ประกาศหากิจกรรมของคุณถูกสร้างเรียบร้อยแล้ว');
     setIsCreateModalVisible(false);
     setActivityDesc('');
     setSelectedTicketId(null);
-    setActiveFilter(linkedTicket.service);
+    setActiveFilter(linkedTicket.service || 'ร้านอาหาร');
   };
 
-  const openJoinModal = (activity: any) => {
-    if (activity.joinedGuests?.some((g: any) => g.userId === user.id) || activity.hostId === user.id) {
+  const openJoinModal = (activity: PartyActivity) => {
+    if (!user) return;
+    if (activity.joinedGuests?.some((g: Guest) => g.userId === user.id) || activity.hostId === user.id) {
       router.push({ 
         pathname: '/page/Chat', 
         params: { friendName: activity.name, isHost: 'false', activityId: activity.id, guestId: user.id } 
@@ -160,15 +172,24 @@ export default function FindFriendsPage() {
   };
 
   const submitJoinActivity = () => {
-    if (!selectedActivityToJoin) return;
+    if (!selectedActivityToJoin || !user) return;
     
-    if (joinPax > selectedActivityToJoin.remainingSeats) {
-      Alert.alert('ขออภัย', `จำนวนคนเกินที่ว่างครับ (เหลือว่างแค่ ${selectedActivityToJoin.remainingSeats} ที่)`);
+    const remaining = selectedActivityToJoin.remainingSeats || 0;
+    if (joinPax > remaining) {
+      Alert.alert('ขออภัย', `จำนวนคนเกินที่ว่างครับ (เหลือว่างแค่ ${remaining} ที่)`);
       return;
     }
+
+    const guestData: Guest = {
+      userId: user.id, 
+      userName: user.name, 
+      pax: joinPax,
+      status: 'pending'
+    };
+
     dispatch(joinPostAsync({ 
       postId: selectedActivityToJoin.id, 
-      guest: { userId: user.id, userName: user.name, pax: joinPax } as any
+      guest: guestData
     }));
 
     Alert.alert('สำเร็จ', 'ส่งคำขอเข้าร่วมเรียบร้อยแล้ว! สามารถทักแชทหาโฮสต์ได้เลย');
@@ -178,11 +199,11 @@ export default function FindFriendsPage() {
   const handleCloseActivity = (activityId: string) => {
     Alert.alert('ยืนยันปิดประกาศ', 'คุณแน่ใจหรือไม่ว่าได้คนครบแล้ว? (ประกาศจะหายไปจากหน้าค้นหา แต่ยังสามารถคุยในห้องแชทได้)', [
       { text: 'ยกเลิก', style: 'cancel' },
-      { text: 'ยืนยันคิวครบ', onPress: () => dispatch(updatePostStatus({ id: activityId, status: 'Closed' as any })) }
+      { text: 'ยืนยันคิวครบ', onPress: () => dispatch(updatePostStatus({ id: activityId, status: 'Closed' })) }
     ]);
   };
 
-  const activeChats = allActivities.filter((act: any) => act.hostId === user.id || act.joinedGuests?.some((g: any) => g.userId === user.id));
+  const activeChats = allActivities.filter((act: PartyActivity) => act.hostId === user?.id || act.joinedGuests?.some((g: Guest) => g.userId === user?.id));
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#F7FAFC' }}>
@@ -220,7 +241,7 @@ export default function FindFriendsPage() {
           <View style={{ marginTop: 24, paddingLeft: 20 }}>
             <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#2D3748', marginBottom: 12 }}>AI แนะนำเพื่อนที่เข้ากันได้</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {processedData.aiRecommended.length > 0 ? processedData.aiRecommended.map((friend) => (
+              {processedData.aiRecommended.length > 0 ? processedData.aiRecommended.map((friend: PartyActivity) => (
                 <View key={friend.id} style={{ backgroundColor: '#FFFFFF', borderRadius: 16, width: 180, marginRight: 16, borderWidth: 1, borderColor: '#EDF2F7', overflow: 'hidden', paddingBottom: 16 }}>
                   <View style={{ height: 160, position: 'relative' }}>
                     <Image source={{ uri: friend.avatar || 'https://i.pravatar.cc/150' }} style={{ width: '100%', height: '100%' }} />
@@ -249,9 +270,9 @@ export default function FindFriendsPage() {
               </TouchableOpacity>
             </View>
 
-            {processedData.nearby.length > 0 ? processedData.nearby.map((act) => {
-              const isHost = act.hostId === user.id;
-              const hasJoined = act.joinedGuests?.some((g: any) => g.userId === user.id);
+            {processedData.nearby.length > 0 ? processedData.nearby.map((act: PartyActivity) => {
+              const isHost = act.hostId === user?.id;
+              const hasJoined = act.joinedGuests?.some((g: Guest) => g.userId === user?.id);
               
               return (
                 <View key={act.id} style={{ backgroundColor: '#FFFFFF', borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#EDF2F7' }}>
@@ -298,7 +319,6 @@ export default function FindFriendsPage() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* FAB ปุ่มแชท */}
       <TouchableOpacity 
         onPress={() => setIsChatListModalVisible(true)}
         style={{ position: 'absolute', bottom: 30, right: 20, backgroundColor: '#2D3748', width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: {width: 0, height: 4}, shadowOpacity: 0.2, shadowRadius: 5, elevation: 6 }}
@@ -322,9 +342,9 @@ export default function FindFriendsPage() {
 
             <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#4A5568', marginBottom: 8 }}>เลือกคิวของคุณเพื่อเปิดแชร์</Text>
             <ScrollView style={{ maxHeight: 150, marginBottom: 24 }}>
-              {myActiveTickets.length > 0 ? myActiveTickets.map((ticket: any) => {
-                const shop = places.find((p: any) => p.id === ticket.shopId);
-                const tableInfo = shop?.tableTypes?.find((t: any) => t.id === ticket.tableType);
+              {myActiveTickets.length > 0 ? myActiveTickets.map((ticket: Ticket) => {
+                const shop = places.find((p: Place) => p.id === ticket.shopId);
+                const tableInfo = shop?.tableTypes?.find((t: TableType) => t.id === ticket.tableType);
                 const isSelected = selectedTicketId === ticket.id;
                 
                 return (
@@ -376,11 +396,11 @@ export default function FindFriendsPage() {
             <TouchableOpacity onPress={() => setIsChatListModalVisible(false)} style={{ padding: 4 }}><X size={24} color="#4A5568" /></TouchableOpacity>
           </View>
           <ScrollView contentContainerStyle={{ padding: 20 }}>
-            {activeChats.length > 0 ? activeChats.map((chat: any) => {
-              const isMeHost = chat.hostId === user.id;
+            {activeChats.length > 0 ? activeChats.map((chat: PartyActivity) => {
+              const isMeHost = chat.hostId === user?.id;
               
               if (isMeHost) {
-                return chat.joinedGuests?.map((guest: any) => (
+                return chat.joinedGuests?.map((guest: Guest) => (
                   <TouchableOpacity 
                     key={guest.userId} 
                     onPress={() => { 
@@ -399,13 +419,13 @@ export default function FindFriendsPage() {
                   </TouchableOpacity>
                 ));
               } else {
-                const myRequest = chat.joinedGuests?.find((g: any) => g.userId === user.id);
+                const myRequest = chat.joinedGuests?.find((g: Guest) => g.userId === user?.id);
                 return (
                   <TouchableOpacity 
                     key={chat.id} 
                     onPress={() => { 
                       setIsChatListModalVisible(false); 
-                      router.push({ pathname: '/page/Chat', params: { friendName: chat.name, isHost: 'false', activityId: chat.id, guestId: user.id } }); 
+                      router.push({ pathname: '/page/Chat', params: { friendName: chat.name, isHost: 'false', activityId: chat.id, guestId: user?.id } }); 
                     }} 
                     style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', padding: 16, borderRadius: 16, marginBottom: 12, shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 5, elevation: 2 }}
                   >

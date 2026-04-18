@@ -1,13 +1,11 @@
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 import axios from "axios";
 import { Ticket } from "../../types";
-
-// 🌟 ปรับ URL ให้ตรงกับ Backend Route ที่เราเพิ่งเขียนไป (tickets)
-const API_URL = "http://192.168.1.X:5000/api/tickets";
+// 🌟 1. นำเข้า API_BASE_URL
+import { API_BASE_URL } from "../../config";
 
 interface QueueState {
   tickets: Ticket[];
-  // 🌟 [เพิ่มใหม่] ตัวแปรเก็บสถานะคิวล่าสุด (เวลาที่รอ, จำนวนคิวก่อนหน้า)
   currentStatus: { queuesAhead: number; estimatedWaitTime: number; status: string } | null;
   isLoading: boolean;
   error: string | null;
@@ -15,7 +13,7 @@ interface QueueState {
 
 const initialState: QueueState = {
   tickets: [],
-  currentStatus: null, // 🌟 [เพิ่มใหม่]
+  currentStatus: null, 
   isLoading: false,
   error: null,
 };
@@ -24,7 +22,8 @@ export const fetchTicketsAsync = createAsyncThunk(
   "queue/fetchTickets",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await axios.get(API_URL);
+      // 🌟 2. ใช้ API_BASE_URL
+      const response = await axios.get(`${API_BASE_URL}/tickets`);
       return response.data;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || "Fetch error");
@@ -36,7 +35,8 @@ export const addQueueAsync = createAsyncThunk(
   "queue/addQueue",
   async (ticketData: Ticket, { rejectWithValue }) => {
     try {
-      const response = await axios.post(API_URL, ticketData);
+      // 🌟 3. ใช้ API_BASE_URL
+      const response = await axios.post(`${API_BASE_URL}/tickets`, ticketData);
       return response.data;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || "Add error");
@@ -45,10 +45,11 @@ export const addQueueAsync = createAsyncThunk(
 );
 
 export const updateQueueStatusAsync = createAsyncThunk(
-  "queue/updateQueueStatus",
+  "queue/updateStatus",
   async ({ id, status }: { id: string; status: string }, { rejectWithValue }) => {
     try {
-      const response = await axios.patch(`${API_URL}/${id}/status`, { status });
+      // 🌟 4. ใช้ API_BASE_URL
+      const response = await axios.patch(`${API_BASE_URL}/tickets/${id}/status`, { status });
       return response.data;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || "Update error");
@@ -56,15 +57,15 @@ export const updateQueueStatusAsync = createAsyncThunk(
   }
 );
 
-// 🌟 [เพิ่มใหม่] Thunk สำหรับยิงไปขอเวลาคำนวณคิวจาก Backend
 export const fetchQueueStatusAsync = createAsyncThunk(
   "queue/fetchStatus",
   async (ticketId: string, { rejectWithValue }) => {
     try {
-      const response = await axios.get(`${API_URL}/${ticketId}/status`); 
+      // 🌟 5. ใช้ API_BASE_URL
+      const response = await axios.get(`${API_BASE_URL}/tickets/${ticketId}/status`);
       return response.data;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || "Failed to fetch queue status");
+      return rejectWithValue(error.response?.data?.message || "Failed to fetch status");
     }
   }
 );
@@ -73,15 +74,12 @@ const queueSlice = createSlice({
   name: "queue",
   initialState,
   reducers: {
-    setQueues: (state, action: PayloadAction<Ticket[]>) => {
-      state.tickets = action.payload;
-    },
     addQueue: (state, action: PayloadAction<Ticket>) => {
       state.tickets.push(action.payload);
     },
     updateQueueStatus: (state, action: PayloadAction<{ id: string; status: string }>) => {
-      const ticket = state.tickets.find(t => t.id === action.payload.id);
-      if (ticket) ticket.status = action.payload.status;
+      const index = state.tickets.findIndex(t => t.id === action.payload.id);
+      if (index !== -1) state.tickets[index].status = action.payload.status;
     },
     deleteQueue: (state, action: PayloadAction<string>) => {
       state.tickets = state.tickets.filter(t => t.id !== action.payload);
@@ -95,7 +93,8 @@ const queueSlice = createSlice({
       })
       .addCase(fetchTicketsAsync.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.tickets = action.payload;
+        // 🌟 ดักจับ Array ป้องกันหน้าจอขาว
+        state.tickets = Array.isArray(action.payload) ? action.payload : (action.payload?.data || []);
       })
       .addCase(fetchTicketsAsync.rejected, (state, action) => {
         state.isLoading = false;
@@ -106,22 +105,28 @@ const queueSlice = createSlice({
       })
       .addCase(addQueueAsync.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.tickets.push(action.payload);
+        const newTicket = action.payload?.data || action.payload;
+        state.tickets.push(newTicket);
       })
       .addCase(addQueueAsync.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string;
       })
       .addCase(updateQueueStatusAsync.fulfilled, (state, action) => {
-        const index = state.tickets.findIndex(t => t.id === action.payload.id);
-        if (index !== -1) state.tickets[index] = action.payload;
+        const updatedTicket = action.payload?.data || action.payload;
+        const index = state.tickets.findIndex(t => t.id === updatedTicket.id);
+        if (index !== -1) state.tickets[index] = updatedTicket;
       })
-      // 🌟 [เพิ่มใหม่] จัดการ State ตอนดึงเวลารอคิวสำเร็จ
       .addCase(fetchQueueStatusAsync.fulfilled, (state, action) => {
-        state.currentStatus = action.payload;
+        const statusData = action.payload?.data || action.payload;
+        state.currentStatus = {
+          queuesAhead: statusData.queuesAhead || 0,
+          estimatedWaitTime: statusData.estimatedWaitTime || 0,
+          status: statusData.status || "Waiting"
+        };
       });
   }
 });
 
-export const { setQueues, addQueue, updateQueueStatus, deleteQueue } = queueSlice.actions;
+export const { addQueue, updateQueueStatus, deleteQueue } = queueSlice.actions;
 export default queueSlice.reducer;

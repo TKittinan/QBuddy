@@ -3,69 +3,79 @@ import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Platform, Statu
 import { ArrowLeft, Search } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
-import { useAppSelector } from '../../hooks/useRedux';
+import { useAppSelector } from '../../redux/useRedux';
 import { Card } from '../../components/ui/Card';
-import { CategoryChips } from '../../components/ui/CategoryChips';
 import { Place } from '../../types';
 
-export default function Beauty() { // 🌟 เปลี่ยนชื่อ Function ให้ตรงกับไฟล์ (Cafe, Beauty)
-  const router = useRouter();
-  const activeCategoryTag = 'เสริมสวยอื่นๆ'; // 🌟 เปลี่ยนคำนี้ตามหมวดหมู่ (คาเฟ่, เสริมสวยอื่นๆ)
+interface LocalRootState {
+  places: { places: Place[] | { data: Place[] } };
+}
 
-  const allPlaces = useAppSelector(state => state.places.places);
+export default function Beauty() { 
+  const router = useRouter();
+  const activeCategoryTag = 'เสริมสวยอื่นๆ'; 
+
+  const rawPlaces = useAppSelector((state: LocalRootState) => state.places.places);
+  const allPlaces = Array.isArray(rawPlaces) ? rawPlaces : [];
 
   const [searchQuery, setSearchQuery] = useState('');
   const [displayedCount, setDisplayedCount] = useState(10); 
   const [loadingMore, setLoadingMore] = useState(false);
 
   const filteredPlaces = useMemo(() => {
-    // 🌟 2. ระบุ Type เป็น Place แทน any
-    const basePlaces = allPlaces.filter((place: Place) => place.tags?.includes(activeCategoryTag));
+    const basePlaces = allPlaces.filter((place: Place) => place.category === activeCategoryTag);
     if (!searchQuery) return basePlaces;
     return basePlaces.filter((place: Place) => 
       place.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      place.tags?.some((tag: string) => tag.includes(searchQuery))
+      place.category?.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [searchQuery, allPlaces]);
+  }, [allPlaces, searchQuery, activeCategoryTag]);
 
-  const displayedPlaces = useMemo(() => filteredPlaces.slice(0, displayedCount), [filteredPlaces, displayedCount]);
+  const displayedPlaces = useMemo(() => {
+    return filteredPlaces.slice(0, displayedCount);
+  }, [filteredPlaces, displayedCount]);
 
   const loadMorePlaces = useCallback(() => {
-    if (loadingMore || displayedCount >= filteredPlaces.length) return;
-    setLoadingMore(true);
-    setTimeout(() => { setDisplayedCount(prev => prev + 10); setLoadingMore(false); }, 1000); 
-  }, [loadingMore, displayedCount, filteredPlaces.length]);
+    if (displayedCount < filteredPlaces.length && !loadingMore) {
+      setLoadingMore(true);
+      setTimeout(() => {
+        setDisplayedCount(prev => prev + 10);
+        setLoadingMore(false);
+      }, 500); 
+    }
+  }, [displayedCount, filteredPlaces.length, loadingMore]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.replace('/(tabs)/Home')} style={{ padding: 4 }}><ArrowLeft size={24} color="#1F2937" /></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.back()} style={{ padding: 4 }}><ArrowLeft size={24} color="#1F2937" /></TouchableOpacity>
         <Text style={styles.headerTitle}>{activeCategoryTag}</Text>
-        <View style={{ width: 24 }} />
-      </View>
-      
-      <View style={styles.searchPadding}>
-        <View style={styles.searchMinimalWrapper}>
-          <Search size={20} color="#A0AEC0" />
-          <TextInput style={styles.searchInput} placeholder={`ค้นหาในหมวด ${activeCategoryTag}...`} placeholderTextColor="#A0AEC0" value={searchQuery} onChangeText={setSearchQuery} />
-        </View>
+        <View style={{ width: 24 }} /> 
       </View>
 
-      <View>
-        <CategoryChips 
-          tags={[activeCategoryTag, 'กำลังมาแรง']} 
-          activeTag={activeCategoryTag} 
-          onTagPress={(tag) => { if (tag === 'กำลังมาแรง') router.replace('/page/Trending'); }} 
-        />
+      <View style={styles.searchPadding}>
+        <View style={styles.searchMinimalWrapper}>
+          <Search size={18} color="#A0AEC0" />
+          <TextInput 
+            style={styles.searchInput}
+            placeholder={`ค้นหา${activeCategoryTag}...`}
+            placeholderTextColor="#A0AEC0"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+        </View>
       </View>
 
       <FlatList
         data={displayedPlaces}
         keyExtractor={(item: Place) => item.id}
-        // 🌟 3. ระบุ Type ให้ item และ id ให้ชัดเจน
-        renderItem={({ item }: { item: Place }) => (
+        renderItem={({ item }) => (
           <Card 
-            place={item}
+            title={item.name} 
+            imageUri={item.image} 
+            location={item.branch} 
+            distance={typeof item.distance === 'number' ? `${item.distance} กม.` : item.distance} 
+            category={item.category} // 🌟 ส่ง category เข้า Component แทน tags
             onPress={(id: string) => router.push({ pathname: '/page/PlaceDetail', params: { id } })}
           />
         )}
@@ -86,7 +96,7 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: '800', color: '#1F2937' },
   searchPadding: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 10, backgroundColor: '#FFFFFF' },
   searchMinimalWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F7FAFC', paddingHorizontal: 16, borderRadius: 24, height: 48 }, 
-  searchInput: { flex: 1, fontSize: 15, color: '#2D3748', marginLeft: 8, height: '100%' },
-  listContainer: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 40 },
-  emptyText: { textAlign: 'center', marginTop: 40, color: '#A0AEC0', fontSize: 16 },
+  searchInput: { flex: 1, marginLeft: 10, fontSize: 14, color: '#2D3748', height: '100%' },
+  listContainer: { paddingHorizontal: 20, paddingBottom: 40, paddingTop: 10 },
+  emptyText: { textAlign: 'center', color: '#A0AEC0', marginTop: 40, fontSize: 14 }
 });
