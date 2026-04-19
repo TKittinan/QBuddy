@@ -33,9 +33,8 @@ export const fetchTicketsAsync = createAsyncThunk(
 
 export const addQueueAsync = createAsyncThunk(
   "queue/addQueue",
-  async (ticketData: Ticket, { rejectWithValue }) => {
+  async (ticketData: Omit<Ticket, 'id' | 'createdAt'>, { rejectWithValue }) => {
     try {
-      // 🌟 3. ใช้ API_BASE_URL
       const response = await axios.post(`${API_BASE_URL}/tickets`, ticketData);
       return response.data;
     } catch (error: any) {
