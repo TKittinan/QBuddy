@@ -4,9 +4,19 @@ import { API_BASE_URL } from "../../config";
 
 export const fetchAiHistoryAsync = createAsyncThunk(
   "aichat/fetchHistory",
-  async (userId: string, { rejectWithValue }) => {
+  async (userId: string, { getState, rejectWithValue }) => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/ai-chat/${userId}`);
+      const state: any = getState();
+      const token = state.auth?.token;
+
+      const config = {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      };
+
+      // แนบ config เข้าไปด้วยค่ะ
+      const response = await axios.get(`${API_BASE_URL}/ai-chat/${userId}`, config);
       return response.data;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || "Failed to load AI history");

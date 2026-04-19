@@ -13,20 +13,19 @@ export const askAI = async (req: Request, res: Response) => {
     // 1. ดึงข้อมูลร้านค้าทั้งหมดที่มีใน DB
     const places = await placeService.findAll(); 
 
-    // 2. กรองข้อมูลไปให้ AI ต้องเพิ่ม Image และ Distance ด้วยเพื่อให้ AI นำไปปั้นเป็น PlaceCard ได้
-    const placesContext = places.map((p: any) => 
-      `- Name: ${p.name}, Category: ${p.type}, Info: ${p.description}, Distance: 1.5 กม., Image: ${p.image_url || 'https://images.unsplash.com/photo-1544025162-d76694265947?w=500'}`
-    ).join("\n");
+    // 2. หั่นเอาแค่ 15 ร้านแรกส่งไปให้ AI (ป้องกันโควต้า Token ล้นจนพังค่ะ!)
+    const placesContext = places.slice(0, 15).map((p: any) => {
+      const imageUrl = p.coverUrl || p.logoUrl || 'https://images.unsplash.com/photo-1544025162-d76694265947?w=500';
+      return `- Name: ${p.name}, Category: ${p.category}, Info: ${p.description}, Distance: 1.5 กม., Image: ${imageUrl}`;
+    }).join("\n");
 
-    // 3. ส่งคำถาม + รายชื่อร้านค้าในระบบไปให้ Gemini คิดคำตอบ
+    // 3. ส่งคำถาม + รายชื่อร้านค้าไปให้ Gemini
     const aiResult = await aiService.generateResponse(message, placesContext);
 
-    // 4. ส่ง Object JSON ที่แกะมาจาก Gemini คืนให้ Mobile โดยตรง
-    // เพื่อให้ Redux ดึง action.payload.text และ action.payload.placeCard ไปใช้งานได้เลย
+    // 4. ส่ง Object JSON คืนให้ Mobile
     res.json(aiResult);
     
   } catch (error: any) {
-    // แก้ตรงนี้เป็น message เพื่อให้ Redux ฝั่งมือถือจับ Error ได้ตรงจุดค่ะ
     res.status(500).json({ message: error.message });
   }
 };

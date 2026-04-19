@@ -4,7 +4,7 @@ import { ArrowLeft, Send, MapPin } from 'lucide-react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import { useAppSelector, useAppDispatch } from '../../redux/useRedux';
-// นำเข้า sendAiMessageAsync เพิ่มมานะคะ
+// นำเข้า sendAiMessageAsync เพิ่มมา
 import { addMessage, fetchAiHistoryAsync, sendAiMessageAsync } from '../../redux/slices/aichatSlice';
 
 interface PlaceCardType {
@@ -46,12 +46,20 @@ export default function AIChatScreen() {
 
   // ส่งข้อความเริ่มต้น (ถ้ามาจากหน้า Home)
   useEffect(() => {
-    if (initialMessage && messages.length === 0) {
-      const msg = initialMessage as string;
-      // เพิ่มข้อความตัวเองลงจอก่อน
-      dispatch(addMessage({ id: Date.now().toString(), type: 'user', text: msg }));
-      // ยิงหา Backend จริง
-      dispatch(sendAiMessageAsync(msg));
+    if (initialMessage) {
+      // แปลงเป็น String เผื่อระบบส่งมาเป็น Array
+      const msg = Array.isArray(initialMessage) ? initialMessage[0] : (initialMessage as string);
+      
+      if (msg.trim().length > 0) {
+        // 1. เพิ่มข้อความตัวเองลงจอก่อน
+        dispatch(addMessage({ id: Date.now().toString(), type: 'user', text: msg }));
+        
+        // 2. ยิงหา Backend ทันที
+        dispatch(sendAiMessageAsync(msg));
+        
+        // 3. ลบ Param ทิ้งเพื่อป้องกันการส่งข้อความซ้ำเวลาหน้าจอ Re-render
+        router.setParams({ initialMessage: '' });
+      }
     }
   }, [initialMessage]);
 
