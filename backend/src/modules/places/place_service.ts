@@ -7,12 +7,10 @@ export class PlaceService {
     return data;
   }
 
-// ฟังก์ชันใหม่สำหรับ AI Chatbot ดึงข้อมูลไปวิเคราะห์
   async findAll() {
     try {
       const { data, error } = await supabase
         .from('Place')
-        // เปลี่ยนจาก type เป็น category ให้ตรงกับ Prisma Schema ค่ะ
         .select('name, category, description, coverUrl, logoUrl');
       
       if (error) throw error;
@@ -29,20 +27,30 @@ export class PlaceService {
     return data;
   }
 
-  private get_shop_prefix(name: string): string {
-    const cleanName = name.trim().replace(/[^a-zA-Z0-9\s]/g, '');
+  // คำแรก + คำท้าย + สาขา
+  private generate_place_id_string(name: string, branch?: string, branchNumber: number = 1): string {
+    const cleanName = (name || '').trim().replace(/[^a-zA-Zก-ฮ0-9\s]/g, '');
     const words = cleanName.split(/\s+/).filter(w => w.length > 0);
-    if (words.length === 0) return 'XX';
-    if (words.length === 1) return words[0].substring(0, 2).toUpperCase();
-    return (words[0][0] + words[words.length - 1][0]).toUpperCase();
-  }
+    
+    let shopPrefix = 'XX';
+    if (words.length === 1) {
+      shopPrefix = words[0].substring(0, 2).toUpperCase();
+    } else if (words.length >= 2) {
+      // เอาตัวแรกของคำแรก + ตัวแรกของคำสุดท้าย
+      shopPrefix = (words[0][0] + words[words.length - 1][0]).toUpperCase();
+    }
 
-  private get_branch_prefix(branch?: string): string {
-    if (!branch || branch.trim() === '') return '';
-    const cleanBranch = branch.trim().replace(/[^a-zA-Z0-9\s]/g, '');
-    const words = cleanBranch.split(/\s+/).filter(w => w.length > 0);
-    if (words.length === 0) return '';
-    return words[0][0].toUpperCase();
+    let branchPrefix = '';
+    if (branch && branch.trim() !== '') {
+      const cleanBranch = branch.trim().replace(/[^a-zA-Zก-ฮ0-9\s]/g, '');
+      const bWords = cleanBranch.split(/\s+/).filter(w => w.length > 0);
+      if (bWords.length > 0) {
+        branchPrefix = bWords[0][0].toUpperCase();
+      }
+    }
+
+    const branchNumberStr = branchNumber.toString().padStart(3, '0');
+    return `${shopPrefix}${branchPrefix}-${branchNumberStr}`; // e.g., SMP-001
   }
 
   async create_place(data: any) {
@@ -62,10 +70,8 @@ export class PlaceService {
       return sName === shopNameLower && sCat === firstCategory;
     });
 
-    const branchNumberStr = (sameShops.length + 1).toString().padStart(3, '0');
-    const shopPrefix = this.get_shop_prefix(place_data.name);
-    const branchPrefix = this.get_branch_prefix(place_data.branch);
-    const generatedPlaceId = `${shopPrefix}${branchPrefix}-${branchNumberStr}`;
+    const currentBranchNum = sameShops.length + 1;
+    const generatedPlaceId = this.generate_place_id_string(place_data.name, place_data.branch, currentBranchNum);
 
     place_data.id = generatedPlaceId;
 
@@ -142,24 +148,19 @@ export class PlaceService {
     return recommended || (await supabase.from('Place').select('*').eq('status', 'Active').limit(5)).data;
   }
 
-  // 🌟 ฟังก์ชันใหม่: คำนวณยอดจองฮิต 7 วันล่าสุด
   async get_weekly_trending() {
-    // 1. หาวันที่ย้อนหลัง 7 วัน
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     const isoDate = sevenDaysAgo.toISOString();
 
-    // 2. ดึงตั๋วที่มีการจองในรอบ 7 วัน (อ้างอิงจากวันที่สร้าง)
     const { data: tickets, error: ticketError } = await supabase
       .from('Ticket')
       .select('shopId')
-      .gte('created_at', isoDate);
+      .gte('createdAt', isoDate);
 
     if (ticketError) throw new Error(ticketError.message);
+    if (!tickets || tickets.length === 0) return []; 
 
-    if (!tickets || tickets.length === 0) return []; // ถ้าสัปดาห์นี้ไม่มีคนจองเลย
-
-    // 3. นับจำนวนการจองของแต่ละร้าน
     const shopCounts: { [key: string]: number } = {};
     tickets.forEach((t: any) => {
       if (t.shopId) {
@@ -167,13 +168,9 @@ export class PlaceService {
       }
     });
 
-    // 4. เรียงลำดับร้านที่ถูกจองเยอะสุด (เอา .slice ออก เพื่อส่งไปทั้งหมด แล้วให้หน้าบ้านไปกรอง Sub-filter)
-    const topShopIds = Object.keys(shopCounts)
-      .sort((a, b) => shopCounts[b] - shopCounts[a]);
-      
+    const topShopIds = Object.keys(shopCounts).sort((a, b) => shopCounts[b] - shopCounts[a]);
     if (topShopIds.length === 0) return [];
 
-    // 5. ดึงข้อมูลร้านค้า (เฉพาะร้านที่ Active)
     const { data: places, error: placeError } = await supabase
       .from('Place')
       .select('*')
@@ -182,13 +179,9 @@ export class PlaceService {
 
     if (placeError) throw new Error(placeError.message);
 
-    // 6. ประกอบร่างข้อมูลร้าน + ยอดจองรายสัปดาห์ แล้วเรียงลำดับให้ถูกต้องตามยอดจอง
     const trendingPlaces = topShopIds.map(id => {
       const place = places?.find(p => p.id === id);
-      if (place) {
-        // แปะ weeklyBookings เข้าไปใน Object ด้วย
-        return { ...place, weeklyBookings: shopCounts[id] };
-      }
+      if (place) return { ...place, weeklyBookings: shopCounts[id] };
       return null;
     }).filter(Boolean);
 
