@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Platform, StatusBar, Alert } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Platform, StatusBar, Alert, ActivityIndicator } from 'react-native';
 import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, ChevronDown, Users, Check, LayoutGrid } from 'lucide-react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import axios from 'axios';
@@ -44,6 +44,9 @@ export default function QueueBooking() {
   const [tableCount, setTableCount] = useState<number>(1);
   const [guests, setGuests] = useState<number>(2);
   const [currentStep, setCurrentStep] = useState(1);
+  
+  // 🌟 เพิ่ม State ป้องกันการกดจองเบิ้ล
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [activeBookings, setActiveBookings] = useState<any[]>([]);
 
@@ -84,7 +87,7 @@ export default function QueueBooking() {
   const handlePrevMonth = () => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1));
   const handleNextMonth = () => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1));
 
-  // 🌟 ฟังก์ชันอัปเดตใหม่: รองรับร้านที่เปิดข้ามคืน (เช่น Suki Teenoi)
+  // รองรับร้านที่เปิดข้ามคืน (เช่น Suki Teenoi)
   const generateTimeSlots = () => {
     if (!place.openTime || !place.closeTime) return [];
     const [openH, openM] = place.openTime.split(':').map(Number);
@@ -116,7 +119,6 @@ export default function QueueBooking() {
     if (!selectedDate) return [];
     const bookingsForDate = activeBookings.filter(t => t.bookDate === selectedDate);
     return timeSlots.map(time => {
-      // 🌟 ป้องกันบัคถ้าแอดมินลืมใส่ประเภทโต๊ะ
       if (!place.tableTypes || place.tableTypes.length === 0) return { time, isFull: true };
 
       const isFull = place.tableTypes?.every((tt: any) => {
@@ -132,7 +134,6 @@ export default function QueueBooking() {
   const isDayFull = useCallback((dateStr: string) => {
     if (timeSlots.length === 0) return true;
     
-    // 🌟 ป้องกันบัคถ้าแอดมินลืมใส่ประเภทโต๊ะ
     if (!place.tableTypes || place.tableTypes.length === 0) return true;
 
     const bookingsForDate = activeBookings.filter(t => t.bookDate === dateStr);
@@ -182,6 +183,8 @@ export default function QueueBooking() {
       return Alert.alert("แจ้งเตือน", `โต๊ะจำนวน ${tableCount} ตัว รองรับได้สูงสุด ${maxGuestsTotal} ท่าน`);
     }
 
+    setIsSubmitting(true); // เริ่มสถานะโหลด
+    
     const newTicket: Omit<Ticket, 'id' | 'createdAt'> = {
       name: user.name, 
       email: user.email || '',
@@ -197,10 +200,19 @@ export default function QueueBooking() {
 
     try {
       const res = await dispatch(addQueueAsync(newTicket)).unwrap();
+      
+      // 🌟 ดักจับความปลอดภัย ป้องกัน undefined 100%
       const finalId = res?.data?.id || res?.id;
-      if (finalId) router.replace({ pathname: '/page/BookingConfirm', params: { ticketId: finalId } });
+      
+      if (!finalId) {
+        throw new Error("ไม่ได้รับรหัสคิวจากระบบ กรุณาลองใหม่อีกครั้ง");
+      }
+      
+      router.replace({ pathname: '/page/BookingConfirm', params: { ticketId: finalId } });
     } catch (error: any) {
-      Alert.alert('เกิดข้อผิดพลาด', error || 'ไม่สามารถจองคิวได้');
+      Alert.alert('เกิดข้อผิดพลาด', error.message || error || 'ไม่สามารถจองคิวได้');
+    } finally {
+      setIsSubmitting(false); // คืนสถานะโหลด
     }
   };
 
@@ -314,9 +326,18 @@ export default function QueueBooking() {
       </ScrollView>
 
       <View style={styles.bottomBar}>
-        <TouchableOpacity style={styles.nextBtn} onPress={handleNextStep}>
-          <Text style={styles.nextBtnText}>{currentStep === 1 ? 'ดำเนินการต่อ' : 'ยืนยันการจอง'}</Text>
-          <ArrowRight size={20} color="#FFFFFF" />
+        <TouchableOpacity 
+          style={[styles.nextBtn, isSubmitting && { opacity: 0.7 }]} 
+          onPress={handleNextStep}
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? (
+            <ActivityIndicator color="#FFFFFF" size="small" style={{ marginRight: 8 }} />
+          ) : null}
+          <Text style={styles.nextBtnText}>
+            {currentStep === 1 ? 'ดำเนินการต่อ' : (isSubmitting ? 'กำลังจองคิว...' : 'ยืนยันการจอง')}
+          </Text>
+          {(!isSubmitting && currentStep === 1) && <ArrowRight size={20} color="#FFFFFF" />}
         </TouchableOpacity>
       </View>
     </SafeAreaView>

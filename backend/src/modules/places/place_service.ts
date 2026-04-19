@@ -27,7 +27,7 @@ export class PlaceService {
     return data;
   }
 
-  // 🌟 ลอจิกใหม่: คำแรก + คำท้าย + สาขา
+  // 🌟 ลอจิกใหม่สุดเป๊ะ: สร้าง Place ID แบบ SMP-001
   private generate_place_id_string(name: string, branch?: string, branchNumber: number = 1): string {
     const cleanName = (name || '').trim().replace(/[^a-zA-Zก-ฮ0-9\s]/g, '');
     const words = cleanName.split(/\s+/).filter(w => w.length > 0);
@@ -40,7 +40,7 @@ export class PlaceService {
       shopPrefix = (words[0][0] + words[words.length - 1][0]).toUpperCase();
     }
 
-    let branchPrefix = '';
+    let branchPrefix = 'X';
     if (branch && branch.trim() !== '') {
       const cleanBranch = branch.trim().replace(/[^a-zA-Zก-ฮ0-9\s]/g, '');
       const bWords = cleanBranch.split(/\s+/).filter(w => w.length > 0);
@@ -49,8 +49,11 @@ export class PlaceService {
       }
     }
 
+    // รวมร่าง: ตัวแรกคำแรก(S) + ตัวแรกคำท้าย(M) + ตัวแรกสาขา(P) = SMP
+    const finalPrefix = `${shopPrefix}${branchPrefix}`.substring(0, 3);
     const branchNumberStr = branchNumber.toString().padStart(3, '0');
-    return `${shopPrefix}${branchPrefix}-${branchNumberStr}`; // e.g., SMP-001
+    
+    return `${finalPrefix}-${branchNumberStr}`; // ตัวอย่าง: SMP-001
   }
 
   async create_place(data: any) {
@@ -71,7 +74,8 @@ export class PlaceService {
     });
 
     const currentBranchNum = sameShops.length + 1;
-    // 🌟 ใช้งานลอจิกสร้าง ID ใหม่
+    
+    // สร้าง ID ร้าน
     const generatedPlaceId = this.generate_place_id_string(place_data.name, place_data.branch, currentBranchNum);
 
     place_data.id = generatedPlaceId;

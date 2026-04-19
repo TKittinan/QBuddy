@@ -65,7 +65,7 @@ export class TicketService {
     return data || [];
   }
 
-  // ลอจิกใหม่ ตัดเรื่องรหัสโต๊ะ (A,B,C) ออกตามคำขอคุณที
+  // 🌟 ลอจิกใหม่สุดเป๊ะ: สร้าง Ticket ID แบบ SMP1-CM1
   private async generate_id(placeId: string, tableType: string) {
     const now = new Date();
     const cycleStart = new Date(now);
@@ -84,15 +84,16 @@ export class TicketService {
 
     if (error) throw new Error(error.message);
 
-    // ดึง Place ID ออกมาหั่นตามสูตรใหม่ (เช่น "SMP-001" -> "SMP" กับ "1")
     let prefixPart = 'XX';
     let branchNumPart = '1';
 
+    // ถ้า Place ID เป็นแบบมีขีด เช่น SMP-001
     if (placeId.includes('-')) {
       const parts = placeId.split('-');
       prefixPart = parts[0]; // ได้ "SMP"
-      branchNumPart = parseInt(parts[1], 10).toString(); // หั่น "001" ให้กลายเป็น "1"
+      branchNumPart = parseInt(parts[1], 10).toString(); // "001" -> กลายเป็น "1" ทันที
     } else {
+      // ถ้าเป็นรหัสแบบเก่าที่ไม่มีขีด ก็ยังรองรับอยู่
       prefixPart = placeId.replace(/[0-9]/g, '').toUpperCase();
       const nums = placeId.match(/\d+/);
       branchNumPart = nums ? parseInt(nums[0], 10).toString() : "1";
@@ -100,6 +101,7 @@ export class TicketService {
 
     const runningNumber = (count || 0) + 1;
     
+    // ประกอบร่าง: ได้ SMP1-CM1 ตามสั่ง 100%
     return `${prefixPart}${branchNumPart}-CM${runningNumber}`;
   }
 
