@@ -95,7 +95,6 @@ export default function FindFriendsPage() {
     return { list, aiRecommended: aiRecommended.sort((a, b) => (Number(b.matchRate) || 0) - (Number(a.matchRate) || 0)) };
   }, [allActivities, activeFilter, searchQuery, user]);
 
-  // 🌟 อัปเกรดให้เป็น Async/Await เต็มรูปแบบเพื่อรับ Error 
   const handleCreateActivity = async () => {
     if (!user) return;
     if (!activityDesc || !selectedTicketId) return Alert.alert('แจ้งเตือน', 'กรุณาระบุรายละเอียดและเลือกคิว');
@@ -106,22 +105,21 @@ export default function FindFriendsPage() {
     const shop = places.find(p => p.id === linkedTicket.shopId || p.id === linkedTicket.placeId);
     const tableInfo = shop?.tableTypes?.find(t => t.label === linkedTicket.tableType);
 
-    // คำนวณความจุโต๊ะที่เหลือ
     const maxGuests = tableInfo ? tableInfo.capacity - (linkedTicket.guests || 0) : 2;
 
     if (maxGuests <= 0) {
       return Alert.alert('สร้างไม่ได้', 'โต๊ะที่คุณจองมีความจุพอดีกับจำนวนคนของคุณแล้ว ไม่มีที่ว่างให้เพื่อนร่วมโต๊ะครับ');
     }
 
+    // ดักค่า fallback ป้องกัน undefined ทุกตัว!
     const newActivity: Partial<PartyActivity> = {
       title: `ไป ${shop?.name || 'ร้านอาหาร'}`,
       description: activityDesc,
       category: linkedTicket.service || 'ร้านอาหาร',
       tags: [linkedTicket.tableType || 'General'],
-      meetingDate: linkedTicket.bookDate,
-      meetingTime: linkedTicket.bookTime,
+      meetingDate: linkedTicket.bookDate || new Date().toISOString().split('T')[0], 
+      meetingTime: linkedTicket.bookTime || '12:00',
       maxGuests: maxGuests,
-      status: 'Open',
       hostId: user.id,
       placeId: shop?.id || linkedTicket.placeId || linkedTicket.shopId,
       bookingId: selectedTicketId,
@@ -131,17 +129,14 @@ export default function FindFriendsPage() {
 
     setIsSubmitting(true);
     try {
-      // 🌟 ใช้ .unwrap() เพื่อให้มัน Catch Error ที่ Backend ส่งมาได้
       await dispatch(addPostAsync(newActivity as PartyActivity)).unwrap();
       Alert.alert('สำเร็จ', 'ประกาศหากิจกรรมถูกสร้างเรียบร้อยแล้ว');
       setIsCreateModalVisible(false);
       setActivityDesc('');
       setSelectedTicketId(null);
       
-      // 🌟 ดึงข้อมูลใหม่ทันทีหลังสร้างเสร็จ
       dispatch(fetchPostsAsync());
     } catch (error: any) {
-      // 🌟 โชว์ให้เห็นเลยว่าพังตรงไหน
       Alert.alert('เกิดข้อผิดพลาดในการสร้าง', error.message || error || 'กรุณาลองใหม่อีกครั้ง');
       console.error(error);
     } finally {
