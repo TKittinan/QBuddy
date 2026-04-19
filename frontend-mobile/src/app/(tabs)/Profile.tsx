@@ -11,9 +11,10 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input'; 
 import { Pagination } from '../../components/ui/Pagination'; 
 import { useAppDispatch, useAppSelector } from '../../redux/useRedux';
-import { logout } from '../../redux/slices/authSlice';
+import { logoutAsync, updateStatusSuccess } from '../../redux/slices/authSlice'; // นำเข้าฟังก์ชันใหม่
 import { toggleSavePlace } from '../../redux/slices/savedPlacesSlice'; 
 import { Place } from '../../types';
+import { supabase } from '../../config'; // นำเข้า supabase สำหรับ Realtime
 
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -32,10 +33,8 @@ export default function ProfilePage() {
   const router = useRouter();
   const dispatch = useAppDispatch();
   
-  // 🌟 ลบ Mock ทิ้ง ดึง User จาก DB
   const user = useAppSelector((state: any) => state.auth?.user);
   
-  // 🌟 ดึงข้อมูลจาก Redux แบบดักจับ .data ของจริงจาก DB ป้องกันจอขาว
   const placesState = useAppSelector((state: any) => state.places);
   const rawPlaces = placesState?.places?.data || placesState?.places || [];
   const allPlaces = Array.isArray(rawPlaces) ? rawPlaces : [];
@@ -56,6 +55,34 @@ export default function ProfilePage() {
     resolver: zodResolver(editProfileSchema),
     defaultValues: { name: user?.name || '', email: user?.email || '' }
   });
+
+  // เพิ่ม Realtime Listener เพื่อดักฟังการอัปเดต Status ของตัวเอง
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const channel = supabase
+      .channel(`user-status-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'User',
+          filter: `id=eq.${user.id}`,
+        },
+        (payload) => {
+          // เมื่อสถานะใน DB เปลี่ยน ให้มาอัปเดต Redux State ทันที
+          if (payload.new.status) {
+            dispatch(updateStatusSuccess(payload.new.status));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
 
   useEffect(() => {
     const loadProfileData = async () => {
@@ -133,14 +160,14 @@ export default function ProfilePage() {
   const handleDeleteAccount = () => {
     Alert.alert('ลบบัญชีผู้ใช้ถาวร', 'หากลบบัญชี ข้อมูลส่วนตัว ประวัติการจองทั้งหมดจะถูกลบ ยืนยันหรือไม่?', [
       { text: 'ยกเลิก', style: 'cancel' },
-      { text: 'ยืนยันการลบ', style: 'destructive', onPress: async () => { await AsyncStorage.clear(); dispatch(logout()); } }
+      { text: 'ยืนยันการลบ', style: 'destructive', onPress: async () => { await AsyncStorage.clear(); dispatch(logoutAsync(user?.id)); } }
     ]);
   };
 
   const handleLogout = () => {
     Alert.alert('ยืนยันออกจากระบบ', 'คุณต้องการออกจากระบบใช่หรือไม่?', [
       { text: 'ยกเลิก', style: 'cancel' },
-      { text: 'ออกจากระบบ', style: 'destructive', onPress: () => dispatch(logout()) }
+      { text: 'ออกจากระบบ', style: 'destructive', onPress: () => dispatch(logoutAsync(user?.id)) } // เรียก logoutAsync แทน
     ]);
   };
 
@@ -165,6 +192,8 @@ export default function ProfilePage() {
           <View className="items-center mt-8 mb-6">
             <View className="relative">
               <Image source={{ uri: avatarUri || 'https://i.pravatar.cc/150?u=a042581f4e29026024d' }} className="w-28 h-28 rounded-full border-4 border-white shadow-sm" />
+              {/* จุดแสดงสถานะตามจริงจาก Database */}
+              <View className={`absolute bottom-1 right-1 w-6 h-6 rounded-full border-4 border-white ${user?.status === 'ACTIVE' ? 'bg-green-500' : 'bg-gray-400'}`} />
             </View>
             <Text className="text-2xl font-extrabold text-gray-800 mt-4">{userName}</Text>
             <Text className="text-sm text-gray-500 mt-1">queue.ai/u/{userName.toLowerCase().replace(/\s/g, '')}</Text>
@@ -185,6 +214,7 @@ export default function ProfilePage() {
         </ScrollView>
       </View>
 
+      {/* Modals are kept as they were in the original code */}
       <Modal visible={modals.saved} animationType="slide" statusBarTranslucent={true}>
         <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
           <View className="flex-1 bg-[#F7FAFC]">
