@@ -19,12 +19,16 @@ export class TicketService {
     return (data || []).map((t: any) => ({ ...t, createdAt: t.created_at || t.createdAt }));
   }
 
-  async get_tickets_by_user(userName: string) {
-    const { data, error } = await supabase
-      .from('Ticket')
-      .select('*')
-      .eq('name', userName)
-      .order('created_at', { ascending: false }); 
+  async get_tickets_by_user(identifier: string) {
+    let query = supabase.from('Ticket').select('*');
+    
+    if (identifier.includes('@')) {
+      query = query.eq('email', identifier);
+    } else {
+      query = query.eq('name', identifier);
+    }
+    
+    const { data, error } = await query.order('created_at', { ascending: false }); 
       
     if (error) throw new Error(error.message);
     return (data || []).map((t: any) => ({ ...t, createdAt: t.created_at || t.createdAt }));

@@ -1,6 +1,7 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Image, Alert, Platform, StatusBar, RefreshControl } from 'react-native';
 import { Store, Clock, Users, AlertCircle, Calendar as CalendarIcon, Ticket as TicketIcon } from 'lucide-react-native';
+import { useRouter, useFocusEffect } from 'expo-router'; // 🌟 เพิ่ม useFocusEffect
 
 import { useAppDispatch, useAppSelector } from '../../redux/useRedux';
 import { updateQueueStatusAsync, fetchTicketsAsync } from '../../redux/slices/queueSlice'; 
@@ -24,20 +25,27 @@ export default function QueuePage() {
   const [activeFilter, setActiveFilter] = useState<FilterType>('active');
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    if (user?.name) {
-      dispatch(fetchTicketsAsync(user.name));
-    }
-    if (places.length === 0) {
-      dispatch(fetchPlacesAsync());
-    }
-  }, [dispatch, user?.name]);
+  // 🌟 ใช้ Email เป็นหลัก ถ้าไม่มีค่อยใช้ชื่อ (ช่วยให้ดึงข้อมูลจาก Database แม่นยำขึ้น)
+  const identifier = user?.email || user?.name;
 
+  // 🌟 ใช้ useFocusEffect เพื่อให้โหลดข้อมูล "เฉพาะตอนที่เราเปิดหน้านี้" เท่านั้น (ไม่โหลดล่วงหน้า)
+  useFocusEffect(
+    useCallback(() => {
+      if (identifier) {
+        dispatch(fetchTicketsAsync(identifier));
+      }
+      if (places.length === 0) {
+        dispatch(fetchPlacesAsync());
+      }
+    }, [dispatch, identifier])
+  );
+
+  // 🌟 โหลดข้อมูลใหม่เมื่อผู้ใช้เลื่อนหน้าจอลง (Pull to Refresh)
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
       await Promise.all([
-        user?.name ? dispatch(fetchTicketsAsync(user.name)) : Promise.resolve(),
+        identifier ? dispatch(fetchTicketsAsync(identifier)) : Promise.resolve(),
         dispatch(fetchPlacesAsync())
       ]);
     } catch (error) {
@@ -45,13 +53,10 @@ export default function QueuePage() {
     } finally {
       setRefreshing(false);
     }
-  }, [dispatch, user?.name]);
+  }, [dispatch, identifier]);
 
-  const myTickets = useMemo(() => {
-    if (!user) return [];
-    const userTickets = allTickets.filter((t: any) => t.name === user.name || t.email === user.email);
-    return userTickets.length > 0 ? userTickets : allTickets;
-  }, [allTickets, user]);
+  // 🌟 ใช้ข้อมูลทั้งหมดที่ Backend กรองมาให้แล้ว (มั่นใจได้ว่าเป็นของ User นี้ 100%)
+  const myTickets = allTickets;
 
   const activeTickets = myTickets.filter((t: any) => t.status === 'Waiting' || t.status === 'Serving');
   const historyTickets = myTickets.filter((t: any) => t.status === 'Completed' || t.status === 'Cancelled' || t.status === 'Skipped');
@@ -66,9 +71,8 @@ export default function QueuePage() {
           try {
             await dispatch(updateQueueStatusAsync({ id: ticketId, status: 'Cancelled' })).unwrap();
             Alert.alert('สำเร็จ', 'ยกเลิกคิวเรียบร้อยแล้ว');
-            // 🌟 แก้ไข: ส่ง user.name เข้าไปด้วยตอนรีเฟรชข้อมูลคิวใหม่ เพื่อให้ Type ตรงกัน
-            if (user?.name) {
-              dispatch(fetchTicketsAsync(user.name));
+            if (identifier) {
+              dispatch(fetchTicketsAsync(identifier));
             }
           } catch (error) {
             Alert.alert('เกิดข้อผิดพลาด', 'ไม่สามารถยกเลิกคิวได้');
