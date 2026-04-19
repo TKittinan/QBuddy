@@ -27,7 +27,7 @@ export class PlaceService {
     return data;
   }
 
-  // คำแรก + คำท้าย + สาขา
+  // 🌟 ลอจิกใหม่: คำแรก + คำท้าย + สาขา
   private generate_place_id_string(name: string, branch?: string, branchNumber: number = 1): string {
     const cleanName = (name || '').trim().replace(/[^a-zA-Zก-ฮ0-9\s]/g, '');
     const words = cleanName.split(/\s+/).filter(w => w.length > 0);
@@ -71,6 +71,7 @@ export class PlaceService {
     });
 
     const currentBranchNum = sameShops.length + 1;
+    // 🌟 ใช้งานลอจิกสร้าง ID ใหม่
     const generatedPlaceId = this.generate_place_id_string(place_data.name, place_data.branch, currentBranchNum);
 
     place_data.id = generatedPlaceId;

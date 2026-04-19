@@ -84,14 +84,14 @@ export class TicketService {
 
     if (error) throw new Error(error.message);
 
-    //ดึง Place ID ออกมาหั่นตามสูตรใหม่ (เช่น "SMP-001" -> "SMP" กับ "1")
+    // ดึง Place ID ออกมาหั่นตามสูตรใหม่ (เช่น "SMP-001" -> "SMP" กับ "1")
     let prefixPart = 'XX';
     let branchNumPart = '1';
 
     if (placeId.includes('-')) {
       const parts = placeId.split('-');
-      prefixPart = parts[0];
-      branchNumPart = parseInt(parts[1], 10).toString();
+      prefixPart = parts[0]; // ได้ "SMP"
+      branchNumPart = parseInt(parts[1], 10).toString(); // หั่น "001" ให้กลายเป็น "1"
     } else {
       prefixPart = placeId.replace(/[0-9]/g, '').toUpperCase();
       const nums = placeId.match(/\d+/);
