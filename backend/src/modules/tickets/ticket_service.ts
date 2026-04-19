@@ -74,16 +74,7 @@ export class TicketService {
     if (error) throw new Error(error.message);
 
     const tableCode = this.get_table_code(tableType);
-
-    /* จุดที่แก้ไข: 
-      1. ลบเครื่องหมายขีด (-) ออก
-      2. ใช้ Regex ตัดเลข 0 ที่นำหน้าตัวเลขลำดับใน placeId (เช่น ASA001 -> ASA1)
-    */
     const cleanPlaceId = placeId.replace(/-/g, '').replace(/([A-Z]+)0+/, '$1');
-    
-    /* จุดที่แก้ไข: 
-      ลบ .padStart(3, '0') ออกเพื่อให้แสดงเป็นเลขลำดับจริง (เช่น 1, 15)
-    */
     const runningNumber = (count || 0) + 1;
     
     return `${cleanPlaceId}${tableCode}-CM${runningNumber}`;
@@ -102,6 +93,7 @@ export class TicketService {
       .from('Ticket')
       .select('*', { count: 'exact', head: true })
       .eq('placeId', currentTicket.placeId)
+      .eq('tableType', currentTicket.tableType)
       .eq('status', 'Waiting')
       .lt('createdAt', currentTicket.createdAt);
       

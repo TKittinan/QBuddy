@@ -166,10 +166,17 @@ export default function QueueBooking() {
       return Alert.alert("แจ้งเตือน", `โต๊ะจำนวน ${tableCount} ตัว รองรับได้สูงสุด ${maxGuestsTotal} ท่าน`);
     }
 
-    const newTicket: any = {
-      name: user.name, guests, service: place.category, shopId: place.id,
-      bookDate: selectedDate!, bookTime: selectedTime!, status: 'Waiting',
-      tableType: selectedTableObj.label, tableCount: tableCount
+    const newTicket: Omit<Ticket, 'id' | 'createdAt'> = {
+      name: user.name, 
+      email: user.email || '',
+      guests, 
+      service: place.category, 
+      shopId: place.id,
+      bookDate: selectedDate!, 
+      bookTime: selectedTime!, 
+      status: 'Waiting',
+      tableType: selectedTableObj.label, 
+      tableCount: tableCount
     };
 
     try {

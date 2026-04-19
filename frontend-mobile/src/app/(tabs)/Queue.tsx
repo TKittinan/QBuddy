@@ -1,19 +1,18 @@
-import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Image, Alert, Platform, StatusBar } from 'react-native';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Image, Alert, Platform, StatusBar, RefreshControl } from 'react-native';
 import { Store, Clock, Users, AlertCircle, Calendar as CalendarIcon, Ticket as TicketIcon } from 'lucide-react-native';
 
 import { useAppDispatch, useAppSelector } from '../../redux/useRedux';
-import { updateQueueStatus } from '../../redux/slices/queueSlice'; 
+import { updateQueueStatusAsync, fetchTicketsAsync } from '../../redux/slices/queueSlice'; 
+import { fetchPlacesAsync } from '../../redux/slices/placeSlice';
 
 type FilterType = 'active' | 'all' | 'success' | 'cancelled';
 
 export default function QueuePage() {
   const dispatch = useAppDispatch();
   
-  // 🌟 ลบ Mock ทิ้ง ดึง User จาก DB
   const user = useAppSelector((state: any) => state.auth?.user); 
   
-  // 🌟 ดึงข้อมูลจาก Redux แบบดักจับ .data ของจริงจาก DB
   const placesState = useAppSelector((state: any) => state.places);
   const rawPlaces = placesState?.places?.data || placesState?.places || [];
   const places = Array.isArray(rawPlaces) ? rawPlaces : [];
@@ -23,10 +22,32 @@ export default function QueuePage() {
   const allTickets = Array.isArray(rawTickets) ? rawTickets : [];
 
   const [activeFilter, setActiveFilter] = useState<FilterType>('active');
+  const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    dispatch(fetchTicketsAsync());
+    if (places.length === 0) {
+      dispatch(fetchPlacesAsync());
+    }
+  }, [dispatch]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        dispatch(fetchTicketsAsync()),
+        dispatch(fetchPlacesAsync())
+      ]);
+    } catch (error) {
+      console.error("Refresh failed", error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [dispatch]);
 
   const myTickets = useMemo(() => {
     if (!user) return [];
-    const userTickets = allTickets.filter((t: any) => t.name === user.name);
+    const userTickets = allTickets.filter((t: any) => t.name === user.name || t.email === user.email);
     return userTickets.length > 0 ? userTickets : allTickets;
   }, [allTickets, user]);
 
@@ -39,9 +60,14 @@ export default function QueuePage() {
       { 
         text: 'ยืนยันการยกเลิก', 
         style: 'destructive', 
-        onPress: () => {
-          dispatch(updateQueueStatus({ id: ticketId, status: 'Cancelled' }));
-          Alert.alert('สำเร็จ', 'ยกเลิกคิวเรียบร้อยแล้ว');
+        onPress: async () => {
+          try {
+            await dispatch(updateQueueStatusAsync({ id: ticketId, status: 'Cancelled' })).unwrap();
+            Alert.alert('สำเร็จ', 'ยกเลิกคิวเรียบร้อยแล้ว');
+            dispatch(fetchTicketsAsync());
+          } catch (error) {
+            Alert.alert('เกิดข้อผิดพลาด', 'ไม่สามารถยกเลิกคิวได้');
+          }
         } 
       }
     ]);
@@ -55,7 +81,7 @@ export default function QueuePage() {
   });
 
   const groupedHistory = filteredHistory.reduce((acc: any, ticket: any) => {
-    const date = new Date(ticket.createdAt);
+    const date = new Date(ticket.createdAt || ticket.bookDate);
     const dateLabel = date.toDateString() === new Date().toDateString() ? 'Today' : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     if (!acc[dateLabel]) acc[dateLabel] = [];
     acc[dateLabel].push(ticket);
@@ -84,20 +110,27 @@ export default function QueuePage() {
         </ScrollView>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <ScrollView 
+        showsVerticalScrollIndicator={false} 
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#6FA4A1" colors={["#6FA4A1"]} />}
+      >
         {activeFilter === 'active' ? (
           activeTickets.length > 0 ? (
             <View>
               {activeTickets.map((ticket: any) => {
-                const shop = places.find((p: any) => p.id === ticket.shopId) || { name: 'Unknown Shop', logoUrl: 'https://via.placeholder.com/150', tableTypes: [] };
-                const queuesAhead = ticket.queuesAhead || 0; 
-                const estimatedWaitTime = ticket.estimatedWaitTime || 15;
+                const targetPlaceId = ticket.placeId || ticket.shopId;
+                const shop = places.find((p: any) => p.id === targetPlaceId) || { name: 'Unknown Shop', logoUrl: 'https://via.placeholder.com/150', tableTypes: [], branch: '' };
+
+                const queuesAhead = allTickets.filter((t: any) => 
+                  (t.placeId === targetPlaceId || t.shopId === targetPlaceId) &&
+                  t.tableType === ticket.tableType &&
+                  t.status === 'Waiting' &&
+                  new Date(t.createdAt || t.bookDate) < new Date(ticket.createdAt || ticket.bookDate)
+                ).length;
 
                 const isServing = ticket.status === 'Serving';
-                
-                if (!shop) return null;
-
-                const tableName = shop.tableTypes?.find((t: any) => t.id === ticket.tableType)?.label || '';
+                const tableName = ticket.tableType || '';
 
                 return (
                   <View key={ticket.id} style={[styles.mainCard, isServing && styles.mainCardServing]}>
@@ -107,7 +140,7 @@ export default function QueuePage() {
                         <Text style={styles.shopName} numberOfLines={1}>{shop.name}</Text>
                         <View style={styles.locationTag}>
                           <Store size={12} color="#A0AEC0" />
-                          <Text style={styles.locationTextSmall}>{shop.branch}</Text>
+                          <Text style={styles.locationTextSmall}>{shop.branch || 'สาขาหลัก'}</Text>
                         </View>
                       </View>
                       <View style={styles.statusBadgeGreen}>
@@ -135,11 +168,12 @@ export default function QueuePage() {
                         </View>
                       </View>
                       
+                      {/* 🌟 เปลี่ยน UI จาก รอประมาณ ~15 นาที เป็น คิวก่อนหน้า X คิว */}
                       <View style={styles.waitTimeBlock}>
-                        <Text style={styles.infoLabel}>รอประมาณ</Text>
+                        <Text style={styles.infoLabel}>คิวก่อนหน้า</Text>
                         <View style={styles.timeWrapper}>
-                          <Clock size={14} color="#DD6B20" />
-                          <Text style={styles.infoValue}>~{estimatedWaitTime} นาที</Text>
+                          <Users size={14} color="#DD6B20" />
+                          <Text style={styles.infoValue}>{queuesAhead} คิว</Text>
                         </View>
                       </View>
                     </View>
@@ -166,7 +200,8 @@ export default function QueuePage() {
               <View key={dateKey}>
                 <Text style={styles.dateLabel}>{dateKey}</Text>
                 {groupedHistory[dateKey].map((booking: any) => {
-                  const shop: any = places.find((p: any) => p.id === booking.shopId) || { name: 'Unknown', logoUrl: 'https://via.placeholder.com/150' };
+                  const targetPlaceId = booking.placeId || booking.shopId;
+                  const shop: any = places.find((p: any) => p.id === targetPlaceId) || { name: 'Unknown Shop', logoUrl: 'https://via.placeholder.com/150' };
                   const isSuccess = booking.status === 'Completed';
                   return (
                     <View key={booking.id} style={[styles.historyCard, isSuccess ? styles.historyCardSuccess : styles.historyCardCancelled]}>
@@ -182,7 +217,7 @@ export default function QueuePage() {
                           <Text style={styles.historyShopCategory}>{booking.service}</Text>
                           <View style={styles.historyTimeRow}>
                             <View style={styles.historyQueueTag}><TicketIcon size={12} color="#4A5568" /><Text style={styles.historyQueueText}>{booking.id}</Text></View>
-                            <Text style={styles.historyTimeText}>{new Date(booking.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</Text>
+                            <Text style={styles.historyTimeText}>{new Date(booking.createdAt || booking.bookDate).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</Text>
                           </View>
                         </View>
                       </View>
@@ -243,7 +278,7 @@ const styles = StyleSheet.create({
   infoValue: { fontSize: 16, fontWeight: '800', color: '#2D3748', marginLeft: 6 },
 
   divider: { height: 1, backgroundColor: '#EDF2F7', marginVertical: 16 },
-  
+
   bottomActionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   warningCompact: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   warningTextCompact: { fontSize: 12, color: '#E53E3E', marginLeft: 6, fontWeight: '500' },
