@@ -30,9 +30,6 @@ export const forgotPasswordAsync = createAsyncThunk(
   }
 );
 
-// ------------------------------------------------------------------
-// จุดที่แก้ไข: ปรับให้ยิง API ไปหา Backend แทนการแก้ Supabase โดยตรง
-// ------------------------------------------------------------------
 export const logoutAsync = createAsyncThunk(
   "auth/logoutAsync",
   async (userId: string | undefined, { getState, dispatch }) => {
@@ -55,7 +52,6 @@ export const logoutAsync = createAsyncThunk(
     }
   }
 );
-// ------------------------------------------------------------------
 
 export const loginAsync = createAsyncThunk(
   "auth/login",
@@ -107,7 +103,6 @@ export const updateProfileAsync = createAsyncThunk(
   }
 );
 
-// เพิ่มฟังก์ชันสำหรับอัปโหลดรูปโปรไฟล์
 export const uploadAvatarAsync = createAsyncThunk(
   "auth/uploadAvatar",
   async (imageUri: string, { getState, rejectWithValue }) => {
@@ -173,14 +168,29 @@ const authSlice = createSlice({
       })
       .addCase(updateProfileAsync.fulfilled, (state, action) => {
         state.isLoading = false;
-        if (state.user) state.user = { ...state.user, ...action.payload };
+        if (state.user) {
+          const hasConsented = state.user.aiConsented || state.user.ai_consented;
+          state.user = { 
+            ...state.user, 
+            ...action.payload,
+            aiConsented: hasConsented,
+            ai_consented: hasConsented
+          };
+        }
       })
-      // จัดการผลลัพธ์การอัปโหลดรูปภาพ
       .addCase(uploadAvatarAsync.fulfilled, (state, action) => {
         state.isLoading = false;
-        if (state.user) state.user = { ...state.user, ...action.payload };
+        if (state.user) {
+          const hasConsented = state.user.aiConsented || state.user.ai_consented;
+          state.user = { 
+            ...state.user, 
+            ...action.payload,
+            aiConsented: hasConsented,
+            ai_consented: hasConsented
+          };
+        }
       });
-  }
+  } // <-- เพิ่มปีกกาปิดตรงนี้ที่หายไป
 });
 
 export const { loginSuccess, logout, updateConsent, updateStatusSuccess } = authSlice.actions;
