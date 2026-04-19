@@ -1,9 +1,11 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import OpenAI from "openai";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+// เรียกใช้งาน OpenAI โดยใช้คีย์จาก environment variable
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY || "",
+});
 
-// ปรับ System Instruction ให้บังคับ AI ตอบเป็น JSON เสมอ
-// เพื่อให้ฝั่ง Mobile นำข้อมูลไปสร้างเป็น PlaceCard ได้ง่าย
+// System Instruction คงเดิมไว้ได้เลย เพราะเขียนบังคับโครงสร้าง JSON ไว้ดีแล้ว
 const SYSTEM_INSTRUCTION = `
 You are "QBuddy Assistant", an expert in Gastronomy and Beauty & Wellness. 
 Your task is to recommend places to users based ONLY on the list of places provided in the context.
@@ -24,14 +26,6 @@ Your task is to recommend places to users based ONLY on the list of places provi
 4. Language: Always respond in Thai for the "text" field.
 `;
 
-const model = genAI.getGenerativeModel({ 
-  model: "gemini-2.5-flash", 
-  systemInstruction: SYSTEM_INSTRUCTION,
-  generationConfig: {
-    responseMimeType: "application/json",
-  }
-});
-
 export class AIService {
   async generateResponse(prompt: string, contextData: string) { 
     try {
@@ -43,17 +37,25 @@ export class AIService {
         User Question: ${prompt}
       `;
 
-      const result = await model.generateContent(fullPrompt);
-      const response = await result.response;
+      // ยิง API ไปที่ OpenAI
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          { role: "system", content: SYSTEM_INSTRUCTION },
+          { role: "user", content: fullPrompt }
+        ],
+        // บังคับให้ OpenAI ตอบกลับมาเป็น JSON ตามรูปแบบที่ระบุใน System
+        response_format: { type: "json_object" },
+      });
       
-      // ดึงข้อความดิบที่ได้จาก AI (ซึ่งตอนนี้มันเป็นโครงสร้าง JSON แล้ว)
-      const rawText = response.text();
+      // ดึงข้อความ JSON ที่ได้จาก OpenAI
+      const rawText = response.choices[0].message.content || "{}";
       
       // แปลงจากข้อความ JSON ให้กลายเป็น Object แล้วส่งกลับไปให้ Controller
       return JSON.parse(rawText);
       
     } catch (error) {
-      console.error("Gemini Error:", error);
+      console.error("OpenAI Error:", error);
       throw new Error("Failed to generate AI response");
     }
   }
