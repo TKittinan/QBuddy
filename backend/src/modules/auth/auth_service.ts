@@ -149,7 +149,6 @@ export class AuthService {
     if (updatedUser && updatedUser.password) delete updatedUser.password;
     return updatedUser;
   }
-<<<<<<< HEAD
 
   async updateAiConsent(userId: string, consented: boolean) {
     // ใช้ชื่อคอลัมน์ให้ตรงกับฐานข้อมูล คือ ai_consented (หรือ aiConsented แล้วแต่กรณี แต่ส่วนใหญ่ Prisma/Supabase จะสร้างเป็น ai_consented)
@@ -158,6 +157,4 @@ export class AuthService {
     if (updatedUser && updatedUser.password) delete updatedUser.password;
     return updatedUser;
   }
-=======
->>>>>>> parent of 8391b54 (Fect AIConsent first login)
 }
