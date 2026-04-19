@@ -200,12 +200,34 @@ export default function ProfilePage() {
     Alert.alert('ส่งรายงานเรียบร้อย', 'เราได้รับข้อมูล Ticket ของคุณแล้ว เจ้าหน้าที่จะทำการตรวจสอบและแจ้งกลับให้เร็วที่สุดครับ', [{ text: 'ตกลง', onPress: () => { setReportIssue(''); closeModal('report'); } }]);
   };
 
+  // -------------------------------------------------------------------------
+  // จุดที่แก้ไข: รองรับการกด Logout ทั้งบน Web และ Mobile
+  // -------------------------------------------------------------------------
   const handleLogout = () => {
-    Alert.alert('ยืนยันออกจากระบบ', 'คุณต้องการออกจากระบบใช่หรือไม่?', [
-      { text: 'ยกเลิก', style: 'cancel' },
-      { text: 'ออกจากระบบ', style: 'destructive', onPress: () => dispatch(logoutAsync(user?.id)) } 
-    ]);
+    if (Platform.OS === 'web') {
+      // สำหรับบน Web Browser
+      const confirmLogout = window.confirm('คุณต้องการออกจากระบบใช่หรือไม่?');
+      if (confirmLogout) {
+        dispatch(logoutAsync(user?.id)).then(() => {
+          router.replace('/(auth)/Login');
+        });
+      }
+    } else {
+      // สำหรับบน iOS / Android
+      Alert.alert('ยืนยันออกจากระบบ', 'คุณต้องการออกจากระบบใช่หรือไม่?', [
+        { text: 'ยกเลิก', style: 'cancel' },
+        { 
+          text: 'ออกจากระบบ', 
+          style: 'destructive', 
+          onPress: async () => {
+            await dispatch(logoutAsync(user?.id));
+            router.replace('/(auth)/Login');
+          } 
+        } 
+      ]);
+    }
   };
+  // -------------------------------------------------------------------------
 
   const MenuItem = ({ icon: Icon, title, subtitle, onPress, iconColor = "#475569" }: MenuItemProps) => (
     <TouchableOpacity onPress={onPress} className="flex-row items-center bg-white p-4 rounded-2xl mb-3 shadow-sm border border-gray-100">

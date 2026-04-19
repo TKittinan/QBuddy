@@ -30,21 +30,32 @@ export const forgotPasswordAsync = createAsyncThunk(
   }
 );
 
+// ------------------------------------------------------------------
+// จุดที่แก้ไข: ปรับให้ยิง API ไปหา Backend แทนการแก้ Supabase โดยตรง
+// ------------------------------------------------------------------
 export const logoutAsync = createAsyncThunk(
   "auth/logoutAsync",
-  async (userId: string | undefined, { dispatch }) => {
+  async (userId: string | undefined, { getState, dispatch }) => {
     try {
-      if (userId) {
-        await supabase.from('User').update({ status: 'INACTIVE' }).eq('id', userId);
+      const state: any = getState();
+      const token = state.auth?.token;
+      
+      if (token) {
+        // ยิง API ไปบอก Backend ว่าให้เปลี่ยน status เป็น INACTIVE
+        await axios.post(`${API_BASE_URL}/auth/logout`, {}, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
       }
     } catch (error) {
       console.error("Failed to update status during logout:", error);
     } finally {
+      // เคลียร์ข้อมูลออกจากเครื่อง
       await AsyncStorage.multiRemove(['user_token', 'user_data']);
       dispatch(logout());
     }
   }
 );
+// ------------------------------------------------------------------
 
 export const loginAsync = createAsyncThunk(
   "auth/login",
