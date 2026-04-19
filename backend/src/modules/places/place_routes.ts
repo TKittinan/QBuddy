@@ -6,6 +6,7 @@ const place_controller = new PlaceController();
 
 router.get('/', place_controller.list);
 router.get('/recommend', place_controller.recommend);
+router.get('/trending/weekly', place_controller.get_weekly_trending);
 router.get('/:id', place_controller.get_one);
 router.post('/', place_controller.create);
 router.put('/:id', place_controller.update);

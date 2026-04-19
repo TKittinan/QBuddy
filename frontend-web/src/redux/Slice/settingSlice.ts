@@ -35,8 +35,6 @@ const initialState: ExtendedSettingsState = {
   businessName: "",
   phone: "",
   email: "",
-  maxQueuePerDay: 0,
-  autoCancelMins: 0,
   loading: false,
   error: null,
 };

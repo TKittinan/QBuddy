@@ -32,7 +32,6 @@ export class PlaceController {
     }
   }
   
-  // ฟังก์ชัน Recommend ที่เพื่อนคุณเพิ่มเข้ามา (คงไว้ตามเดิม 100%)
   async recommend(req: Request, res: Response) {
     try {
       const user_name = req.query.user_name as string;
@@ -42,8 +41,6 @@ export class PlaceController {
       res.status(500).json({ message: error.message });
     }
   }
-
-  // --- เพิ่มให้เพื่อให้รองรับปุ่ม Edit/Delete จากฝั่ง Frontend ---
   
   async update(req: Request, res: Response) {
     try {
@@ -60,6 +57,15 @@ export class PlaceController {
       res.status(204).send();
     } catch (error: any) {
       res.status(400).json({ message: error.message });
+    }
+  }
+
+  async get_weekly_trending(req: Request, res: Response) {
+    try {
+      const trending = await place_service.get_weekly_trending();
+      res.json(trending);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
     }
   }
 }

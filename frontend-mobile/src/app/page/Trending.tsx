@@ -1,34 +1,63 @@
-import React, { useState, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Platform, StatusBar, FlatList, ActivityIndicator, TextInput } from 'react-native';
+import React, { useState, useMemo, useCallback, useEffect } from 'react'; 
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Platform, StatusBar, FlatList, ActivityIndicator, TextInput, RefreshControl } from 'react-native';
 import { ArrowLeft, Search } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
-import { useAppSelector } from '../../redux/useRedux';
+import { useAppSelector, useAppDispatch } from '../../redux/useRedux';
+// 🌟 เปลี่ยนมา import ตัว fetchWeeklyTrendingAsync
+import { fetchWeeklyTrendingAsync } from '../../redux/slices/placeSlice'; 
+
 import { Card } from '../../components/ui/Card'; 
 import { CategoryChips } from '../../components/ui/CategoryChips'; 
 import { Place } from '../../types';
 
 export default function Trending() {
   const router = useRouter();
+  const dispatch = useAppDispatch();
   
+  // 🌟 ดึงข้อมูลจาก state.places.weeklyTrending แทน
   const placesState = useAppSelector((state: any) => state.places);
-  const rawPlaces = placesState?.places?.data || placesState?.places || [];
+  const rawPlaces = placesState?.weeklyTrending || [];
   const allPlaces = Array.isArray(rawPlaces) ? rawPlaces : [];
 
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTag, setActiveTag] = useState<string>('ทั้งหมด');
-  const [displayedCount, setDisplayedCount] = useState(8); 
+  const [displayedCount, setDisplayedCount] = useState(10); // แสดงทีละ 10 ไปเลย
   const [loadingMore, setLoadingMore] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // 🌟 เรียกใช้ fetchWeeklyTrendingAsync ตอนเปิดหน้า
+  useEffect(() => {
+    if (allPlaces.length === 0) {
+      dispatch(fetchWeeklyTrendingAsync());
+    }
+  }, [dispatch, allPlaces.length]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await dispatch(fetchWeeklyTrendingAsync());
+    setRefreshing(false);
+  }, [dispatch]);
 
   const filterTags = ['ทั้งหมด', 'ร้านอาหาร', 'คาเฟ่', 'เสริมสวยอื่นๆ'];
 
   const processedPlaces = useMemo(() => {
     let result = [...allPlaces];
-    // 🌟 แก้ให้เช็ค category ตรงๆ 
-    if (activeTag !== 'ทั้งหมด') result = result.filter((place: Place) => place.category === activeTag);
-    if (searchQuery) result = result.filter((place: Place) => place.name.toLowerCase().includes(searchQuery.toLowerCase()));
     
-    return result.sort((a: Place, b: Place) => (b.monthlyBookings || 0) - (a.monthlyBookings || 0));
+    if (activeTag !== 'ทั้งหมด') {
+      result = result.filter((place: Place) => 
+        place.category && place.category.includes(activeTag)
+      );
+    }
+    
+    if (searchQuery) {
+      result = result.filter((place: Place) => 
+        place.name.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+    
+    // 🌟 ไม่ต้อง sort แล้ว เพราะ Backend เรียง 10 อันดับแรกมาให้แล้ว
+    return result;
   }, [allPlaces, activeTag, searchQuery]);
 
   const displayedPlaces = useMemo(() => {
@@ -39,7 +68,7 @@ export default function Trending() {
     if (displayedCount < processedPlaces.length && !loadingMore) {
       setLoadingMore(true);
       setTimeout(() => {
-        setDisplayedCount(prev => prev + 8);
+        setDisplayedCount(prev => prev + 10);
         setLoadingMore(false);
       }, 500); 
     }
@@ -75,6 +104,9 @@ export default function Trending() {
       <FlatList
         data={displayedPlaces}
         keyExtractor={(item: Place) => item.id}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#DD6B20']} tintColor="#DD6B20" />
+        }
         renderItem={({ item, index }) => (
           <View style={{ position: 'relative' }}>
             <Card 
@@ -82,7 +114,10 @@ export default function Trending() {
               imageUri={item.image} 
               location={item.branch} 
               distance={typeof item.distance === 'number' ? `${item.distance} กม.` : item.distance} 
-              category={item.category} // 🌟 ส่ง category เข้า Component 
+              category={item.category} 
+              // 🌟 แก้ตรงนี้เพื่อให้ Badge แจ้งเตือนแสดงยอดของสัปดาห์นี้
+              place={{ ...item, monthlyBookings: (item as any).weeklyBookings }} 
+              showBookingBadge={true}
               onPress={(id: string) => router.push({ pathname: '/page/PlaceDetail', params: { id } })}
             />
             {index < 3 && (
@@ -94,13 +129,13 @@ export default function Trending() {
         )}
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
-        ListEmptyComponent={<Text style={styles.emptyText}>ไม่พบข้อมูลร้านยอดฮิต</Text>}
+        ListEmptyComponent={<Text style={styles.emptyText}>ยังไม่มีข้อมูลการจองในสัปดาห์นี้</Text>}
         onEndReached={loadMorePlaces}
         onEndReachedThreshold={0.5}
         ListHeaderComponent={
           <View style={styles.listHeader}>
-            <Text style={styles.listTitle}>ร้านยอดฮิตประจำเดือน!</Text>
-            <Text style={styles.listSubtitle}>จัดอันดับจากยอดการจองสำเร็จสูงสุดในรอบ 30 วัน</Text>
+            <Text style={styles.listTitle}>Top 10 ร้านฮิตสัปดาห์นี้!</Text>
+            <Text style={styles.listSubtitle}>จัดอันดับจากยอดการจองสูงสุดในรอบ 7 วันล่าสุด</Text>
           </View>
         }
         ListFooterComponent={() => loadingMore ? <ActivityIndicator size="large" color="#DD6B20" style={{ marginVertical: 20 }} /> : null}

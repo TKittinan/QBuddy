@@ -1,9 +1,9 @@
-import React, { useState, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Platform, StatusBar, FlatList, ActivityIndicator, TextInput } from 'react-native';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Platform, StatusBar, FlatList, ActivityIndicator, TextInput, RefreshControl } from 'react-native';
 import { ArrowLeft, Search } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
-
-import { useAppSelector } from '../../redux/useRedux';
+import { useAppSelector, useAppDispatch } from '../../redux/useRedux';
+import { fetchPlacesAsync } from '../../redux/slices/placeSlice';
 import { Card } from '../../components/ui/Card';
 import { Place } from '../../types';
 
@@ -13,22 +13,45 @@ interface LocalRootState {
 
 export default function Beauty() { 
   const router = useRouter();
+  const dispatch = useAppDispatch();
   const activeCategoryTag = 'เสริมสวยอื่นๆ'; 
-
   const rawPlaces = useAppSelector((state: LocalRootState) => state.places.places);
   const allPlaces = Array.isArray(rawPlaces) ? rawPlaces : [];
-
   const [searchQuery, setSearchQuery] = useState('');
   const [displayedCount, setDisplayedCount] = useState(10); 
   const [loadingMore, setLoadingMore] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    if (allPlaces.length === 0) {
+      dispatch(fetchPlacesAsync());
+    }
+  }, [dispatch, allPlaces.length]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await dispatch(fetchPlacesAsync());
+    setRefreshing(false);
+  }, [dispatch]);
 
   const filteredPlaces = useMemo(() => {
-    const basePlaces = allPlaces.filter((place: Place) => place.category === activeCategoryTag);
+    const basePlaces = allPlaces.filter((place: Place) => {
+      // 🌟 เช็ค Active เสมอ
+      if (place.status?.toLowerCase() !== 'active') return false;
+      if (!place.category) return false;
+      const categoriesArray = place.category.split(',').map(c => c.trim());
+      return categoriesArray.includes(activeCategoryTag);
+    });
+    
     if (!searchQuery) return basePlaces;
-    return basePlaces.filter((place: Place) => 
-      place.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      place.category?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    return basePlaces.filter((place: Place) => {
+      const matchName = place.name.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      const categoriesArray = place.category ? place.category.split(',').map(c => c.trim().toLowerCase()) : [];
+      const matchCategory = categoriesArray.some(c => c.includes(searchQuery.toLowerCase()));
+      
+      return matchName || matchCategory;
+    });
   }, [allPlaces, searchQuery, activeCategoryTag]);
 
   const displayedPlaces = useMemo(() => {
@@ -69,13 +92,16 @@ export default function Beauty() {
       <FlatList
         data={displayedPlaces}
         keyExtractor={(item: Place) => item.id}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#6FA4A1']} tintColor="#6FA4A1" />
+        }
         renderItem={({ item }) => (
           <Card 
             title={item.name} 
             imageUri={item.image} 
             location={item.branch} 
             distance={typeof item.distance === 'number' ? `${item.distance} กม.` : item.distance} 
-            category={item.category} // 🌟 ส่ง category เข้า Component แทน tags
+            category={item.category} 
             onPress={(id: string) => router.push({ pathname: '/page/PlaceDetail', params: { id } })}
           />
         )}

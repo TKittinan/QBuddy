@@ -140,4 +140,58 @@ export class PlaceService {
       
     return recommended || (await supabase.from('Place').select('*').eq('status', 'Active').limit(5)).data;
   }
+
+  // 🌟 ฟังก์ชันใหม่: คำนวณยอดจองฮิต 7 วันล่าสุด
+  async get_weekly_trending() {
+    // 1. หาวันที่ย้อนหลัง 7 วัน
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const isoDate = sevenDaysAgo.toISOString();
+
+    // 2. ดึงตั๋วที่มีการจองในรอบ 7 วัน (อ้างอิงจากวันที่สร้าง)
+    const { data: tickets, error: ticketError } = await supabase
+      .from('Ticket')
+      .select('shopId')
+      .gte('created_at', isoDate);
+
+    if (ticketError) throw new Error(ticketError.message);
+
+    if (!tickets || tickets.length === 0) return []; // ถ้าสัปดาห์นี้ไม่มีคนจองเลย
+
+    // 3. นับจำนวนการจองของแต่ละร้าน
+    const shopCounts: { [key: string]: number } = {};
+    tickets.forEach((t: any) => {
+      if (t.shopId) {
+        shopCounts[t.shopId] = (shopCounts[t.shopId] || 0) + 1;
+      }
+    });
+
+    // 4. เรียงลำดับร้านที่ถูกจองเยอะสุด 10 อันดับแรก
+    const top10ShopIds = Object.keys(shopCounts)
+      .sort((a, b) => shopCounts[b] - shopCounts[a])
+      .slice(0, 10);
+      
+    if (top10ShopIds.length === 0) return [];
+
+    // 5. ดึงข้อมูลร้านค้าทั้ง 10 ร้าน (เฉพาะร้านที่ Active)
+    const { data: places, error: placeError } = await supabase
+      .from('Place')
+      .select('*')
+      .in('id', top10ShopIds)
+      .eq('status', 'Active');
+
+    if (placeError) throw new Error(placeError.message);
+
+    // 6. ประกอบร่างข้อมูลร้าน + ยอดจองรายสัปดาห์ แล้วเรียงลำดับให้ถูกต้องตามยอดจอง
+    const trendingPlaces = top10ShopIds.map(id => {
+      const place = places?.find(p => p.id === id);
+      if (place) {
+        // แปะ weeklyBookings เข้าไปใน Object ด้วย
+        return { ...place, weeklyBookings: shopCounts[id] };
+      }
+      return null;
+    }).filter(Boolean);
+
+    return trendingPlaces;
+  }
 }
