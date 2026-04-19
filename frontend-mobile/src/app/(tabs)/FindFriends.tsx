@@ -15,7 +15,6 @@ export default function FindFriendsPage() {
   const router = useRouter();
   const dispatch = useAppDispatch(); 
   
-  // 🌟 ใช้ RootState ของจริงจากระบบ แทน LocalRootState ที่สร้างมั่ว
   const user: User | null = useAppSelector((state: RootState) => state.auth.user);
   
   // 🌟 ดึงข้อมูลโดยไม่ต้องแปลงโครงสร้าง เพราะ RootState รู้จักโครงสร้างของจริงแล้ว

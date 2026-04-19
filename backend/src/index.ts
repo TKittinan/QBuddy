@@ -10,7 +10,7 @@ import settings from './modules/settings/settings_routes';
 import auth_routes from './modules/auth/auth_routes';
 import dashboard_routes from './modules/dashboard/dashboard_routes';
 import aiRoutes from "./modules/ai_chatbot/ai_routes";
-
+import savedPlaceRoutes from './modules/saveplace/savedplace_routes';
 const app = express();
 app.use(cors());
 
@@ -27,6 +27,7 @@ app.use('/api/support', support_routes);
 app.use('/api/settings', settings);
 app.use('/api/dashboard', dashboard_routes);
 app.use("/api/ai", aiRoutes);
+app.use('/api/saved-places', savedPlaceRoutes);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

@@ -26,11 +26,33 @@ export const Card: React.FC<CardProps> = ({
   showBookingBadge 
 }) => {
   const displayTitle = place?.name || title || 'Unknown';
-  const displayImage = place?.image || imageUri || 'https://via.placeholder.com/400x200';
   const displayLocation = place?.branch || location || 'Unknown Location';
   const displayDistance = place?.distance || distance;
   const displayCategory = place?.category || category || ''; 
   const placeId = place?.id || 'unknown_id';
+
+  // 🌟 ฟังก์ชันดึงรูปภาพรูปแรกจาก coverUrl หรือ image
+  const getCoverImage = () => {
+    if (imageUri) return imageUri;
+    if (!place) return 'https://via.placeholder.com/400x200';
+    
+    let imgArray: string[] = [];
+    const parseString = (str: string | undefined) => {
+      if (!str) return [];
+      if (str.startsWith('[') && str.endsWith(']')) {
+        try { return JSON.parse(str); } catch (e) { return [str]; }
+      }
+      if (str.includes(',')) return str.split(',').map(s => s.trim());
+      return [str];
+    };
+
+    if (place.coverUrl) imgArray = parseString(place.coverUrl);
+    if (imgArray.length === 0 && place.image) imgArray = parseString(place.image);
+    
+    return imgArray[0] || 'https://via.placeholder.com/400x200';
+  };
+
+  const displayImage = getCoverImage();
 
   const categoryTags = displayCategory
     ? displayCategory.split(',').map(c => c.trim()).filter(Boolean)
@@ -48,6 +70,7 @@ export const Card: React.FC<CardProps> = ({
           </View>
         )}
         
+        {/* 🌟 ปุ่ม Save มุมขวาบน ผูกกับ placeId เรียบร้อย */}
         <SaveButton placeId={placeId} style={styles.saveButton} />
       </View>
       <View style={styles.cardContent}>
@@ -71,7 +94,7 @@ export const Card: React.FC<CardProps> = ({
 
 const styles = StyleSheet.create({
   card: { backgroundColor: '#FFFFFF', borderRadius: 20, marginBottom: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 12, elevation: 4, borderWidth: 1, borderColor: '#F1F5F9' },
-  imageWrapper: { width: '100%', height: 170, borderTopLeftRadius: 20, borderTopRightRadius: 20, overflow: 'hidden' },
+  imageWrapper: { width: '100%', height: 170, borderTopLeftRadius: 20, borderTopRightRadius: 20, overflow: 'hidden', position: 'relative' },
   cardImage: { width: '100%', height: '100%', backgroundColor: '#EDF2F7' },
   bookingBadge: { position: 'absolute', top: 12, left: 12, flexDirection: 'row', alignItems: 'center', backgroundColor: '#DD6B20', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20 },
   bookingBadgeText: { color: '#FFF', fontSize: 11, fontWeight: '800' },

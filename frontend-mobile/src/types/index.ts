@@ -36,6 +36,7 @@ export interface Place {
   lat?: number;
   lng?: number;
   monthlyBookings?: number;
+  weeklyBookings?: number;
   phone?: string;
   status?: "Active" | "Inactive" | string;
   tableTypes?: TableType[];
@@ -95,13 +96,12 @@ export interface PartyActivity {
   status: ActivityStatus | string;
   joinedGuests: Guest[];
   createdAt: string;
-  distance?: number | string; // ค่าที่ได้จากการคำนวณในแอปหรือ AI (ไม่ต้องมีใน DB ก็ได้ แต่แอปใช้)
+  distance?: number | string;
   matchRate?: number;
   isRecommended?: boolean;
   remainingSeats?: number;
 }
 
-// 🌟 เพิ่ม Type สำหรับแชท
 export interface ChatMessage {
   id: string;
   activityId?: string;
@@ -109,8 +109,8 @@ export interface ChatMessage {
   senderName?: string;
   text: string;
   createdAt?: string;
-  type?: 'user' | 'ai'; // ใช้แยกว่าใครพิมพ์ในหน้า AIChat
-  placeCard?: any; // ใช้ในหน้า AIChat ตอนส่งการ์ดร้าน
+  type?: 'user' | 'ai';
+  placeCard?: any;
 }
 
 export interface SupportTicket {

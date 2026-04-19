@@ -11,10 +11,11 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input'; 
 import { Pagination } from '../../components/ui/Pagination'; 
 import { useAppDispatch, useAppSelector } from '../../redux/useRedux';
-import { logoutAsync, updateStatusSuccess } from '../../redux/slices/authSlice'; // นำเข้าฟังก์ชันใหม่
-import { toggleSavePlace } from '../../redux/slices/savedPlacesSlice'; 
+import { logoutAsync, updateStatusSuccess } from '../../redux/slices/authSlice'; 
+// 🌟 1. เปลี่ยนจาก toggleSavePlace เป็น toggleSavePlaceAsync
+import { toggleSavePlaceAsync } from '../../redux/slices/savedPlacesSlice'; 
 import { Place } from '../../types';
-import { supabase } from '../../config'; // นำเข้า supabase สำหรับ Realtime
+import { supabase } from '../../config'; 
 
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -40,7 +41,7 @@ export default function ProfilePage() {
   const allPlaces = Array.isArray(rawPlaces) ? rawPlaces : [];
 
   const savedPlacesState = useAppSelector((state: any) => state.savedPlaces);
-  const savedPlaceIds = savedPlacesState?.savedByUser?.[user?.name || ''] || [];
+  const savedPlaceIds = savedPlacesState?.savedByUser?.[user?.id || 'guest-123'] || [];
 
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [userName, setUserName] = useState(user?.name || '');
@@ -56,43 +57,29 @@ export default function ProfilePage() {
     defaultValues: { name: user?.name || '', email: user?.email || '' }
   });
 
-  // เพิ่ม Realtime Listener เพื่อดักฟังการอัปเดต Status ของตัวเอง
   useEffect(() => {
     if (!user?.id) return;
-
     const channel = supabase
       .channel(`user-status-${user.id}`)
       .on(
         'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'User',
-          filter: `id=eq.${user.id}`,
-        },
+        { event: 'UPDATE', schema: 'public', table: 'User', filter: `id=eq.${user.id}` },
         (payload) => {
-          // เมื่อสถานะใน DB เปลี่ยน ให้มาอัปเดต Redux State ทันที
           if (payload.new.status) {
             dispatch(updateStatusSuccess(payload.new.status));
           }
         }
       )
       .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [user?.id]);
 
   useEffect(() => {
     const loadProfileData = async () => {
       const storedAvatar = await AsyncStorage.getItem('@user_avatar');
       if (storedAvatar) setAvatarUri(storedAvatar);
-
       const storedSettings = await AsyncStorage.getItem('@app_settings');
-      if (storedSettings) {
-        setSettings(JSON.parse(storedSettings));
-      }
+      if (storedSettings) setSettings(JSON.parse(storedSettings));
     };
     loadProfileData();
   }, []);
@@ -109,8 +96,7 @@ export default function ProfilePage() {
   };
   const closeModal = (key: keyof typeof modals) => setModals({ ...modals, [key]: false });
 
-  const handlePickImage = async () => {
-  };
+  const handlePickImage = async () => {};
 
   const toggleLocation = async (value: boolean) => {
     if (value) {
@@ -126,9 +112,7 @@ export default function ProfilePage() {
   };
 
   const toggleNotification = async (value: boolean) => {
-    if (value) {
-      Alert.alert('แจ้งเตือน', 'ฟีเจอร์นี้จะทำงานได้สมบูรณ์เมื่อติดตั้งแอปพลิเคชันจริง');
-    }
+    if (value) Alert.alert('แจ้งเตือน', 'ฟีเจอร์นี้จะทำงานได้สมบูรณ์เมื่อติดตั้งแอปพลิเคชันจริง');
     const newSettings = { ...settings, notifications: value };
     setSettings(newSettings);
     await AsyncStorage.setItem('@app_settings', JSON.stringify(newSettings));
@@ -140,21 +124,15 @@ export default function ProfilePage() {
     closeModal('edit');
   };
 
+  // 🌟 2. ใช้ toggleSavePlaceAsync และส่ง userId เข้าไปให้ถูกต้อง
   const removeSavedPlace = (placeId: string) => {
-    dispatch(toggleSavePlace({ username: user?.name || '', placeId }));
+    dispatch(toggleSavePlaceAsync({ userId: user?.id || 'guest-123', placeId }));
     if (savedPlacesList.length <= 1) closeModal('saved'); 
   };
 
   const submitReport = () => {
-    if (reportIssue.trim() === '') {
-      Alert.alert('แจ้งเตือน', 'กรุณาระบุรายละเอียดปัญหาที่พบ');
-      return;
-    }
-    Alert.alert(
-      'ส่งรายงานเรียบร้อย', 
-      'เราได้รับข้อมูล Ticket ของคุณแล้ว เจ้าหน้าที่จะทำการตรวจสอบและแจ้งกลับให้เร็วที่สุดครับ',
-      [{ text: 'ตกลง', onPress: () => { setReportIssue(''); closeModal('report'); } }]
-    );
+    if (reportIssue.trim() === '') return Alert.alert('แจ้งเตือน', 'กรุณาระบุรายละเอียดปัญหาที่พบ');
+    Alert.alert('ส่งรายงานเรียบร้อย', 'เราได้รับข้อมูล Ticket ของคุณแล้ว เจ้าหน้าที่จะทำการตรวจสอบและแจ้งกลับให้เร็วที่สุดครับ', [{ text: 'ตกลง', onPress: () => { setReportIssue(''); closeModal('report'); } }]);
   };
 
   const handleDeleteAccount = () => {
@@ -167,7 +145,7 @@ export default function ProfilePage() {
   const handleLogout = () => {
     Alert.alert('ยืนยันออกจากระบบ', 'คุณต้องการออกจากระบบใช่หรือไม่?', [
       { text: 'ยกเลิก', style: 'cancel' },
-      { text: 'ออกจากระบบ', style: 'destructive', onPress: () => dispatch(logoutAsync(user?.id)) } // เรียก logoutAsync แทน
+      { text: 'ออกจากระบบ', style: 'destructive', onPress: () => dispatch(logoutAsync(user?.id)) } 
     ]);
   };
 
@@ -192,7 +170,6 @@ export default function ProfilePage() {
           <View className="items-center mt-8 mb-6">
             <View className="relative">
               <Image source={{ uri: avatarUri || 'https://i.pravatar.cc/150?u=a042581f4e29026024d' }} className="w-28 h-28 rounded-full border-4 border-white shadow-sm" />
-              {/* จุดแสดงสถานะตามจริงจาก Database */}
               <View className={`absolute bottom-1 right-1 w-6 h-6 rounded-full border-4 border-white ${user?.status === 'ACTIVE' ? 'bg-green-500' : 'bg-gray-400'}`} />
             </View>
             <Text className="text-2xl font-extrabold text-gray-800 mt-4">{userName}</Text>
@@ -214,7 +191,6 @@ export default function ProfilePage() {
         </ScrollView>
       </View>
 
-      {/* Modals are kept as they were in the original code */}
       <Modal visible={modals.saved} animationType="slide" statusBarTranslucent={true}>
         <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
           <View className="flex-1 bg-[#F7FAFC]">
@@ -232,19 +208,35 @@ export default function ProfilePage() {
                   <Text className="text-gray-500 mt-2 text-center">คุณสามารถกดบันทึกร้านอาหารหรือคาเฟ่ที่คุณชอบ เพื่อให้แสดงในหน้านี้ได้</Text>
                 </View>
               ) : (
-                savedPlacesList.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE).map((place: Place & { distance?: string | number, category?: string }) => (
-                  <View key={place.id} className="bg-white rounded-2xl p-4 mb-4 shadow-sm border border-gray-100 flex-row items-center">
-                    <Image source={{ uri: place.image }} className="w-16 h-16 rounded-xl mr-4" />
-                    <View className="flex-1">
-                      <Text className="text-base font-bold text-gray-800 mb-1" numberOfLines={1}>{place.name}</Text>
-                      <View className="flex-row items-center"><Store size={12} color="#718096" /><Text className="text-xs text-gray-500 ml-1">{place.category}</Text></View>
-                      <View className="flex-row items-center mt-1"><MapPin size={12} color="#718096" /><Text className="text-xs text-gray-500 ml-1" numberOfLines={1}>{place.distance}</Text></View>
+                savedPlacesList.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE).map((place: Place & { distance?: string | number, category?: string }) => {
+                  
+                  let imgArray: string[] = [];
+                  const parseString = (str: string | undefined) => {
+                    if (!str) return [];
+                    if (str.startsWith('[') && str.endsWith(']')) {
+                      try { return JSON.parse(str); } catch (e) { return [str]; }
+                    }
+                    if (str.includes(',')) return str.split(',').map(s => s.trim());
+                    return [str];
+                  };
+                  if (place.coverUrl) imgArray = parseString(place.coverUrl);
+                  if (imgArray.length === 0 && place.image) imgArray = parseString(place.image);
+                  const displayImg = imgArray[0] || 'https://via.placeholder.com/150';
+
+                  return (
+                    <View key={place.id} className="bg-white rounded-2xl p-4 mb-4 shadow-sm border border-gray-100 flex-row items-center">
+                      <Image source={{ uri: displayImg }} className="w-16 h-16 rounded-xl mr-4" />
+                      <View className="flex-1">
+                        <Text className="text-base font-bold text-gray-800 mb-1" numberOfLines={1}>{place.name}</Text>
+                        <View className="flex-row items-center"><Store size={12} color="#718096" /><Text className="text-xs text-gray-500 ml-1">{place.category}</Text></View>
+                        <View className="flex-row items-center mt-1"><MapPin size={12} color="#718096" /><Text className="text-xs text-gray-500 ml-1" numberOfLines={1}>{place.distance || 'ไม่ทราบระยะทาง'}</Text></View>
+                      </View>
+                      <TouchableOpacity onPress={() => removeSavedPlace(place.id)} className="p-3 bg-yellow-50 rounded-full ml-2">
+                        <Bookmark size={20} color="#D69E2E" fill="#ECC94B" />
+                      </TouchableOpacity>
                     </View>
-                    <TouchableOpacity onPress={() => removeSavedPlace(place.id)} className="p-3 bg-yellow-50 rounded-full ml-2">
-                      <Bookmark size={20} color="#D69E2E" fill="#ECC94B" />
-                    </TouchableOpacity>
-                  </View>
-                ))
+                  );
+                })
               )}
               {totalPages > 1 && <Pagination currentPage={currentPage} totalPages={totalPages} onChange={(page) => setCurrentPage(page)} />}
             </ScrollView>
@@ -252,6 +244,7 @@ export default function ProfilePage() {
         </SafeAreaView>
       </Modal>
 
+      {/* Modal Report */}
       <Modal visible={modals.report} animationType="slide" transparent={true} statusBarTranslucent={true}>
         <View className="flex-1 justify-end bg-black/50">
           <View className="bg-white rounded-t-3xl p-6 pb-10">
@@ -271,11 +264,7 @@ export default function ProfilePage() {
               value={reportIssue} 
               onChangeText={setReportIssue} 
             />
-
-            <Text className="text-xs text-gray-400 mb-6 text-center">
-              ข้อมูลของคุณจะถูกเปิดเป็น Ticket เพื่อให้ทีมงานตรวจสอบโดยเร็วที่สุด
-            </Text>
-
+            <Text className="text-xs text-gray-400 mb-6 text-center">ข้อมูลของคุณจะถูกเปิดเป็น Ticket เพื่อให้ทีมงานตรวจสอบโดยเร็วที่สุด</Text>
             <Button title="ส่งรายงานให้เจ้าหน้าที่" className="bg-[#DD6B20]" onPress={submitReport} />
           </View>
         </View>
