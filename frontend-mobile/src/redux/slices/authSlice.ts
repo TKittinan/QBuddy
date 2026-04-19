@@ -93,7 +93,14 @@ export const updateProfileAsync = createAsyncThunk(
       const currentUserData = await AsyncStorage.getItem('user_data');
       if (currentUserData) {
         const parsedData = JSON.parse(currentUserData);
-        const newData = { ...parsedData, ...updatedUser };
+        // ดึงค่าการยินยอมจากเครื่องมาเก็บไว้ก่อน
+        const hasConsented = parsedData.aiConsented || parsedData.ai_consented;
+        const newData = { 
+          ...parsedData, 
+          ...updatedUser,
+          aiConsented: hasConsented,
+          ai_consented: hasConsented
+        };
         await AsyncStorage.setItem('user_data', JSON.stringify(newData));
       }
       return updatedUser;
@@ -129,7 +136,14 @@ export const uploadAvatarAsync = createAsyncThunk(
       const currentUserData = await AsyncStorage.getItem('user_data');
       if (currentUserData) {
         const parsedData = JSON.parse(currentUserData);
-        const newData = { ...parsedData, ...updatedUser };
+        // ดึงค่าการยินยอมจากเครื่องมาเก็บไว้ก่อน
+        const hasConsented = parsedData.aiConsented || parsedData.ai_consented;
+        const newData = { 
+          ...parsedData, 
+          ...updatedUser,
+          aiConsented: hasConsented,
+          ai_consented: hasConsented
+        };
         await AsyncStorage.setItem('user_data', JSON.stringify(newData));
       }
       return updatedUser;
@@ -190,7 +204,7 @@ const authSlice = createSlice({
           };
         }
       });
-  } // <-- เพิ่มปีกกาปิดตรงนี้ที่หายไป
+  } 
 });
 
 export const { loginSuccess, logout, updateConsent, updateStatusSuccess } = authSlice.actions;
