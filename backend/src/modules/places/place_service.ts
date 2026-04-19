@@ -7,12 +7,13 @@ export class PlaceService {
     return data;
   }
 
-  // ฟังก์ชันใหม่สำหรับ AI Chatbot ดึงข้อมูลไปวิเคราะห์
+// ฟังก์ชันใหม่สำหรับ AI Chatbot ดึงข้อมูลไปวิเคราะห์
   async findAll() {
     try {
       const { data, error } = await supabase
         .from('Place')
-        .select('name, type, description');
+        // เปลี่ยนจาก type เป็น category ให้ตรงกับ Prisma Schema ค่ะ
+        .select('name, category, description, coverUrl, logoUrl');
       
       if (error) throw error;
       return data;

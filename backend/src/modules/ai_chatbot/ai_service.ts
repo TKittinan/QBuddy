@@ -27,7 +27,6 @@ Your task is to recommend places to users based ONLY on the list of places provi
 const model = genAI.getGenerativeModel({ 
   model: "gemini-2.5-flash", 
   systemInstruction: SYSTEM_INSTRUCTION,
-  // ตั้งค่าให้ Gemini ส่งคืนค่าเป็น JSON เสมอ
   generationConfig: {
     responseMimeType: "application/json",
   }
