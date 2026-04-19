@@ -69,7 +69,7 @@ export type ActivityStatus = "Open" | "Closed" | "Completed" | "Cancelled";
 
 export interface Guest {
   userId: string;
-  userName: string;
+  userName?: string;
   pax: number;
   status: 'pending' | 'confirmed';
 }
@@ -86,21 +86,45 @@ export interface LinkedTicket {
 
 export interface PartyActivity {
   id: string;
-  hostId: string;
-  name: string;
-  activity: string;
+
+  title?: string;
+  description?: string;
   category: string;
-  avatar?: string;
+  tags?: string[];
+  meetingDate?: string;
+  meetingTime?: string;
   lat: number;
   lng: number;
-  linkedTicket?: LinkedTicket;
+  maxGuests?: number;
   status: ActivityStatus | string;
-  joinedGuests: Guest[];
+  hostId: string;
+  placeId?: string;
   createdAt: string;
+
+  host?: {
+    id?: string;
+    name: string;
+    avatarUrl?: string;
+    interests?: string[];
+    successRate?: number;
+  };
+  place?: {
+    name: string;
+    branch?: string | null;
+  };
+  joinedGuests: Guest[];
+
+  // ข้อมูลจากการคำนวณ
   distance?: number | string;
   matchRate?: number;
   isRecommended?: boolean;
   remainingSeats?: number;
+  sharedInterests?: number;
+
+  name?: string;
+  activity?: string;
+  avatar?: string;
+  linkedTicket?: LinkedTicket;
 }
 
 export interface ChatMessage {

@@ -1,7 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 import axios from "axios";
 import { PartyActivity, Guest, ActivityStatus } from "../../types"; 
-// 🌟 1. นำเข้า API_BASE_URL
 import { API_BASE_URL } from "../../config";
 
 interface PostState {
@@ -22,7 +21,6 @@ export const fetchPostsAsync = createAsyncThunk(
   "post/fetchPosts",
   async (params: { lat?: number; lng?: number; userId?: string } | void, { rejectWithValue }) => {
     try {
-      // 🌟 2. ใช้ API_BASE_URL
       const url = new URL(`${API_BASE_URL}/posts`);
       if (params) {
         if (params.lat) url.searchParams.set('lat', String(params.lat));
@@ -42,7 +40,6 @@ export const addPostAsync = createAsyncThunk(
   "post/addPost",
   async (postData: Partial<PartyActivity>, { rejectWithValue }) => {
     try {
-      // 🌟 3. ใช้ API_BASE_URL
       const response = await axios.post(`${API_BASE_URL}/posts`, postData);
       return response.data;
     } catch (error: any) {
@@ -51,13 +48,16 @@ export const addPostAsync = createAsyncThunk(
   }
 );
 
+// 🌟 แก้ไข: ให้รับ Payload เป็น { activity_id, user_id, pax } เพื่อส่งให้ Backend โดยตรง
 export const joinPostAsync = createAsyncThunk(
   "post/joinPost",
-  async (data: { postId: string; guest: Guest }, { rejectWithValue }) => {
+  async (joinData: { activity_id: string; user_id: string; pax: number }, { rejectWithValue }) => {
     try {
-      // 🌟 4. ใช้ API_BASE_URL
-      const response = await axios.post(`${API_BASE_URL}/posts/${data.postId}/join`, data.guest);
-      return { postId: data.postId, guest: data.guest, data: response.data };
+      // 🌟 แก้ไข: ยิงไปที่ /posts/join (ตามที่ party_routes.ts ตั้งไว้)
+      const response = await axios.post(`${API_BASE_URL}/posts/join`, joinData);
+      
+      // ส่งข้อมูลเดิมกลับไปให้ Reducer อัปเดตหน้าจอพร้อมกับ Data ที่ได้จาก DB
+      return { ...joinData, data: response.data };
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || "Failed to join post");
     }
@@ -68,7 +68,6 @@ export const updatePostStatus = createAsyncThunk(
   "post/updateStatus",
   async ({ id, status }: { id: string; status: ActivityStatus }, { rejectWithValue }) => {
     try {
-      // 🌟 5. ใช้ API_BASE_URL
       await axios.patch(`${API_BASE_URL}/posts/${id}/status`, { status });
       return { id, status };
     } catch (error: any) {
@@ -86,10 +85,15 @@ const postSlice = createSlice({
         state.joinedPosts.push(action.payload);
       }
     },
-    optimisticJoin: (state, action: PayloadAction<{postId: string, guest: Guest}>) => {
-      const post = state.posts.find(p => p.id === action.payload.postId);
-      if (post) post.joinedGuests.push({ ...action.payload.guest, status: 'pending' });
-      if (!state.joinedPosts.includes(action.payload.postId)) state.joinedPosts.push(action.payload.postId);
+    // 🌟 แก้ไข payload ให้ตรงกับโครงสร้างใหม่
+    optimisticJoin: (state, action: PayloadAction<{activity_id: string; user_id: string; pax: number}>) => {
+      const post = state.posts.find(p => p.id === action.payload.activity_id);
+      if (post) {
+        post.joinedGuests.push({ userId: action.payload.user_id, pax: action.payload.pax, status: 'pending' } as any);
+      }
+      if (!state.joinedPosts.includes(action.payload.activity_id)) {
+        state.joinedPosts.push(action.payload.activity_id);
+      }
     }
   },
   extraReducers: (builder) => {
@@ -100,7 +104,6 @@ const postSlice = createSlice({
       })
       .addCase(fetchPostsAsync.fulfilled, (state, action) => {
         state.isLoading = false;
-        // 🌟 ดักจับ Array ป้องกันหน้าจอขาว
         state.posts = Array.isArray(action.payload) ? action.payload : (action.payload?.data || []);
       })
       .addCase(fetchPostsAsync.rejected, (state, action) => {
@@ -119,13 +122,18 @@ const postSlice = createSlice({
         state.isLoading = false;
         state.error = action.payload as string;
       })
+      // 🌟 แก้ไข: จัดการ State หลังจาก Join สำเร็จด้วยข้อมูลโครงสร้างใหม่
       .addCase(joinPostAsync.fulfilled, (state, action) => {
-        const index = state.posts.findIndex(p => p.id === action.payload.postId);
-        if (index !== -1 && !state.posts[index].joinedGuests.some(g => g.userId === action.payload.guest.userId)) {
-           state.posts[index].joinedGuests.push(action.payload.guest);
+        const { activity_id, user_id, pax, data } = action.payload;
+        const index = state.posts.findIndex(p => p.id === activity_id);
+        
+        if (index !== -1 && !state.posts[index].joinedGuests.some((g: any) => g.userId === user_id)) {
+           const newGuest = data || { userId: user_id, pax: pax, status: 'pending' };
+           state.posts[index].joinedGuests.push(newGuest as any);
         }
-        if (!state.joinedPosts.includes(action.payload.postId)) {
-          state.joinedPosts.push(action.payload.postId);
+        
+        if (!state.joinedPosts.includes(activity_id)) {
+          state.joinedPosts.push(activity_id);
         }
       })
       .addCase(updatePostStatus.fulfilled, (state, action) => {

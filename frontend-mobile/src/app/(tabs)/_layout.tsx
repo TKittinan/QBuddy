@@ -50,7 +50,6 @@ export default function TabsLayout() {
       <Tabs.Screen name="SmartFeed" options={{ title: "AI", tabBarIcon: ({color}) => <Sparkles color={color} /> }} />
       <Tabs.Screen name="Queue" options={{ title: "Queue", tabBarIcon: ({color}) => <ClipboardList color={color} /> }} />
       <Tabs.Screen name="Profile" options={{ title: "Profile", tabBarIcon: ({color}) => <User color={color} /> }} />
-      <Tabs.Screen name="FindFriends" options={{ href: null }} />
     </Tabs>
   );
 }

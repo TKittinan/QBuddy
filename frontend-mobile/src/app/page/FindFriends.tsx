@@ -8,7 +8,6 @@ import { useAppSelector, useAppDispatch } from '../../redux/useRedux';
 import { addPostAsync, joinPostAsync, fetchPostsAsync, updatePostStatus } from '../../redux/slices/postSlice';
 
 import { PartyActivity, Ticket, Place, User, Guest, TableType } from '../../types';
-// 🌟 นำเข้า RootState จาก Redux store โดยตรง
 import { RootState } from '../../redux'; 
 
 export default function FindFriendsPage() {
@@ -17,7 +16,6 @@ export default function FindFriendsPage() {
   
   const user: User | null = useAppSelector((state: RootState) => state.auth.user);
   
-  // 🌟 ดึงข้อมูลโดยไม่ต้องแปลงโครงสร้าง เพราะ RootState รู้จักโครงสร้างของจริงแล้ว
   const allActivities: PartyActivity[] = useAppSelector((state: RootState) => state.post.posts || []);
   const allTickets: Ticket[] = useAppSelector((state: RootState) => state.queue.tickets || []);
   const places: Place[] = useAppSelector((state: RootState) => state.places.places || []);
@@ -75,10 +73,12 @@ export default function FindFriendsPage() {
     let nearby: PartyActivity[] = [];
     let aiRecommended: PartyActivity[] = [];
 
-    allActivities.forEach((act: PartyActivity) => {
+    allActivities.forEach((act: any) => {
       if (act.status !== 'open' && act.status !== 'Open') return;
       if (act.category !== activeFilter) return;
-      if (searchQuery && !act.activity?.includes(searchQuery) && !act.name?.includes(searchQuery)) return;
+      
+      const matchTitleOrDesc = (act.title?.includes(searchQuery) || act.description?.includes(searchQuery) || act.activity?.includes(searchQuery) || act.name?.includes(searchQuery));
+      if (searchQuery && !matchTitleOrDesc) return;
       
       const distance = Number(act.distance) || 0;
       
@@ -86,12 +86,9 @@ export default function FindFriendsPage() {
         const matchRate = act.matchRate || 0;
         const isRecommended = act.isRecommended || false;
         
-        const confirmedJoinedPax = act.joinedGuests?.filter((g: Guest) => g.status === 'confirmed').reduce((sum: number, g: Guest) => sum + g.pax, 0) || 0;
-        
-        let remainingSeats = 0;
-        if (act.linkedTicket && act.linkedTicket.tableCapacity) {
-          remainingSeats = act.linkedTicket.tableCapacity - act.linkedTicket.hostPax - confirmedJoinedPax;
-        }
+        // 🌟 ดึงข้อมูลจากฐานข้อมูลจริง
+        const confirmedJoinedPax = act.joinedGuests?.filter((g: any) => g.status === 'confirmed').reduce((sum: number, g: any) => sum + g.pax, 0) || 0;
+        const remainingSeats = (act.maxGuests || act.linkedTicket?.tableCapacity || 0) - confirmedJoinedPax;
 
         const actWithDetails = { 
           ...act, 
@@ -127,24 +124,20 @@ export default function FindFriendsPage() {
       return;
     }
 
-    const newActivity: Partial<PartyActivity> = {
-      hostId: user.id, 
-      name: user.name, 
-      activity: activityDesc,
+    // 🌟 Payload แมพเข้ากับ PartyActivity DB Schema ตามที่ party_service ต้องการ
+    const newActivity: any = {
+      title: `หาเพื่อนไป ${shop?.name || 'ร้านอาหาร'}`,
+      description: activityDesc,
       category: linkedTicket.service || 'ร้านอาหาร',
-      avatar: 'https://i.pravatar.cc/150?u=me', 
-      lat: location ? location.coords.latitude : 13.7563, 
+      tags: [linkedTicket.tableType || 'General'],
+      meetingDate: linkedTicket.bookDate,
+      meetingTime: linkedTicket.bookTime,
+      lat: location ? location.coords.latitude : 13.7563,
       lng: location ? location.coords.longitude : 100.5018,
-      linkedTicket: {
-        shopId: linkedTicket.shopId || '',
-        shopName: shop ? `${shop.name} (${shop.branch})` : 'Unknown Shop',
-        bookTime: linkedTicket.bookTime,
-        bookDate: linkedTicket.bookDate,
-        tableType: linkedTicket.tableType || 'General',
-        tableCapacity: tableInfo.capacity,
-        hostPax: linkedTicket.guests
-      },
-      status: 'Open'
+      maxGuests: tableInfo.capacity - linkedTicket.guests, // ส่งที่นั่งที่รับเพิ่มได้เข้า DB
+      status: 'Open',
+      hostId: user.id,
+      placeId: linkedTicket.shopId || linkedTicket.placeId,
     };
 
     dispatch(addPostAsync(newActivity));
@@ -155,12 +148,12 @@ export default function FindFriendsPage() {
     setActiveFilter(linkedTicket.service || 'ร้านอาหาร');
   };
 
-  const openJoinModal = (activity: PartyActivity) => {
+  const openJoinModal = (activity: any) => {
     if (!user) return;
-    if (activity.joinedGuests?.some((g: Guest) => g.userId === user.id) || activity.hostId === user.id) {
+    if (activity.joinedGuests?.some((g: any) => g.userId === user.id) || activity.hostId === user.id) {
       router.push({ 
         pathname: '/page/Chat', 
-        params: { friendName: activity.name, isHost: 'false', activityId: activity.id, guestId: user.id } 
+        params: { friendName: activity.host?.name || activity.name, isHost: 'false', activityId: activity.id, guestId: user.id } 
       });
       return;
     }
@@ -179,16 +172,10 @@ export default function FindFriendsPage() {
       return;
     }
 
-    const guestData: Guest = {
-      userId: user.id, 
-      userName: user.name, 
-      pax: joinPax,
-      status: 'pending'
-    };
-
     dispatch(joinPostAsync({ 
-      postId: selectedActivityToJoin.id, 
-      guest: guestData
+      activity_id: selectedActivityToJoin.id, 
+      user_id: user.id,
+      pax: joinPax
     }));
 
     Alert.alert('สำเร็จ', 'ส่งคำขอเข้าร่วมเรียบร้อยแล้ว! สามารถทักแชทหาโฮสต์ได้เลย');
@@ -202,7 +189,7 @@ export default function FindFriendsPage() {
     ]);
   };
 
-  const activeChats = allActivities.filter((act: PartyActivity) => act.hostId === user?.id || act.joinedGuests?.some((g: Guest) => g.userId === user?.id));
+  const activeChats = allActivities.filter((act: any) => act.hostId === user?.id || act.joinedGuests?.some((g: any) => g.userId === user?.id));
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#F7FAFC' }}>
@@ -240,17 +227,17 @@ export default function FindFriendsPage() {
           <View style={{ marginTop: 24, paddingLeft: 20 }}>
             <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#2D3748', marginBottom: 12 }}>AI แนะนำเพื่อนที่เข้ากันได้</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {processedData.aiRecommended.length > 0 ? processedData.aiRecommended.map((friend: PartyActivity) => (
+              {processedData.aiRecommended.length > 0 ? processedData.aiRecommended.map((friend: any) => (
                 <View key={friend.id} style={{ backgroundColor: '#FFFFFF', borderRadius: 16, width: 180, marginRight: 16, borderWidth: 1, borderColor: '#EDF2F7', overflow: 'hidden', paddingBottom: 16 }}>
                   <View style={{ height: 160, position: 'relative' }}>
-                    <Image source={{ uri: friend.avatar || 'https://i.pravatar.cc/150' }} style={{ width: '100%', height: '100%' }} />
+                    <Image source={{ uri: friend.host?.avatarUrl || friend.avatar || 'https://i.pravatar.cc/150' }} style={{ width: '100%', height: '100%' }} />
                     <View style={{ position: 'absolute', top: 8, right: 8, backgroundColor: '#6FA4A1', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 }}>
                       <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: 'bold' }}>{friend.matchRate}% Match</Text>
                     </View>
                   </View>
                   <View style={{ paddingHorizontal: 12, paddingTop: 12 }}>
-                    <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#2D3748' }}>{friend.name}</Text>
-                    <Text style={{ fontSize: 11, color: '#718096', marginTop: 2 }}>{friend.linkedTicket?.shopName}</Text>
+                    <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#2D3748' }}>{friend.host?.name || friend.name}</Text>
+                    <Text style={{ fontSize: 11, color: '#718096', marginTop: 2 }}>{friend.place?.name || friend.linkedTicket?.shopName}</Text>
                     <TouchableOpacity onPress={() => openJoinModal(friend)} style={{ marginTop: 12, paddingVertical: 8, borderRadius: 8, alignItems: 'center', borderWidth: 1, backgroundColor: '#6FA4A1', borderColor: '#6FA4A1' }}>
                       <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#FFFFFF' }}>ขอเข้าร่วม</Text>
                     </TouchableOpacity>
@@ -269,32 +256,38 @@ export default function FindFriendsPage() {
               </TouchableOpacity>
             </View>
 
-            {processedData.nearby.length > 0 ? processedData.nearby.map((act: PartyActivity) => {
+            {processedData.nearby.length > 0 ? processedData.nearby.map((act: any) => {
               const isHost = act.hostId === user?.id;
-              const hasJoined = act.joinedGuests?.some((g: Guest) => g.userId === user?.id);
+              const hasJoined = act.joinedGuests?.some((g: any) => g.userId === user?.id);
               
+              const hostAvatar = act.host?.avatarUrl || act.avatar || 'https://i.pravatar.cc/150';
+              const hostName = act.host?.name || act.name;
+              const shopNameDisplay = act.place?.name ? `${act.place.name} ${act.place.branch||''}` : act.linkedTicket?.shopName;
+              const meetingTimeDisplay = act.meetingTime || act.linkedTicket?.bookTime;
+              const descDisplay = act.description || act.activity;
+
               return (
                 <View key={act.id} style={{ backgroundColor: '#FFFFFF', borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#EDF2F7' }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-                    <Image source={{ uri: act.avatar || 'https://i.pravatar.cc/150' }} style={{ width: 44, height: 44, borderRadius: 22, marginRight: 12 }} />
+                    <Image source={{ uri: hostAvatar }} style={{ width: 44, height: 44, borderRadius: 22, marginRight: 12 }} />
                     <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#2D3748' }}>{act.name} {isHost && '(คุณ)'}</Text>
+                      <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#2D3748' }}>{hostName} {isHost && '(คุณ)'}</Text>
                       <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
                         <MapPin size={12} color="#A0AEC0" />
-                        <Text style={{ fontSize: 11, color: '#A0AEC0', marginLeft: 4 }}>{act.linkedTicket?.shopName} • {act.linkedTicket?.bookTime}</Text>
+                        <Text style={{ fontSize: 11, color: '#A0AEC0', marginLeft: 4 }}>{shopNameDisplay} • {meetingTimeDisplay}</Text>
                       </View>
                     </View>
                   </View>
 
-                  <Text style={{ fontSize: 14, color: '#4A5568', marginBottom: 12 }}>{act.activity}</Text>
+                  <Text style={{ fontSize: 14, color: '#4A5568', marginBottom: 12 }}>{descDisplay}</Text>
                   
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#F7FAFC', padding: 12, borderRadius: 12 }}>
                     <View>
-                      <Text style={{ fontSize: 11, color: '#718096' }}>โควต้าโต๊ะ</Text>
-                      <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#2D3748' }}>{act.linkedTicket?.hostPax} / {act.linkedTicket?.tableCapacity} คน</Text>
+                      <Text style={{ fontSize: 11, color: '#718096' }}>โควต้าโต๊ะ (รับเพิ่ม)</Text>
+                      <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#2D3748' }}>ทั้งหมด {act.maxGuests || act.linkedTicket?.tableCapacity} ท่าน</Text>
                     </View>
                     <View style={{ alignItems: 'flex-end' }}>
-                      <Text style={{ fontSize: 11, color: '#DD6B20', fontWeight: 'bold' }}>รับเพิ่ม</Text>
+                      <Text style={{ fontSize: 11, color: '#DD6B20', fontWeight: 'bold' }}>ที่นั่งว่าง</Text>
                       <Text style={{ fontSize: 16, fontWeight: '900', color: '#DD6B20' }}>{act.remainingSeats} ท่าน</Text>
                     </View>
                   </View>
@@ -342,7 +335,7 @@ export default function FindFriendsPage() {
             <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#4A5568', marginBottom: 8 }}>เลือกคิวของคุณเพื่อเปิดแชร์</Text>
             <ScrollView style={{ maxHeight: 150, marginBottom: 24 }}>
               {myActiveTickets.length > 0 ? myActiveTickets.map((ticket: Ticket) => {
-                const shop = places.find((p: Place) => p.id === ticket.shopId);
+                const shop = places.find((p: Place) => p.id === (ticket.shopId || ticket.placeId));
                 const tableInfo = shop?.tableTypes?.find((t: TableType) => t.id === ticket.tableType);
                 const isSelected = selectedTicketId === ticket.id;
                 
@@ -367,7 +360,7 @@ export default function FindFriendsPage() {
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)', padding: 20 }}>
           <View style={{ backgroundColor: '#FFFFFF', borderRadius: 24, padding: 24, width: '100%' }}>
             <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#2D3748', textAlign: 'center', marginBottom: 8 }}>เข้าร่วมปาร์ตี้</Text>
-            <Text style={{ fontSize: 14, color: '#718096', textAlign: 'center', marginBottom: 24 }}>ร้าน {selectedActivityToJoin?.linkedTicket?.shopName}</Text>
+            <Text style={{ fontSize: 14, color: '#718096', textAlign: 'center', marginBottom: 24 }}>ร้าน {selectedActivityToJoin?.place?.name || selectedActivityToJoin?.linkedTicket?.shopName}</Text>
             
             <View style={{ backgroundColor: '#FFF5F5', padding: 12, borderRadius: 12, marginBottom: 24, alignItems: 'center' }}>
               <Text style={{ color: '#C53030', fontWeight: 'bold' }}>รับได้อีกสูงสุด: {selectedActivityToJoin?.remainingSeats} ท่าน</Text>
@@ -395,16 +388,16 @@ export default function FindFriendsPage() {
             <TouchableOpacity onPress={() => setIsChatListModalVisible(false)} style={{ padding: 4 }}><X size={24} color="#4A5568" /></TouchableOpacity>
           </View>
           <ScrollView contentContainerStyle={{ padding: 20 }}>
-            {activeChats.length > 0 ? activeChats.map((chat: PartyActivity) => {
+            {activeChats.length > 0 ? activeChats.map((chat: any) => {
               const isMeHost = chat.hostId === user?.id;
               
               if (isMeHost) {
-                return chat.joinedGuests?.map((guest: Guest) => (
+                return chat.joinedGuests?.map((guest: any) => (
                   <TouchableOpacity 
                     key={guest.userId} 
                     onPress={() => { 
                       setIsChatListModalVisible(false); 
-                      router.push({ pathname: '/page/Chat', params: { friendName: guest.userName, isHost: 'true', activityId: chat.id, guestId: guest.userId } }); 
+                      router.push({ pathname: '/page/Chat', params: { friendName: `Guest ID: ${guest.userId.substring(0,4)}`, isHost: 'true', activityId: chat.id, guestId: guest.userId } }); 
                     }} 
                     style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', padding: 16, borderRadius: 16, marginBottom: 12, shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 5, elevation: 2 }}
                   >
@@ -412,19 +405,19 @@ export default function FindFriendsPage() {
                       <MessageCircle size={24} color="#38B2AC" />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#2D3748' }}>คำขอจาก: {guest.userName}</Text>
-                      <Text style={{ fontSize: 13, color: '#718096', marginTop: 4 }}>มา {guest.pax} ท่าน • ไปที่ {chat.linkedTicket?.shopName}</Text>
+                      <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#2D3748' }}>คำขอจาก ID: {guest.userId.substring(0,8)}...</Text>
+                      <Text style={{ fontSize: 13, color: '#718096', marginTop: 4 }}>มา {guest.pax} ท่าน • ไปที่ {chat.place?.name || chat.linkedTicket?.shopName}</Text>
                     </View>
                   </TouchableOpacity>
                 ));
               } else {
-                const myRequest = chat.joinedGuests?.find((g: Guest) => g.userId === user?.id);
+                const myRequest = chat.joinedGuests?.find((g: any) => g.userId === user?.id);
                 return (
                   <TouchableOpacity 
                     key={chat.id} 
                     onPress={() => { 
                       setIsChatListModalVisible(false); 
-                      router.push({ pathname: '/page/Chat', params: { friendName: chat.name, isHost: 'false', activityId: chat.id, guestId: user?.id } }); 
+                      router.push({ pathname: '/page/Chat', params: { friendName: chat.host?.name || chat.name, isHost: 'false', activityId: chat.id, guestId: user?.id } }); 
                     }} 
                     style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', padding: 16, borderRadius: 16, marginBottom: 12, shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 5, elevation: 2 }}
                   >
@@ -432,7 +425,7 @@ export default function FindFriendsPage() {
                       <MessageCircle size={24} color="#38B2AC" />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#2D3748' }}>ปาร์ตี้โฮสต์: {chat.name}</Text>
+                      <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#2D3748' }}>ปาร์ตี้โฮสต์: {chat.host?.name || chat.name}</Text>
                       <Text style={{ fontSize: 13, color: '#718096', marginTop: 4 }}>สถานะ: {myRequest?.status === 'confirmed' ? 'ยืนยันแล้ว' : 'รอการอนุมัติ'}</Text>
                     </View>
                   </TouchableOpacity>

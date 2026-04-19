@@ -6,6 +6,7 @@ const ticket_controller = new TicketController();
 
 router.get('/active-bookings', ticket_controller.get_active_bookings);
 router.get('/booked-slots', ticket_controller.get_booked_slots);     
+router.get('/user/:user_name', ticket_controller.list_by_user);
 router.post('/', ticket_controller.create);
 router.put('/:id', ticket_controller.update);
 router.patch('/:id/status', ticket_controller.update_status);   

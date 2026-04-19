@@ -25,17 +25,19 @@ export default function QueuePage() {
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    dispatch(fetchTicketsAsync());
+    if (user?.name) {
+      dispatch(fetchTicketsAsync(user.name));
+    }
     if (places.length === 0) {
       dispatch(fetchPlacesAsync());
     }
-  }, [dispatch]);
+  }, [dispatch, user?.name]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
       await Promise.all([
-        dispatch(fetchTicketsAsync()),
+        user?.name ? dispatch(fetchTicketsAsync(user.name)) : Promise.resolve(),
         dispatch(fetchPlacesAsync())
       ]);
     } catch (error) {
@@ -43,7 +45,7 @@ export default function QueuePage() {
     } finally {
       setRefreshing(false);
     }
-  }, [dispatch]);
+  }, [dispatch, user?.name]);
 
   const myTickets = useMemo(() => {
     if (!user) return [];
@@ -64,7 +66,10 @@ export default function QueuePage() {
           try {
             await dispatch(updateQueueStatusAsync({ id: ticketId, status: 'Cancelled' })).unwrap();
             Alert.alert('สำเร็จ', 'ยกเลิกคิวเรียบร้อยแล้ว');
-            dispatch(fetchTicketsAsync());
+            // 🌟 แก้ไข: ส่ง user.name เข้าไปด้วยตอนรีเฟรชข้อมูลคิวใหม่ เพื่อให้ Type ตรงกัน
+            if (user?.name) {
+              dispatch(fetchTicketsAsync(user.name));
+            }
           } catch (error) {
             Alert.alert('เกิดข้อผิดพลาด', 'ไม่สามารถยกเลิกคิวได้');
           }
@@ -168,7 +173,6 @@ export default function QueuePage() {
                         </View>
                       </View>
                       
-                      {/* 🌟 เปลี่ยน UI จาก รอประมาณ ~15 นาที เป็น คิวก่อนหน้า X คิว */}
                       <View style={styles.waitTimeBlock}>
                         <Text style={styles.infoLabel}>คิวก่อนหน้า</Text>
                         <View style={styles.timeWrapper}>

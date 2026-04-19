@@ -1,7 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 import axios from "axios";
 import { Ticket } from "../../types";
-// 🌟 1. นำเข้า API_BASE_URL
 import { API_BASE_URL } from "../../config";
 
 interface QueueState {
@@ -18,12 +17,12 @@ const initialState: QueueState = {
   error: null,
 };
 
+// 🌟 แก้ไข: บังคับให้รับค่า userName และยิงไปที่ API ใหม่
 export const fetchTicketsAsync = createAsyncThunk(
   "queue/fetchTickets",
-  async (_, { rejectWithValue }) => {
+  async (userName: string, { rejectWithValue }) => {
     try {
-      // 🌟 2. ใช้ API_BASE_URL
-      const response = await axios.get(`${API_BASE_URL}/tickets`);
+      const response = await axios.get(`${API_BASE_URL}/tickets/user/${encodeURIComponent(userName)}`);
       return response.data;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || "Fetch error");
@@ -47,7 +46,6 @@ export const updateQueueStatusAsync = createAsyncThunk(
   "queue/updateStatus",
   async ({ id, status }: { id: string; status: string }, { rejectWithValue }) => {
     try {
-      // 🌟 4. ใช้ API_BASE_URL
       const response = await axios.patch(`${API_BASE_URL}/tickets/${id}/status`, { status });
       return response.data;
     } catch (error: any) {
@@ -60,7 +58,6 @@ export const fetchQueueStatusAsync = createAsyncThunk(
   "queue/fetchStatus",
   async (ticketId: string, { rejectWithValue }) => {
     try {
-      // 🌟 5. ใช้ API_BASE_URL
       const response = await axios.get(`${API_BASE_URL}/tickets/${ticketId}/status`);
       return response.data;
     } catch (error: any) {
@@ -92,7 +89,6 @@ const queueSlice = createSlice({
       })
       .addCase(fetchTicketsAsync.fulfilled, (state, action) => {
         state.isLoading = false;
-        // 🌟 ดักจับ Array ป้องกันหน้าจอขาว
         state.tickets = Array.isArray(action.payload) ? action.payload : (action.payload?.data || []);
       })
       .addCase(fetchTicketsAsync.rejected, (state, action) => {
