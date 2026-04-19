@@ -4,8 +4,7 @@ import { ArrowLeft, Share, MapPin, Clock, Sparkles, CheckCircle2, Users } from '
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAppSelector, useAppDispatch } from '../../redux/useRedux';
 import { fetchPlacesAsync } from '../../redux/slices/placeSlice';
-import { fetchTicketsAsync } from '../../redux/slices/queueSlice';
-import { Place, Ticket } from '../../types';
+import { Place } from '../../types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -16,14 +15,9 @@ export default function PlaceDetail() {
   
   const placeId = Array.isArray(id) ? id[0] : id;
 
-  // 🌟 1. ดึงข้อมูลจาก Redux แบบป้องกัน Object ซ้อนทับ (กันแอปค้างจอขาว)
   const placesState = useAppSelector((state: any) => state.places);
   const rawPlaces = placesState?.places?.data || placesState?.places || [];
   const allPlaces: Place[] = Array.isArray(rawPlaces) ? rawPlaces : [];
-
-  const queueState = useAppSelector((state: any) => state.queue);
-  const rawTickets = queueState?.tickets?.data || queueState?.tickets || [];
-  const allTickets: Ticket[] = Array.isArray(rawTickets) ? rawTickets : [];
 
   const isLoadingPlaces = useAppSelector((state: any) => state.places?.isLoading); 
   
@@ -35,8 +29,7 @@ export default function PlaceDetail() {
 
   useEffect(() => {
     if (allPlaces.length === 0) dispatch(fetchPlacesAsync());
-    if (allTickets.length === 0) dispatch(fetchTicketsAsync());
-  }, [dispatch, allPlaces.length, allTickets.length]);
+  }, [dispatch, allPlaces.length]);
 
   useEffect(() => {
     if (!place) return;
@@ -64,14 +57,6 @@ export default function PlaceDetail() {
 
     return () => clearInterval(timer);
   }, [place]);
-
-  const activeQueuesCount = useMemo(() => {
-    return allTickets.filter((t: Ticket) => String(t.shopId) === String(placeId) && (t.status === 'Waiting' || t.status === 'Serving')).length;
-  }, [allTickets, placeId]);
-
-  const estimatedWaitTime = useMemo(() => {
-    return activeQueuesCount * (place?.avgServiceTime || 15);
-  }, [activeQueuesCount, place]);
 
   const categoryTags = useMemo(() => {
     if (!place?.category) return [];
@@ -194,26 +179,6 @@ export default function PlaceDetail() {
             </View>
           )}
 
-          <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>สถานะคิวปัจจุบัน</Text></View>
-          <View style={styles.queueStatusContainer}>
-            <View style={styles.statusIndicatorRow}>
-              <View style={styles.pulseDotWrapper}>
-                <View style={[styles.pulseDot, { backgroundColor: isOpen ? '#48BB78' : '#E53E3E' }]} />
-              </View>
-              <Text style={[styles.statusText, { color: isOpen ? '#276749' : '#9B2C2C' }]}>{isOpen ? 'กำลังเปิดรับคิว' : 'ปิดรับคิวแล้ว'}</Text>
-            </View>
-            <View style={styles.queueStatsRow}>
-              <View style={styles.queueStatCard}>
-                <Text style={styles.queueStatLabel}>คิวที่รออยู่</Text>
-                <Text style={styles.queueStatValue}>{activeQueuesCount}</Text>
-              </View>
-              <View style={styles.queueStatCard}>
-                <Text style={styles.queueStatLabel}>รอประมาณ</Text>
-                <Text style={styles.queueStatValue}>{estimatedWaitTime} นาที</Text>
-              </View>
-            </View>
-          </View>
-
           <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>รายละเอียดร้าน</Text></View>
           <View style={styles.infoList}>
             <View style={styles.infoListItem}>
@@ -282,15 +247,6 @@ const styles = StyleSheet.create({
   aiReasonText: { fontSize: 13, color: '#744210', marginLeft: 8 },
   sectionHeader: { marginBottom: 12 },
   sectionTitle: { fontSize: 18, fontWeight: '800', color: '#2D3748' },
-  queueStatusContainer: { backgroundColor: '#E6FFFA', borderRadius: 20, padding: 16, marginBottom: 24, borderWidth: 1, borderColor: '#B2F5EA' },
-  statusIndicatorRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 16, backgroundColor: '#FFFFFF', paddingVertical: 8, borderRadius: 12 },
-  pulseDotWrapper: { justifyContent: 'center', alignItems: 'center', marginRight: 8 },
-  pulseDot: { width: 10, height: 10, borderRadius: 5 },
-  statusText: { fontSize: 14, fontWeight: '800' },
-  queueStatsRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  queueStatCard: { backgroundColor: '#FFFFFF', flex: 1, paddingVertical: 16, borderRadius: 12, alignItems: 'center', marginHorizontal: 4 },
-  queueStatLabel: { fontSize: 12, color: '#718096', marginBottom: 4 },
-  queueStatValue: { fontSize: 20, fontWeight: '900', color: '#2D3748' },
   infoList: { marginBottom: 30 },
   infoListItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#EDF2F7' },
   infoIconBg: { backgroundColor: '#EDF2F7', width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginRight: 16 },

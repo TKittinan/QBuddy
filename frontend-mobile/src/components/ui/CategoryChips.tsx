@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScrollView, TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { ScrollView, TouchableOpacity, Text, StyleSheet, View } from 'react-native';
 import { Flame, MapPin } from 'lucide-react-native';
 
 interface CategoryChipsProps {
@@ -11,26 +11,41 @@ interface CategoryChipsProps {
 
 export const CategoryChips: React.FC<CategoryChipsProps> = ({ tags, activeTag, onTagPress, showFlameOn }) => {
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.scroll}>
-      {tags.map((tag) => (
-        <TouchableOpacity 
-          key={tag} 
-          style={activeTag === tag ? styles.chipActive : styles.chipInactive} 
-          onPress={() => onTagPress(tag)}
-        >
-          {showFlameOn === tag && activeTag === tag ? <Flame size={14} color="#FFFFFF" style={{ marginRight: 6 }} /> : null}
-          {activeTag === tag && showFlameOn !== tag ? <MapPin size={14} color="#FFFFFF" style={{ marginRight: 6 }} /> : null}
-          <Text style={activeTag === tag ? styles.chipTextActive : styles.chipTextInactive}>{tag}</Text>
-        </TouchableOpacity>
-      ))}
-    </ScrollView>
+    <View>
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={false} 
+        contentContainerStyle={styles.scrollContent} 
+        style={styles.scroll}
+      >
+        {tags.map((tag) => {
+          const isActive = activeTag === tag;
+          const isFlame = showFlameOn === tag;
+
+          return (
+            <TouchableOpacity 
+              key={tag} 
+              style={[styles.chipBase, isActive ? styles.chipActive : styles.chipInactive]} 
+              onPress={() => onTagPress(tag)}
+              activeOpacity={0.8}
+            >
+              {isActive && isFlame && <Flame size={16} color="#FFFFFF" style={{ marginRight: 6 }} />}
+              {isActive && !isFlame && <MapPin size={16} color="#FFFFFF" style={{ marginRight: 6 }} />}
+              <Text style={isActive ? styles.chipTextActive : styles.chipTextInactive}>{tag}</Text>
+            </TouchableOpacity>
+          )
+        })}
+      </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  scroll: { paddingHorizontal: 20, paddingBottom: 16, paddingTop: 4, backgroundColor: '#FFFFFF' },
-  chipActive: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#6FA4A1', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 24, marginRight: 10 },
+  scroll: { backgroundColor: '#FFFFFF', flexGrow: 0 },
+  scrollContent: { paddingHorizontal: 20, paddingBottom: 16, paddingTop: 4, gap: 10 },
+  chipBase: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 18, paddingVertical: 10, borderRadius: 24, justifyContent: 'center' },
+  chipActive: { backgroundColor: '#6FA4A1', shadowColor: '#6FA4A1', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 3 },
+  chipInactive: { backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#EDF2F7' },
   chipTextActive: { fontSize: 14, color: '#FFFFFF', fontWeight: '700' },
-  chipInactive: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F7FAFC', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 24, marginRight: 10, borderWidth: 1, borderColor: '#EDF2F7' },
-  chipTextInactive: { fontSize: 14, color: '#4A5568', fontWeight: '600' },
+  chipTextInactive: { fontSize: 14, color: '#718096', fontWeight: '600' },
 });

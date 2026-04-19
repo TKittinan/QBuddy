@@ -1,19 +1,24 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { MapPin } from 'lucide-react-native';
 
-// 🌟 ลบ rating ออกจาก Interface แล้ว ไม่บังคับส่งค่าอีกต่อไป
 interface AIChatProps {
   title: string;
   imageUri: string;
   location: string;
-  distance: string;
+  distance: string | number; // 🌟 รองรับตัวเลข
   tags: string[];
+  onPress?: () => void; // 🌟 เพิ่ม props สำหรับการกดลิงก์ไปหน้า Detail
 }
 
-export const AIChat: React.FC<AIChatProps> = ({ title, imageUri, location, distance, tags }) => {
+export const AIChat: React.FC<AIChatProps> = ({ title, imageUri, location, distance, tags, onPress }) => {
   return (
-    <View style={styles.card}>
+    <TouchableOpacity 
+      style={styles.card} 
+      activeOpacity={0.9} 
+      onPress={onPress}
+      disabled={!onPress}
+    >
       <Image source={{ uri: imageUri }} style={styles.image} />
       <View style={styles.content}>
         <Text style={styles.title} numberOfLines={1}>{title}</Text>
@@ -31,7 +36,7 @@ export const AIChat: React.FC<AIChatProps> = ({ title, imageUri, location, dista
           ))}
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 };
 

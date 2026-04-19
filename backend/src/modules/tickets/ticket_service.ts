@@ -20,6 +20,32 @@ export class TicketService {
     return data;
   }
 
+  async get_booked_slots(shopId: string, date: string) {
+    const { data, error } = await supabase
+      .from('Ticket')
+      .select('bookTime, tableType, tableCount, status')
+      .eq('shopId', shopId)
+      .eq('bookDate', date)
+      .in('status', ['Waiting', 'Serving']);
+      
+    if (error) throw new Error(error.message);
+    return data || [];
+  }
+
+  // 🌟 เพิ่มฟังก์ชันนี้สำหรับหน้า Calendar (ดึงคิวของวันนี้เป็นต้นไปทั้งหมด)
+  async get_active_bookings(shopId: string) {
+    const today = new Date().toISOString().split('T')[0];
+    const { data, error } = await supabase
+      .from('Ticket')
+      .select('bookDate, bookTime, tableType, tableCount, status')
+      .eq('shopId', shopId)
+      .gte('bookDate', today)
+      .in('status', ['Waiting', 'Serving']);
+      
+    if (error) throw new Error(error.message);
+    return data || [];
+  }
+
   private get_table_code(tableType: string): string {
     const typeStr = String(tableType || '').toLowerCase().replace(/\s/g, '');
     
@@ -84,6 +110,8 @@ export class TicketService {
     const targetPlaceId = data.placeId || data.shopId;
     const targetTableType = data.tableType || '1-2 คน';
     const bookDate = data.bookDate;
+    
+    const tableCount = data.tableCount || 1;
 
     const { data: tableInfo } = await supabase
       .from('TableType')
@@ -119,6 +147,7 @@ export class TicketService {
         bookDate: bookDate,
         bookTime: data.bookTime,
         tableType: targetTableType,
+        tableCount: tableCount, 
         status: 'Waiting',
         placeId: targetPlaceId,
       }])
@@ -133,17 +162,17 @@ export class TicketService {
     return ticket;
   }
 
-  // 🌟 ฟังก์ชันใหม่: อัปเดตข้อมูลการจองแบบเต็ม (รวมถึงการแก้จำนวนคน)
   async update_ticket(id: string, data: any) {
     const { data: ticket, error: updateError } = await supabase
       .from('Ticket')
       .update({ 
         name: data.name,
         email: data.email,
-        guests: data.guests, // อัปเดตจำนวนคนที่ส่งเข้ามา
+        guests: data.guests, 
         bookDate: data.bookDate,
         bookTime: data.bookTime,
         tableType: data.tableType,
+        tableCount: data.tableCount,
         service: data.service,
         status: data.status,
         placeId: data.placeId

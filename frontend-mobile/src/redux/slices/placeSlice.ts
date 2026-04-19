@@ -65,9 +65,7 @@ const placeSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      .addCase(fetchPlacesAsync.pending, (state) => {
-        state.isLoading = true;
-      })
+      .addCase(fetchPlacesAsync.pending, (state) => { state.isLoading = true; })
       .addCase(fetchPlacesAsync.fulfilled, (state, action) => {
         state.isLoading = false;
         state.places = Array.isArray(action.payload) ? action.payload : (action.payload?.data || []);
@@ -76,9 +74,7 @@ const placeSlice = createSlice({
         state.isLoading = false;
         state.error = action.payload as string;
       })
-      .addCase(fetchRecommendedPlacesAsync.pending, (state) => {
-        state.isLoading = true;
-      })
+      .addCase(fetchRecommendedPlacesAsync.pending, (state) => { state.isLoading = true; })
       .addCase(fetchRecommendedPlacesAsync.fulfilled, (state, action) => {
         state.isLoading = false;
         state.recommendedPlaces = Array.isArray(action.payload) ? action.payload : (action.payload?.data || []);
@@ -87,9 +83,7 @@ const placeSlice = createSlice({
         state.isLoading = false;
         state.error = action.payload as string;
       })
-      .addCase(fetchWeeklyTrendingAsync.pending, (state) => {
-        state.isLoading = true;
-      })
+      .addCase(fetchWeeklyTrendingAsync.pending, (state) => { state.isLoading = true; })
       .addCase(fetchWeeklyTrendingAsync.fulfilled, (state, action) => {
         state.isLoading = false;
         state.weeklyTrending = Array.isArray(action.payload) ? action.payload : [];

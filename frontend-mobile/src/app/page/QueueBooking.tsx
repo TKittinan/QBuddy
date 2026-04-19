@@ -1,13 +1,14 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Platform, StatusBar, Alert } from 'react-native';
-import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, ChevronDown, Users, Check } from 'lucide-react-native';
+import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, ChevronDown, Users, Check, LayoutGrid } from 'lucide-react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import axios from 'axios';
 
 import { useAppSelector, useAppDispatch } from '../../redux/useRedux';
 import { addQueueAsync } from '../../redux/slices/queueSlice'; 
-import { Stepper } from '../../components/ui/Stepper';
+import { Stepper as CustomStepper } from '../../components/ui/Stepper';
+import { API_BASE_URL } from "../../config";
 
-// 🌟 เรียกใช้ Type ที่ถูกต้อง
 import { Place, Ticket, TableType, User } from '../../types';
 
 interface AvailableTable extends TableType {
@@ -19,9 +20,7 @@ export default function QueueBooking() {
   const dispatch = useAppDispatch();
   const { id } = useLocalSearchParams();
 
-  // 🌟 บังคับ Type เป็น Array ที่ถูกต้อง โดยไม่ต้องดัก .data ซ้ำซ้อน
   const allPlaces: Place[] = useAppSelector((state: any) => state.places.places);
-  const allTickets: Ticket[] = useAppSelector((state: any) => state.queue.tickets);
   const user: User | null = useAppSelector((state: any) => state.auth.user);
   
   const place = allPlaces.find((p: Place) => p.id === id);
@@ -29,10 +28,26 @@ export default function QueueBooking() {
   const [viewDate, setViewDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
-  const [guests, setGuests] = useState<number>(1);
+  const [isTimeDropdownOpen, setIsTimeDropdownOpen] = useState(false);
+
   const [selectedTableType, setSelectedTableType] = useState<string | null>(null);
-  const [isTableDropdownOpen, setIsTableDropdownOpen] = useState(false);
+  const [tableCount, setTableCount] = useState<number>(1);
+  const [guests, setGuests] = useState<number>(2);
   const [currentStep, setCurrentStep] = useState(1);
+
+  // State เก็บข้อมูลการจองเพื่อมาคำนวณวันและเวลาที่ว่าง
+  const [activeBookings, setActiveBookings] = useState<any[]>([]);
+
+  // ตั้งค่าร้านว่ามีโต๊ะประเภทละกี่ตัว (แก้เลขตรงนี้ถ้าร้านมีจำนวนโต๊ะไม่เท่ากัน)
+  const TOTAL_TABLES_PER_TYPE = 5; 
+
+  useEffect(() => {
+    if (!place?.id) return;
+    // ดึงข้อมูลคิวที่จองไปแล้วผ่าน Backend API 
+    axios.get(`${API_BASE_URL}/tickets/active-bookings?shopId=${place.id}`)
+      .then(res => setActiveBookings(res.data || []))
+      .catch(err => console.error("Fetch active bookings failed", err));
+  }, [place?.id]);
 
   if (!place) {
     return (
@@ -63,7 +78,6 @@ export default function QueueBooking() {
 
   const generateTimeSlots = () => {
     if (!place.openTime || !place.closeTime) return [];
-    
     const [openH, openM] = place.openTime.split(':').map(Number);
     const [closeH, closeM] = place.closeTime.split(':').map(Number);
     
@@ -81,40 +95,59 @@ export default function QueueBooking() {
 
   const timeSlots = useMemo(() => generateTimeSlots(), [place]);
 
+  // เช็คว่าเวลาไหนเต็มบ้าง (นับรวม tableCount)
+  const timeSlotAvailability = useMemo(() => {
+    if (!selectedDate) return [];
+    const bookingsForDate = activeBookings.filter(t => t.bookDate === selectedDate);
+
+    return timeSlots.map(time => {
+      const isFull = place.tableTypes?.every(tt => {
+        const bookedSum = bookingsForDate
+          .filter(t => t.bookTime === time && t.tableType === tt.label)
+          .reduce((sum, t) => sum + (t.tableCount || 1), 0);
+        return bookedSum >= TOTAL_TABLES_PER_TYPE;
+      });
+      return { time, isFull };
+    });
+  }, [selectedDate, timeSlots, place, activeBookings]);
+
+  // เช็คว่าวันนั้น "เต็มทั้งวัน" หรือไม่
+  const isDayFull = useCallback((dateStr: string) => {
+    if (timeSlots.length === 0) return true;
+    const bookingsForDate = activeBookings.filter(t => t.bookDate === dateStr);
+
+    return timeSlots.every(time => {
+      return place.tableTypes?.every(tt => {
+        const bookedSum = bookingsForDate
+          .filter(t => t.bookTime === time && t.tableType === tt.label)
+          .reduce((sum, t) => sum + (t.tableCount || 1), 0);
+        return bookedSum >= TOTAL_TABLES_PER_TYPE;
+      });
+    });
+  }, [timeSlots, place, activeBookings]);
+
+  // เช็คสต็อกโต๊ะในเวลาที่เลือก (Step 2)
   const availableTables: AvailableTable[] = useMemo(() => {
     if (!selectedDate || !selectedTime || !place) return [];
-    
     const tableTypes: TableType[] = place.tableTypes || [];
     
     return tableTypes.map((table: TableType) => {
-      const bookedCount = allTickets.filter((t: Ticket) => 
-        t.shopId === place.id && 
-        t.tableType === table.id && 
-        t.bookDate === selectedDate && 
-        t.bookTime === selectedTime &&
-        (t.status === 'Waiting' || t.status === 'Serving')
-      ).length;
+      const bookedSum = activeBookings
+        .filter(t => t.bookDate === selectedDate && t.bookTime === selectedTime && t.tableType === table.label)
+        .reduce((sum, t) => sum + (t.tableCount || 1), 0);
 
-      return {
-        ...table,
-        availableCount: Math.max(0, table.capacity - bookedCount)
-      };
+      return { ...table, availableCount: Math.max(0, TOTAL_TABLES_PER_TYPE - bookedSum) };
     });
-  }, [selectedDate, selectedTime, place, allTickets]);
+  }, [selectedDate, selectedTime, place, activeBookings]);
 
   useEffect(() => {
-    if (availableTables.length > 0) {
-      const autoSelectTable = availableTables.find((t: AvailableTable) => t.availableCount > 0 && t.capacity >= guests);
-      if (autoSelectTable && selectedTableType !== autoSelectTable.id) {
-        setSelectedTableType(autoSelectTable.id);
-      }
-    }
-  }, [guests, availableTables]);
+    setTableCount(1);
+  }, [selectedTableType]);
 
   const handleNextStep = () => {
     if (currentStep === 1) {
       if (!selectedDate) { Alert.alert("แจ้งเตือน", "กรุณาเลือกวันที่"); return; }
-      if (!selectedTime) { Alert.alert("แจ้งเตือน", "กรุณาเลือกเวลา"); return; }
+      if (!selectedTime) { Alert.alert("แจ้งเตือน", "กรุณาเลือกรอบเวลา"); return; }
       setCurrentStep(2);
     } else if (currentStep === 2) {
       if (!selectedTableType) { Alert.alert("แจ้งเตือน", "กรุณาเลือกประเภทโต๊ะ"); return; }
@@ -123,12 +156,18 @@ export default function QueueBooking() {
   };
 
   const submitBooking = async () => {
-    if (!user) {
-      Alert.alert("ข้อผิดพลาด", "คุณยังไม่ได้เข้าสู่ระบบ");
+    if (!user) { Alert.alert("ข้อผิดพลาด", "คุณยังไม่ได้เข้าสู่ระบบ"); return; }
+    
+    const selectedTableObj = availableTables.find(t => t.id === selectedTableType);
+    if (!selectedTableObj) return;
+
+    const maxGuests = selectedTableObj.capacity * tableCount;
+    if (guests > maxGuests) {
+      Alert.alert("แจ้งเตือน", `โต๊ะ ${tableCount} โต๊ะ นั่งได้สูงสุด ${maxGuests} ท่าน`);
       return;
     }
 
-    const newTicket: Partial<Ticket> = {
+    const newTicket: any = {
       name: user.name, 
       guests,
       service: place.category,
@@ -136,18 +175,38 @@ export default function QueueBooking() {
       bookDate: selectedDate!,
       bookTime: selectedTime!,
       status: 'Waiting',
-      tableType: selectedTableType,
+      tableType: selectedTableObj.label,
+      tableCount: tableCount
     };
 
     try {
-      const res = await dispatch(addQueueAsync(newTicket as Ticket)).unwrap();
-      if (res && res.id) {
-        router.replace({ pathname: '/page/BookingConfirm', params: { ticketId: res.id } });
+      const res = await dispatch(addQueueAsync(newTicket)).unwrap();
+      const finalId = res?.data?.id || res?.id;
+      if (finalId) {
+        router.replace({ pathname: '/page/BookingConfirm', params: { ticketId: finalId } });
       }
     } catch (error: any) {
       Alert.alert('เกิดข้อผิดพลาด', error || 'ไม่สามารถจองคิวได้');
     }
   };
+
+  const renderStepper = () => (
+    <View style={styles.stepIndicatorContainer}>
+      <View style={styles.stepBox}>
+        <View style={[styles.stepCircle, currentStep >= 1 ? styles.stepCircleActive : styles.stepCircleInactive]}>
+          <Text style={[styles.stepCircleText, currentStep >= 1 && styles.stepCircleTextActive]}>1</Text>
+        </View>
+        <Text style={[styles.stepLabel, currentStep >= 1 && styles.stepLabelActive]}>วันและเวลา</Text>
+      </View>
+      <View style={styles.stepLine} />
+      <View style={styles.stepBox}>
+        <View style={[styles.stepCircle, currentStep >= 2 ? styles.stepCircleActive : styles.stepCircleInactive]}>
+          <Text style={[styles.stepCircleText, currentStep >= 2 && styles.stepCircleTextActive]}>2</Text>
+        </View>
+        <Text style={[styles.stepLabel, currentStep >= 2 && styles.stepLabelActive]}>จำนวนคน & โต๊ะ</Text>
+      </View>
+    </View>
+  );
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -159,11 +218,11 @@ export default function QueueBooking() {
       </View>
 
       <View style={styles.stepperContainer}>
-        {/* @ts-ignore เลี่ยง Type ของฝั่ง Component เก่าที่ยังรับ Props แบบแยก */}
-        <Stepper currentStep={currentStep} steps={["วันและเวลา", "จำนวนคน & โต๊ะ"]} />
+        {renderStepper()}
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+        
         {currentStep === 1 && (
           <View>
             <View style={styles.calendarContainer}>
@@ -182,20 +241,23 @@ export default function QueueBooking() {
               <View style={styles.daysGrid}>
                 {generateDaysInMonth().map((dateStr, idx) => {
                   if (!dateStr) return <View key={`empty-${idx}`} style={styles.dayCell} />;
+                  
                   const d = new Date(dateStr);
                   const isSelected = selectedDate === dateStr;
                   const isPast = d.setHours(0,0,0,0) < new Date().setHours(0,0,0,0);
+                  const fullyBooked = !isPast && isDayFull(dateStr); // 🌟 เช็คว่าเต็มทั้งวันหรือไม่
                   
                   return (
                     <TouchableOpacity 
                       key={dateStr} 
-                      disabled={isPast}
-                      onPress={() => setSelectedDate(dateStr)}
-                      style={[styles.dayCell, isSelected && styles.dayCellSelected, isPast && styles.dayCellDisabled]}
+                      disabled={isPast || fullyBooked}
+                      onPress={() => { setSelectedDate(dateStr); setSelectedTime(null); setIsTimeDropdownOpen(false); }}
+                      style={[styles.dayCell, isSelected && styles.dayCellSelected, (isPast || fullyBooked) && styles.dayCellDisabled]}
                     >
-                      <Text style={[styles.dayText, isSelected && styles.dayTextSelected, isPast && styles.dayTextDisabled]}>
+                      <Text style={[styles.dayText, isSelected && styles.dayTextSelected, isPast && styles.dayTextDisabled, fullyBooked && { color: '#E53E3E' }]}>
                         {dateStr.split('-')[2]}
                       </Text>
+                      {fullyBooked && <Text style={{ fontSize: 9, color: '#E53E3E', marginTop: 2, fontWeight: 'bold' }}>เต็ม</Text>}
                     </TouchableOpacity>
                   );
                 })}
@@ -204,20 +266,39 @@ export default function QueueBooking() {
 
             <View style={styles.sectionMargin}>
               <Text style={styles.sectionTitle}>เลือกเวลา</Text>
-              {selectedDate ? (
-                <View style={styles.timeGrid}>
-                  {timeSlots.map(time => {
-                    const isSelected = selectedTime === time;
-                    return (
-                      <TouchableOpacity key={time} onPress={() => setSelectedTime(time)} style={[styles.timeCell, isSelected && styles.timeCellSelected]}>
-                        <Text style={[styles.timeText, isSelected && styles.timeTextSelected]}>{time}</Text>
+              <Text style={styles.helperText}>กรุณาเลือกวันที่ก่อน</Text>
+
+              <View style={{ marginTop: 12 }}>
+                <TouchableOpacity 
+                  activeOpacity={0.8} 
+                  style={[styles.dropdownHeader, !selectedDate && { backgroundColor: '#F7FAFC' }]} 
+                  disabled={!selectedDate}
+                  onPress={() => setIsTimeDropdownOpen(!isTimeDropdownOpen)}
+                >
+                  <Text style={selectedTime ? styles.dropdownSelectedText : styles.dropdownPlaceholder}>
+                    {selectedDate ? (selectedTime ? `${selectedTime} น.` : 'คลิกเพื่อเลือกรอบเวลา') : "รอเลือกวันที่"}
+                  </Text>
+                  <ChevronDown size={20} color="#A0AEC0" style={{ transform: [{ rotate: isTimeDropdownOpen ? '180deg' : '0deg' }] }} />
+                </TouchableOpacity>
+
+                {isTimeDropdownOpen && selectedDate && (
+                  <View style={styles.dropdownMenu}>
+                    {timeSlotAvailability.map((slot, index) => (
+                      <TouchableOpacity 
+                        key={slot.time} 
+                        disabled={slot.isFull}
+                        onPress={() => { setSelectedTime(slot.time); setIsTimeDropdownOpen(false); }}
+                        style={[styles.dropdownItem, index === timeSlotAvailability.length - 1 && { borderBottomWidth: 0 }, slot.isFull && { backgroundColor: '#F7FAFC', opacity: 0.6 }]}
+                      >
+                        <Text style={[slot.isFull ? styles.dropdownItemTextTaken : (selectedTime === slot.time ? styles.dropdownItemTextSelected : styles.dropdownItemText)]}>
+                          {slot.time} น. {slot.isFull ? '(เต็ม)' : ''}
+                        </Text>
+                        {selectedTime === slot.time && !slot.isFull && <Check size={18} color="#2D3748" />}
                       </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              ) : (
-                <Text style={styles.helperText}>กรุณาเลือกวันที่ก่อน</Text>
-              )}
+                    ))}
+                  </View>
+                )}
+              </View>
             </View>
           </View>
         )}
@@ -225,65 +306,79 @@ export default function QueueBooking() {
         {currentStep === 2 && (
           <View>
             <View style={styles.sectionMargin}>
-              <Text style={styles.sectionTitle}>จำนวนผู้เข้าใช้บริการ</Text>
-              <View style={styles.guestCounterWrapper}>
-                <TouchableOpacity onPress={() => setGuests(Math.max(1, guests - 1))} style={styles.counterBtn}>
-                  <Text style={styles.counterBtnText}>-</Text>
-                </TouchableOpacity>
-                <View style={styles.counterValueBox}>
-                  <Users size={20} color="#2D3748" style={{ marginRight: 8 }}/>
-                  <Text style={styles.counterValue}>{guests}</Text>
-                </View>
-                <TouchableOpacity onPress={() => setGuests(guests + 1)} style={styles.counterBtn}>
-                  <Text style={styles.counterBtnText}>+</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            <View style={styles.sectionMargin}>
               <Text style={styles.sectionTitle}>เลือกประเภทโต๊ะ</Text>
-              <Text style={styles.helperText}>สำหรับวันที่ {selectedDate} เวลา {selectedTime}</Text>
+              <Text style={styles.helperText}>สำหรับวันที่ {selectedDate} เวลา {selectedTime} น.</Text>
 
               <View style={{ marginTop: 16 }}>
-                <TouchableOpacity activeOpacity={0.8} style={styles.dropdownHeader} onPress={() => setIsTableDropdownOpen(!isTableDropdownOpen)}>
-                  <Text style={selectedTableType ? styles.dropdownSelectedText : styles.dropdownPlaceholder}>
-                    {selectedTableType ? availableTables.find((t: AvailableTable) => t.id === selectedTableType)?.label || 'เลือกโต๊ะ' : "กรุณาเลือกประเภทโต๊ะ"}
-                  </Text>
-                  <ChevronDown size={20} color="#718096" style={{ transform: [{ rotate: isTableDropdownOpen ? '180deg' : '0deg' }] }} />
-                </TouchableOpacity>
-
-                {isTableDropdownOpen && (
-                  <View style={{ marginTop: 8, backgroundColor: '#FFFFFF', borderRadius: 16, borderWidth: 1, borderColor: '#EDF2F7', overflow: 'hidden' }}>
-                    {availableTables.length > 0 ? availableTables.map((table: AvailableTable, index: number) => {
-                      const isFull = table.availableCount === 0;
-                      const isSelected = selectedTableType === table.id;
+                {availableTables.length > 0 ? availableTables.map((table: AvailableTable) => {
+                  const isFull = table.availableCount <= 0;
+                  const isSelected = selectedTableType === table.id;
+                  
+                  return (
+                    <TouchableOpacity 
+                      key={table.id} 
+                      disabled={isFull}
+                      onPress={() => setSelectedTableType(table.id)}
+                      style={[styles.tableCard, isSelected && styles.tableCardSelected, isFull && styles.tableCardDisabled]}
+                    >
+                      <View>
+                        <Text style={[styles.tableCardTitle, isSelected && styles.tableCardTitleSelected, isFull && { color: '#A0AEC0' }]}>
+                          {table.label}
+                        </Text>
+                        <Text style={styles.tableCapacityText}>สำหรับ {table.capacity} ท่าน</Text>
+                      </View>
                       
-                      return (
-                        <TouchableOpacity 
-                          key={table.id} 
-                          disabled={isFull}
-                          onPress={() => { setSelectedTableType(table.id); setIsTableDropdownOpen(false); }}
-                          style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: index === availableTables.length - 1 ? 0 : 1, borderBottomColor: '#EDF2F7', backgroundColor: isSelected ? '#F0FFF4' : '#FFFFFF', opacity: isFull ? 0.5 : 1 }}
-                        >
-                          <View>
-                            <Text style={isFull ? styles.dropdownItemTextTaken : (isSelected ? styles.dropdownItemTextSelected : styles.dropdownItemText)}>{table.label}</Text>
-                            <Text style={styles.tableCapacityText}>สำหรับ {table.capacity} ท่าน</Text>
-                          </View>
-                          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            <Text style={{ fontSize: 13, color: isFull ? '#E53E3E' : '#718096', fontWeight: '600', marginRight: 8 }}>
-                              {isFull ? 'คิวเต็มแล้ว' : `ว่าง ${table.availableCount} โต๊ะ`}
-                            </Text>
-                            {isSelected && <Check size={18} color="#38A169" />}
-                          </View>
-                        </TouchableOpacity>
-                      );
-                    }) : (
-                      <View style={styles.dropdownEmpty}><Text style={styles.dropdownEmptyText}>ร้านนี้ยังไม่ได้กำหนดประเภทโต๊ะ</Text></View>
-                    )}
-                  </View>
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        {isFull ? (
+                          <Text style={styles.bookedText}>มีการจองแล้ว</Text>
+                        ) : (
+                          <Text style={{ fontSize: 13, color: '#718096', fontWeight: '600', marginRight: 8 }}>
+                            ว่าง {table.availableCount} โต๊ะ
+                          </Text>
+                        )}
+                        {isSelected && !isFull && <Check size={20} color="#2D3748" />}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                }) : (
+                  <View style={styles.dropdownEmpty}><Text style={styles.dropdownEmptyText}>ร้านนี้ไม่มีประเภทโต๊ะ</Text></View>
                 )}
               </View>
             </View>
+
+            {selectedTableType && (
+              <View style={styles.sectionMargin}>
+                <View style={styles.headerWithIcon}>
+                  <LayoutGrid size={20} color="#4A5568" />
+                  <Text style={[styles.sectionTitle, { marginBottom: 0, marginLeft: 8 }]}>จำนวนโต๊ะที่ต้องการ</Text>
+                </View>
+                <Text style={styles.helperText}>จำนวนโต๊ะประเภทนี้ที่ต้องการจอง</Text>
+                <View style={styles.stepperWrapper}>
+                  <CustomStepper 
+                    value={tableCount} 
+                    onValueChange={setTableCount} 
+                    min={1} 
+                    max={availableTables.find(t => t.id === selectedTableType)?.availableCount || 1} 
+                  />
+                </View>
+              </View>
+            )}
+
+            <View style={styles.sectionMargin}>
+              <View style={styles.headerWithIcon}>
+                <Users size={20} color="#4A5568" />
+                <Text style={[styles.sectionTitle, { marginBottom: 0, marginLeft: 8 }]}>จำนวนผู้เข้าใช้บริการ</Text>
+              </View>
+              <View style={styles.stepperWrapper}>
+                <CustomStepper 
+                  value={guests} 
+                  onValueChange={setGuests} 
+                  min={1} 
+                  max={selectedTableType ? (availableTables.find(t => t.id === selectedTableType)?.capacity || 10) * tableCount : 10} 
+                />
+              </View>
+            </View>
+            
           </View>
         )}
       </ScrollView>
@@ -303,7 +398,18 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20, paddingBottom: 16, paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 16 : 16, backgroundColor: '#FFFFFF' },
   backButton: { position: 'absolute', left: 20, top: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 16 : 16, zIndex: 10 },
   headerTitle: { fontSize: 18, fontWeight: '800', color: '#2D3748' },
-  stepperContainer: { paddingHorizontal: 20, paddingBottom: 20, backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#EDF2F7' },
+  
+  stepperContainer: { paddingHorizontal: 40, paddingBottom: 20, backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#EDF2F7' },
+  stepIndicatorContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 10 },
+  stepBox: { alignItems: 'center' },
+  stepCircle: { width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
+  stepCircleActive: { backgroundColor: '#6FA4A1' },
+  stepCircleInactive: { backgroundColor: '#EDF2F7' },
+  stepCircleText: { fontSize: 14, fontWeight: '800' },
+  stepCircleTextActive: { color: '#FFFFFF' },
+  stepLine: { flex: 1, height: 2, backgroundColor: '#EDF2F7', marginHorizontal: 16, marginBottom: 20 },
+  stepLabel: { fontSize: 12, fontWeight: '600', color: '#A0AEC0' },
+  stepLabelActive: { color: '#2D3748' },
   content: { paddingHorizontal: 20, paddingTop: 24, paddingBottom: 120 },
   calendarContainer: { backgroundColor: '#FFFFFF', borderRadius: 24, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 3, borderWidth: 1, borderColor: '#EDF2F7' },
   monthSelector: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
@@ -312,40 +418,34 @@ const styles = StyleSheet.create({
   weekDayText: { flex: 1, textAlign: 'center', fontSize: 13, fontWeight: '700', color: '#A0AEC0' },
   daysGrid: { flexDirection: 'row', flexWrap: 'wrap' },
   dayCell: { width: '14.28%', aspectRatio: 1, justifyContent: 'center', alignItems: 'center', marginBottom: 4 },
-  dayCellSelected: { backgroundColor: '#6FA4A1', borderRadius: 20 },
+  dayCellSelected: { backgroundColor: '#344054', borderRadius: 12 }, 
   dayCellDisabled: { opacity: 0.3 },
   dayText: { fontSize: 15, fontWeight: '600', color: '#4A5568' },
   dayTextSelected: { color: '#FFFFFF', fontWeight: '800' },
   dayTextDisabled: { color: '#CBD5E0' },
   sectionMargin: { marginTop: 32 },
-  sectionTitle: { fontSize: 18, fontWeight: '800', color: '#2D3748', marginBottom: 8 },
+  sectionTitle: { fontSize: 18, fontWeight: '800', color: '#2D3748', marginBottom: 4 },
   helperText: { fontSize: 13, color: '#718096' },
-  timeGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginTop: 12 },
-  timeCell: { width: '31%', backgroundColor: '#F7FAFC', paddingVertical: 12, borderRadius: 12, alignItems: 'center', marginBottom: 12, borderWidth: 1, borderColor: '#EDF2F7' },
-  timeCellSelected: { backgroundColor: '#6FA4A1', borderColor: '#6FA4A1' },
-  timeText: { fontSize: 15, fontWeight: '600', color: '#4A5568' },
-  timeTextSelected: { color: '#FFFFFF', fontWeight: '800' },
-  guestCounterWrapper: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 16, backgroundColor: '#F7FAFC', borderRadius: 24, padding: 8, borderWidth: 1, borderColor: '#EDF2F7' },
-  counterBtn: { width: 48, height: 48, backgroundColor: '#FFFFFF', borderRadius: 24, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.05, elevation: 2 },
-  counterBtnText: { fontSize: 24, fontWeight: '600', color: '#4A5568' },
-  counterValueBox: { flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
-  counterValue: { fontSize: 32, fontWeight: '900', color: '#2D3748' },
-  tableList: { marginTop: 16 },
-  tableItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderRadius: 16, marginBottom: 12, backgroundColor: '#F7FAFC', borderWidth: 1, borderColor: '#EDF2F7' },
-  tableItemSelected: { backgroundColor: '#6FA4A1', borderColor: '#6FA4A1' },
-  tableItemDisabled: { opacity: 0.5, backgroundColor: '#EDF2F7' },
-  tableItemTitle: { fontSize: 15, color: '#4A5568', fontWeight: '700' },
-  tableItemTextSelected: { color: '#FFFFFF', fontWeight: '800' },
-  tableCapacityText: { fontSize: 11, color: '#A0AEC0', marginTop: 2 },
   dropdownHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#EDF2F7', borderRadius: 16, paddingHorizontal: 20, paddingVertical: 16 },
   dropdownPlaceholder: { fontSize: 15, color: '#A0AEC0', fontWeight: '500' },
   dropdownSelectedText: { fontSize: 15, color: '#2D3748', fontWeight: '800' },
+  dropdownMenu: { marginTop: 8, backgroundColor: '#FFFFFF', borderRadius: 16, borderWidth: 1, borderColor: '#EDF2F7', overflow: 'hidden' },
+  dropdownItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#EDF2F7' },
   dropdownItemText: { fontSize: 15, color: '#4A5568', fontWeight: '600' },
-  dropdownItemTextSelected: { color: '#6FA4A1', fontWeight: '800' },
+  dropdownItemTextSelected: { color: '#2D3748', fontWeight: '800' },
   dropdownItemTextTaken: { color: '#E53E3E', textDecorationLine: 'line-through' },
-  dropdownEmpty: { padding: 20, alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 16, borderWidth: 1, borderColor: '#EDF2F7' },
+  dropdownEmpty: { padding: 20, alignItems: 'center', backgroundColor: '#F7FAFC', borderRadius: 16, borderWidth: 1, borderColor: '#EDF2F7' },
   dropdownEmptyText: { color: '#A0AEC0', fontSize: 14 },
+  tableCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderRadius: 16, marginBottom: 12, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#EDF2F7' },
+  tableCardSelected: { borderColor: '#2D3748', backgroundColor: '#F7FAFC' },
+  tableCardDisabled: { backgroundColor: '#F7FAFC', opacity: 0.6 },
+  tableCardTitle: { fontSize: 16, color: '#4A5568', fontWeight: '700' },
+  tableCardTitleSelected: { color: '#2D3748', fontWeight: '800' },
+  tableCapacityText: { fontSize: 12, color: '#A0AEC0', marginTop: 4 },
+  bookedText: { fontSize: 13, fontWeight: '700', color: '#E53E3E' },
+  headerWithIcon: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
+  stepperWrapper: { marginTop: 12, backgroundColor: '#F7FAFC', padding: 16, borderRadius: 20, alignItems: 'center', borderWidth: 1, borderColor: '#EDF2F7' },
   bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#FFFFFF', paddingHorizontal: 20, paddingTop: 16, paddingBottom: Platform.OS === 'ios' ? 32 : 20, borderTopWidth: 1, borderTopColor: '#EDF2F7', shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 10 },
-  nextBtn: { backgroundColor: '#2D3748', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 16, borderRadius: 16 },
+  nextBtn: { backgroundColor: '#344054', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 16, borderRadius: 16 }, 
   nextBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '800', marginRight: 8 }
 });
