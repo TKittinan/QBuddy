@@ -8,9 +8,7 @@ import { fetchPlacesAsync } from '../../redux/slices/placeSlice';
 import { Card } from '../../components/ui/Card';
 import { Place } from '../../types';
 
-interface LocalRootState {
-  places: { places: Place[] | { data: Place[] } };
-}
+interface LocalRootState { places: { places: Place[] | { data: Place[] } }; }
 
 export default function Cafe() { 
   const router = useRouter();
@@ -18,17 +16,16 @@ export default function Cafe() {
   const activeCategoryTag = 'คาเฟ่'; 
   const rawPlaces = useAppSelector((state: LocalRootState) => state.places.places);
   const allPlaces: Place[] = Array.isArray(rawPlaces) ? rawPlaces : (rawPlaces as any).data || [];
-
   const [searchQuery, setSearchQuery] = useState('');
   const [displayedCount, setDisplayedCount] = useState(10); 
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const FILTER_TAGS = ['ร้านอาหาร', 'คาเฟ่', 'เสริมสวยอื่นๆ'];
+  
+  // 🌟 เพิ่มยอดฮิตเข้าไป
+  const FILTER_TAGS = ['ยอดฮิต', 'ร้านอาหาร', 'คาเฟ่', 'เสริมสวยอื่นๆ'];
 
   useEffect(() => {
-    if (allPlaces.length === 0) {
-      dispatch(fetchPlacesAsync());
-    }
+    if (allPlaces.length === 0) dispatch(fetchPlacesAsync());
   }, [dispatch, allPlaces.length]);
 
   const onRefresh = useCallback(async () => {
@@ -37,9 +34,11 @@ export default function Cafe() {
     setRefreshing(false);
   }, [dispatch]);
 
+  // 🌟 เชื่อมระบบนำทางไปหน้าอื่นๆ
   const handleCategoryChange = (tag: string) => {
     if (tag === activeCategoryTag) return;
-    if (tag === 'ร้านอาหาร') router.replace('/page/Restaurant');
+    if (tag === 'ยอดฮิต') router.replace('/page/Trending');
+    else if (tag === 'ร้านอาหาร') router.replace('/page/Restaurant');
     else if (tag === 'คาเฟ่') router.replace('/page/Cafe');
     else if (tag === 'เสริมสวยอื่นๆ') router.replace('/page/Beauty');
   };
@@ -48,32 +47,23 @@ export default function Cafe() {
     const basePlaces = allPlaces.filter((place: Place) => {
       if (place.status?.toLowerCase() !== 'active') return false;
       if (!place.category) return false;
-      const categoriesArray = place.category.split(',').map(c => c.trim());
-      return categoriesArray.includes(activeCategoryTag);
+      return place.category.split(',').map(c => c.trim()).includes(activeCategoryTag);
     });
-    
     if (!searchQuery) return basePlaces;
     return basePlaces.filter((place: Place) => {
       const matchName = place.name.toLowerCase().includes(searchQuery.toLowerCase());
-      
       const categoriesArray = place.category ? place.category.split(',').map(c => c.trim().toLowerCase()) : [];
       const matchCategory = categoriesArray.some(c => c.includes(searchQuery.toLowerCase()));
-      
       return matchName || matchCategory;
     });
   }, [allPlaces, searchQuery, activeCategoryTag]);
 
-  const displayedPlaces = useMemo(() => {
-    return filteredPlaces.slice(0, displayedCount);
-  }, [filteredPlaces, displayedCount]);
+  const displayedPlaces = useMemo(() => filteredPlaces.slice(0, displayedCount), [filteredPlaces, displayedCount]);
 
   const loadMorePlaces = useCallback(() => {
     if (displayedCount < filteredPlaces.length && !loadingMore) {
       setLoadingMore(true);
-      setTimeout(() => {
-        setDisplayedCount(prev => prev + 10);
-        setLoadingMore(false);
-      }, 500); 
+      setTimeout(() => { setDisplayedCount(prev => prev + 10); setLoadingMore(false); }, 500); 
     }
   }, [displayedCount, filteredPlaces.length, loadingMore]);
 
@@ -88,36 +78,21 @@ export default function Cafe() {
       <View style={styles.searchPadding}>
         <View style={styles.searchMinimalWrapper}>
           <Search size={18} color="#A0AEC0" />
-          <TextInput 
-            style={styles.searchInput}
-            placeholder={`ค้นหาร้าน${activeCategoryTag}...`}
-            placeholderTextColor="#A0AEC0"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
+          <TextInput style={styles.searchInput} placeholder={`ค้นหาร้าน${activeCategoryTag}...`} placeholderTextColor="#A0AEC0" value={searchQuery} onChangeText={setSearchQuery} />
         </View>
       </View>
 
       <View style={{ paddingLeft: 20, paddingBottom: 10, backgroundColor: '#FFFFFF' }}>
-        <CategoryChips tags={FILTER_TAGS} activeTag={activeCategoryTag} onTagPress={handleCategoryChange} />
+        {/* 🌟 ใช้งาน CategoryChips พร้อมสั่งโชว์ไอคอนไฟที่ ยอดฮิต */}
+        <CategoryChips tags={FILTER_TAGS} activeTag={activeCategoryTag} onTagPress={handleCategoryChange} showFlameOn="ยอดฮิต" />
       </View>
 
       <FlatList
         data={displayedPlaces}
         keyExtractor={(item: Place) => item.id}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#6FA4A1']} tintColor="#6FA4A1" />
-        }
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#6FA4A1']} tintColor="#6FA4A1" />}
         renderItem={({ item }) => (
-          <Card 
-            place={item}
-            title={item.name} 
-            imageUri={item.image} 
-            location={item.branch} 
-            distance={typeof item.distance === 'number' ? `${item.distance} กม.` : item.distance} 
-            category={item.category} 
-            onPress={() => router.push({ pathname: '/page/PlaceDetail', params: { id: item.id } })}
-          />
+          <Card place={item} title={item.name} location={item.branch} distance={typeof item.distance === 'number' ? `${item.distance} กม.` : item.distance} category={item.category} onPress={() => router.push({ pathname: '/page/PlaceDetail', params: { id: item.id } })} />
         )}
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}

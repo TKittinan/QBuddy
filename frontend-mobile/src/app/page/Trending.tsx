@@ -4,7 +4,6 @@ import { ArrowLeft, Search } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
 import { useAppSelector, useAppDispatch } from '../../redux/useRedux';
-// 🌟 เปลี่ยนมา import ตัว fetchWeeklyTrendingAsync
 import { fetchWeeklyTrendingAsync } from '../../redux/slices/placeSlice'; 
 
 import { Card } from '../../components/ui/Card'; 
@@ -15,18 +14,21 @@ export default function Trending() {
   const router = useRouter();
   const dispatch = useAppDispatch();
   
-  // 🌟 ดึงข้อมูลจาก state.places.weeklyTrending แทน
+  // 🌟 กำหนดหน้าปัจจุบัน
+  const activeCategoryTag = 'ยอดฮิต'; 
+  
   const placesState = useAppSelector((state: any) => state.places);
   const rawPlaces = placesState?.weeklyTrending || [];
   const allPlaces = Array.isArray(rawPlaces) ? rawPlaces : [];
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTag, setActiveTag] = useState<string>('ทั้งหมด');
-  const [displayedCount, setDisplayedCount] = useState(10); // แสดงทีละ 10 ไปเลย
+  const [displayedCount, setDisplayedCount] = useState(10); 
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  // 🌟 เรียกใช้ fetchWeeklyTrendingAsync ตอนเปิดหน้า
+  // 🌟 เพิ่ม "ยอดฮิต" เข้าไปในลิสต์
+  const FILTER_TAGS = ['ยอดฮิต', 'ร้านอาหาร', 'คาเฟ่', 'เสริมสวยอื่นๆ'];
+
   useEffect(() => {
     if (allPlaces.length === 0) {
       dispatch(fetchWeeklyTrendingAsync());
@@ -39,26 +41,24 @@ export default function Trending() {
     setRefreshing(false);
   }, [dispatch]);
 
-  const filterTags = ['ทั้งหมด', 'ร้านอาหาร', 'คาเฟ่', 'เสริมสวยอื่นๆ'];
+  // 🌟 ฟังก์ชันสลับหน้าเมื่อกดชิป
+  const handleCategoryChange = (tag: string) => {
+    if (tag === activeCategoryTag) return;
+    if (tag === 'ยอดฮิต') router.replace('/page/Trending');
+    else if (tag === 'ร้านอาหาร') router.replace('/page/Restaurant');
+    else if (tag === 'คาเฟ่') router.replace('/page/Cafe');
+    else if (tag === 'เสริมสวยอื่นๆ') router.replace('/page/Beauty');
+  };
 
   const processedPlaces = useMemo(() => {
     let result = [...allPlaces];
-    
-    if (activeTag !== 'ทั้งหมด') {
-      result = result.filter((place: Place) => 
-        place.category && place.category.includes(activeTag)
-      );
-    }
-    
     if (searchQuery) {
       result = result.filter((place: Place) => 
         place.name.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
-    
-    // 🌟 ไม่ต้อง sort แล้ว เพราะ Backend เรียง 10 อันดับแรกมาให้แล้ว
     return result;
-  }, [allPlaces, activeTag, searchQuery]);
+  }, [allPlaces, searchQuery]);
 
   const displayedPlaces = useMemo(() => {
     return processedPlaces.slice(0, displayedCount);
@@ -98,7 +98,8 @@ export default function Trending() {
       </View>
 
       <View style={{ paddingLeft: 20, paddingBottom: 16, backgroundColor: '#FFFFFF' }}>
-        <CategoryChips tags={filterTags} activeTag={activeTag} onTagPress={setActiveTag} />
+        {/* 🌟 ใช้งาน CategoryChips พร้อมสั่งโชว์ไอคอนไฟที่ ยอดฮิต */}
+        <CategoryChips tags={FILTER_TAGS} activeTag={activeCategoryTag} onTagPress={handleCategoryChange} showFlameOn="ยอดฮิต" />
       </View>
 
       <FlatList
@@ -110,13 +111,11 @@ export default function Trending() {
         renderItem={({ item, index }) => (
           <View style={{ position: 'relative' }}>
             <Card 
+              place={item}
               title={item.name} 
-              imageUri={item.image} 
               location={item.branch} 
               distance={typeof item.distance === 'number' ? `${item.distance} กม.` : item.distance} 
               category={item.category} 
-              // 🌟 แก้ตรงนี้เพื่อให้ Badge แจ้งเตือนแสดงยอดของสัปดาห์นี้
-              place={{ ...item, monthlyBookings: (item as any).weeklyBookings }} 
               showBookingBadge={true}
               onPress={(id: string) => router.push({ pathname: '/page/PlaceDetail', params: { id } })}
             />
