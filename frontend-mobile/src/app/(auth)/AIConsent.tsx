@@ -5,7 +5,7 @@ import { useRouter, Href } from 'expo-router';
 
 import { Button } from '../../components/ui/Button';
 import { useAppDispatch, useAppSelector } from '../../redux/useRedux';
-import { updateAiConsentAsync, updateConsent } from '../../redux/slices/authSlice';
+import { updateConsent } from '../../redux/slices/authSlice';
 
 interface FeatureItemProps {
   icon: LucideIcon;
@@ -29,15 +29,6 @@ export default function AIConsentPage() {
       console.error('Update failed', error);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleConfirmConsent = async () => {
-    try {
-      await dispatch(updateAiConsentAsync(true)).unwrap();
-      router.replace('/(tabs)/Home'); // บันทึกเสร็จแล้วไปหน้า Home
-    } catch (error) {
-      Alert.alert("Error", "ไม่สามารถบันทึกการยินยอมได้");
     }
   };
 

@@ -210,6 +210,7 @@ export class AuthService {
 
     return updatedUser;
   }
+<<<<<<< HEAD
 
   async updateAiConsent(userId: string, consented: boolean) {
     const { data: updatedUser, error } = await supabase
@@ -227,4 +228,6 @@ export class AuthService {
   
     return updatedUser;
   }
+=======
+>>>>>>> parent of 8391b54 (Fect AIConsent first login)
 }
