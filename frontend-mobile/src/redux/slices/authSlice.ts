@@ -18,12 +18,10 @@ const initialState: AuthState = {
   error: null,
 };
 
-// ฟังก์ชันสำหรับส่งคำขอรีเซ็ตรหัสผ่านไปยัง Backend
 export const forgotPasswordAsync = createAsyncThunk(
   "auth/forgotPassword",
   async (email: string, { rejectWithValue }) => {
     try {
-      // เรียกใช้ endpoint ที่เราตั้งค่าไว้ใน backend
       const response = await axios.post(`${API_BASE_URL}/auth/forgot-password`, { email });
       return response.data;
     } catch (error: any) {
@@ -37,10 +35,7 @@ export const logoutAsync = createAsyncThunk(
   async (userId: string | undefined, { dispatch }) => {
     try {
       if (userId) {
-        await supabase
-          .from('User')
-          .update({ status: 'INACTIVE' })
-          .eq('id', userId);
+        await supabase.from('User').update({ status: 'INACTIVE' }).eq('id', userId);
       }
     } catch (error) {
       console.error("Failed to update status during logout:", error);
@@ -79,25 +74,73 @@ export const registerAsync = createAsyncThunk(
   }
 );
 
+export const updateProfileAsync = createAsyncThunk(
+  "auth/updateProfile",
+  async (updateData: { name?: string; email?: string; password?: string }, { getState, rejectWithValue }) => {
+    try {
+      const state: any = getState();
+      const token = state.auth?.token;
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      const response = await axios.put(`${API_BASE_URL}/auth/update`, updateData, config);
+      const updatedUser = response.data?.user || response.data;
+      const currentUserData = await AsyncStorage.getItem('user_data');
+      if (currentUserData) {
+        const parsedData = JSON.parse(currentUserData);
+        const newData = { ...parsedData, ...updatedUser };
+        await AsyncStorage.setItem('user_data', JSON.stringify(newData));
+      }
+      return updatedUser;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || "Failed to update profile");
+    }
+  }
+);
+
+// เพิ่มฟังก์ชันสำหรับอัปโหลดรูปโปรไฟล์
+export const uploadAvatarAsync = createAsyncThunk(
+  "auth/uploadAvatar",
+  async (imageUri: string, { getState, rejectWithValue }) => {
+    try {
+      const state: any = getState();
+      const token = state.auth?.token;
+
+      const formData = new FormData();
+      const filename = imageUri.split('/').pop();
+      const match = /\.(\w+)$/.exec(filename || '');
+      const type = match ? `image/${match[1]}` : `image`;
+
+      // @ts-ignore
+      formData.append('avatar', { uri: imageUri, name: filename, type });
+
+      const response = await axios.put(`${API_BASE_URL}/auth/update-avatar`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const updatedUser = response.data?.user || response.data;
+      const currentUserData = await AsyncStorage.getItem('user_data');
+      if (currentUserData) {
+        const parsedData = JSON.parse(currentUserData);
+        const newData = { ...parsedData, ...updatedUser };
+        await AsyncStorage.setItem('user_data', JSON.stringify(newData));
+      }
+      return updatedUser;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || "Failed to upload avatar");
+    }
+  }
+);
+
 const authSlice = createSlice({
   name: "auth",
   initialState,
   reducers: {
-    loginSuccess: (state, action: PayloadAction<User>) => {
-      state.user = action.payload;
-    },
-    updateStatusSuccess: (state, action: PayloadAction<string>) => {
-      if (state.user) {
-        state.user.status = action.payload;
-      }
-    },
-    logout: (state) => {
-      state.user = null;
-      state.token = null;
-    },
-    updateConsent: (state, action: PayloadAction<boolean>) => {
-      if (state.user) state.user.ai_consented = action.payload;
-    }
+    loginSuccess: (state, action: PayloadAction<User>) => { state.user = action.payload; },
+    updateStatusSuccess: (state, action: PayloadAction<string>) => { if (state.user) state.user.status = action.payload; },
+    logout: (state) => { state.user = null; state.token = null; },
+    updateConsent: (state, action: PayloadAction<boolean>) => { if (state.user) state.user.ai_consented = action.payload; }
   },
   extraReducers: (builder) => {
     builder
@@ -111,12 +154,20 @@ const authSlice = createSlice({
         state.isLoading = false;
         state.error = action.payload as string;
       })
-      // เพิ่มสถานะการทำงานของ forgotPassword
       .addCase(forgotPasswordAsync.pending, (state) => { state.isLoading = true; state.error = null; })
       .addCase(forgotPasswordAsync.fulfilled, (state) => { state.isLoading = false; })
       .addCase(forgotPasswordAsync.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string;
+      })
+      .addCase(updateProfileAsync.fulfilled, (state, action) => {
+        state.isLoading = false;
+        if (state.user) state.user = { ...state.user, ...action.payload };
+      })
+      // จัดการผลลัพธ์การอัปโหลดรูปภาพ
+      .addCase(uploadAvatarAsync.fulfilled, (state, action) => {
+        state.isLoading = false;
+        if (state.user) state.user = { ...state.user, ...action.payload };
       });
   }
 });

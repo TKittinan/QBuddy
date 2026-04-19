@@ -76,4 +76,54 @@ export class AuthController {
       res.status(500).json({ message: error.message });
     }
   }
+
+  // ฟังก์ชันสำหรับอัปเดต Profile (Name, Email, Password)
+  async updateProfile(req: Request, res: Response) {
+    try {
+      const userId = (req as any).user?.user_id;
+      
+      if (!userId) {
+        return res.status(401).json({ message: "ไม่พบข้อมูลผู้ใช้หรือไม่ได้รับอนุญาต" });
+      }
+
+      const updateData = req.body;
+
+      if (Object.keys(updateData).length === 0) {
+        return res.status(400).json({ message: "ไม่มีข้อมูลที่ต้องการอัปเดต" });
+      }
+
+      // ส่งข้อมูลไปให้ AuthService จัดการแก้ไขใน Database
+      const updatedUser = await auth_service.updateProfile(userId, updateData);
+      
+      res.json({ message: "อัปเดตข้อมูลโปรไฟล์เรียบร้อยแล้ว", user: updatedUser });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  }
+
+  // ฟังก์ชันใหม่สำหรับจัดการการอัปโหลดรูปภาพโปรไฟล์
+  async updateAvatar(req: Request, res: Response) {
+    try {
+      const userId = (req as any).user?.user_id;
+      const file = req.file; // รับไฟล์ที่ผ่านการประมวลผลจาก multer
+
+      if (!userId) {
+        return res.status(401).json({ message: "ไม่พบข้อมูลผู้ใช้หรือไม่ได้รับอนุญาต" });
+      }
+
+      if (!file) {
+        return res.status(400).json({ message: "กรุณาเลือกรูปภาพที่ต้องการอัปโหลด" });
+      }
+
+      // ส่งไฟล์ไปให้ service จัดการอัปโหลดขึ้น Storage และอัปเดต DB
+      const updatedUser = await auth_service.updateAvatar(userId, file);
+
+      res.json({ 
+        message: "อัปเดตรูปโปรไฟล์เรียบร้อยแล้ว", 
+        user: updatedUser 
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  }
 }
