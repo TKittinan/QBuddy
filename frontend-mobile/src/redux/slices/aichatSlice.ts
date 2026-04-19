@@ -14,15 +14,28 @@ export const fetchAiHistoryAsync = createAsyncThunk(
   }
 );
 
-// เพิ่มฟังก์ชันสำหรับยิงข้อความไปหา Backend AI
+// เพิ่ม getState เข้ามาในพารามิเตอร์ตัวที่สองค่ะ
 export const sendAiMessageAsync = createAsyncThunk(
   "aichat/sendMessage",
-  async (message: string, { rejectWithValue }) => {
+  async (message: string, { getState, rejectWithValue }) => {
     try {
-      // ตรวจสอบ Endpoint ให้ตรงกับ Backend ของต้าด้วยนะคะ
-      const response = await axios.post(`${API_BASE_URL}/ai-chat`, { message });
+      // ดึงข้อมูล state ทั้งหมดออกมาเพื่อหา Token
+      const state: any = getState();
+      const token = state.auth?.token; 
+
+      // สร้าง config เพื่อแนบ Token ไปกับ Headers
+      const config = {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      };
+
+      // ส่ง config พ่วงไปด้วยค่ะ
+      const response = await axios.post(`${API_BASE_URL}/ai-chat`, { message }, config);
       return response.data; 
     } catch (error: any) {
+      // ดึงข้อความ Error จริงๆ จาก Backend มาโชว์ จะได้รู้ว่าพังเพราะอะไรค่ะ
+      console.error("AI Error:", error.response?.data);
       return rejectWithValue(error.response?.data?.message || "AI failed to respond");
     }
   }
