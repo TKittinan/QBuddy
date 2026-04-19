@@ -14,17 +14,68 @@ export const fetchAiHistoryAsync = createAsyncThunk(
   }
 );
 
+// เพิ่มฟังก์ชันสำหรับยิงข้อความไปหา Backend AI
+export const sendAiMessageAsync = createAsyncThunk(
+  "aichat/sendMessage",
+  async (message: string, { rejectWithValue }) => {
+    try {
+      // ตรวจสอบ Endpoint ให้ตรงกับ Backend ของต้าด้วยนะคะ
+      const response = await axios.post(`${API_BASE_URL}/ai-chat`, { message });
+      return response.data; 
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || "AI failed to respond");
+    }
+  }
+);
+
 const aichatSlice = createSlice({
   name: "aichat",
   initialState: { messages: [] as any[], isLoading: false },
   reducers: {
-    addMessage: (state, action) => { state.messages.push(action.payload); },
-    clearMessages: (state) => { state.messages = []; }
+    addMessage: (state, action) => { 
+      state.messages.push(action.payload); 
+    },
+    clearMessages: (state) => { 
+      state.messages = []; 
+    }
   },
   extraReducers: (builder) => {
-    builder.addCase(fetchAiHistoryAsync.fulfilled, (state, action) => {
-      state.messages = action.payload;
-    });
+    builder
+      // จัดการส่วนประวัติการแชท
+      .addCase(fetchAiHistoryAsync.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(fetchAiHistoryAsync.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.messages = action.payload;
+      })
+      .addCase(fetchAiHistoryAsync.rejected, (state) => {
+        state.isLoading = false;
+      })
+      // จัดการส่วนส่งข้อความหา AI
+      .addCase(sendAiMessageAsync.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(sendAiMessageAsync.fulfilled, (state, action) => {
+        state.isLoading = false;
+        // นำข้อความที่ Backend ตอบกลับมา สร้างเป็นข้อความฝั่ง AI ลงในแชท
+        state.messages.push({
+          id: Date.now().toString(),
+          type: 'ai',
+          // รองรับ key หลายแบบเผื่อ Backend ของต้าส่งชื่อ key ไม่เหมือนกันนะคะ
+          text: action.payload.message || action.payload.reply || action.payload.text || 'รับทราบค่ะ',
+          placeCard: action.payload.placeCard || undefined
+        });
+      })
+      .addCase(sendAiMessageAsync.rejected, (state, action) => {
+        state.isLoading = false;
+        // ถ้า API มีปัญหา จะแสดงข้อความแจ้งเตือนสีเทาๆ ฝั่ง AI แทนค่ะ
+        state.messages.push({
+          id: Date.now().toString(),
+          type: 'ai',
+          text: (action.payload as string) || 'ขออภัยค่ะ ระบบ AI ขัดข้องชั่วคราว ลองใหม่อีกครั้งนะคะ'
+        });
+      });
   }
 });
 

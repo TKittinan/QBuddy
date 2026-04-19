@@ -4,7 +4,8 @@ import { ArrowLeft, Send, MapPin } from 'lucide-react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import { useAppSelector, useAppDispatch } from '../../redux/useRedux';
-import { addMessage, fetchAiHistoryAsync } from '../../redux/slices/aichatSlice';
+// นำเข้า sendAiMessageAsync เพิ่มมานะคะ
+import { addMessage, fetchAiHistoryAsync, sendAiMessageAsync } from '../../redux/slices/aichatSlice';
 
 interface PlaceCardType {
   name: string;
@@ -25,12 +26,12 @@ export default function AIChatScreen() {
   const dispatch = useAppDispatch();
   const { initialMessage } = useLocalSearchParams();
   
-  // 🌟 ดึงข้อมูลจาก Redux แบบดักจับ Array
+  // ดึงข้อมูลจาก Redux แบบดักจับ Array
   const aiChatState = useAppSelector((state: any) => state.aichat);
   const rawMessages = aiChatState?.messages?.data || aiChatState?.messages || [];
   const messages = Array.isArray(rawMessages) ? rawMessages : [];
   
-  // 🌟 ดึง User ปัจจุบัน
+  // ดึง User ปัจจุบัน
   const user = useAppSelector((state: any) => state.auth?.user);
 
   const [inputText, setInputText] = useState('');
@@ -46,38 +47,24 @@ export default function AIChatScreen() {
   // ส่งข้อความเริ่มต้น (ถ้ามาจากหน้า Home)
   useEffect(() => {
     if (initialMessage && messages.length === 0) {
-      dispatch(addMessage({ id: Date.now().toString(), type: 'user', text: initialMessage as string }));
-      // 🌟 สั่งให้ AI ส่งข้อความตอบกลับโดยดึงร้านจากฐานข้อมูลมา (อันนี้เป็น Logic จำลองชั่วคราว)
-      setTimeout(() => {
-        dispatch(addMessage({ 
-          id: (Date.now()+1).toString(), 
-          type: 'ai', 
-          text: 'นี่คือร้านอาหารใกล้คุณที่คุณอาจจะชอบครับ',
-          placeCard: {
-            name: "Copper Beyond Buffet",
-            distance: "0.8 กม.",
-            category: "ร้านอาหาร",
-            image: "https://images.unsplash.com/photo-1544025162-d76694265947?w=500"
-          }
-        }));
-      }, 1000);
+      const msg = initialMessage as string;
+      // เพิ่มข้อความตัวเองลงจอก่อน
+      dispatch(addMessage({ id: Date.now().toString(), type: 'user', text: msg }));
+      // ยิงหา Backend จริง
+      dispatch(sendAiMessageAsync(msg));
     }
   }, [initialMessage]);
 
   const handleSend = () => {
     if (inputText.trim().length === 0) return;
     
-    dispatch(addMessage({ id: Date.now().toString(), type: 'user', text: inputText }));
+    const messageToSend = inputText.trim();
+    // 1. เพิ่มข้อความตัวเองลงจอ
+    dispatch(addMessage({ id: Date.now().toString(), type: 'user', text: messageToSend }));
     setInputText('');
     
-    // จำลองการตอบกลับของ AI (ในระบบจริง ตรงนี้จะยิง API ไปหา Backend เพื่อขอ AI Generate ข้อความ)
-    setTimeout(() => {
-      dispatch(addMessage({
-        id: (Date.now() + 1).toString(),
-        type: 'ai',
-        text: 'รับทราบครับ ผมบันทึกข้อมูลไว้แล้ว สนใจจองคิวเลยไหมครับ?'
-      }));
-    }, 1500);
+    // 2. เรียก Redux ยิง Backend จริงๆ
+    dispatch(sendAiMessageAsync(messageToSend));
   };
 
   const handleBookPlace = (placeName: string) => {
@@ -108,7 +95,7 @@ export default function AIChatScreen() {
           <View style={[styles.messageRow, { justifyContent: 'flex-start' }]}>
             <View style={[styles.bubble, styles.aiBubble]}>
               <Text style={[styles.bubbleText, { color: '#2D3748' }]}>
-                สวัสดีครับ ผม QBuddy AI ผู้ช่วยส่วนตัวของคุณ วันนี้อยากให้ผมแนะนำร้านอาหาร คาเฟ่ หรือหากิจกรรมอะไรทำดีครับ? 😊
+                สวัสดีค่ะต้า QBuddy AI ยินดีให้บริการค่ะ วันนี้อยากให้ช่วยหาร้านอาหาร คาเฟ่ หรือกิจกรรมอะไรดีคะ?
               </Text>
             </View>
           </View>
