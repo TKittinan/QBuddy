@@ -2,7 +2,7 @@ import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 import axios from "axios";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User } from "../../types";
-import { API_BASE_URL, supabase } from "../../config"; // นำเข้า supabase จาก config เพื่อใช้อัปเดตสถานะ
+import { API_BASE_URL, supabase } from "../../config";
 
 interface AuthState {
   user: User | null;
@@ -18,13 +18,25 @@ const initialState: AuthState = {
   error: null,
 };
 
-// ฟังก์ชัน Logout แบบ Async เพื่ออัปเดต Database ก่อนล้าง State
+// ฟังก์ชันสำหรับส่งคำขอรีเซ็ตรหัสผ่านไปยัง Backend
+export const forgotPasswordAsync = createAsyncThunk(
+  "auth/forgotPassword",
+  async (email: string, { rejectWithValue }) => {
+    try {
+      // เรียกใช้ endpoint ที่เราตั้งค่าไว้ใน backend
+      const response = await axios.post(`${API_BASE_URL}/auth/forgot-password`, { email });
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || "Failed to send reset email");
+    }
+  }
+);
+
 export const logoutAsync = createAsyncThunk(
   "auth/logoutAsync",
   async (userId: string | undefined, { dispatch }) => {
     try {
       if (userId) {
-        // อัปเดตสถานะใน Database เป็น INACTIVE
         await supabase
           .from('User')
           .update({ status: 'INACTIVE' })
@@ -33,9 +45,8 @@ export const logoutAsync = createAsyncThunk(
     } catch (error) {
       console.error("Failed to update status during logout:", error);
     } finally {
-      // ไม่ว่าจะอัปเดต DB สำเร็จหรือไม่ ก็ต้องเคลียร์ข้อมูลในแอป
       await AsyncStorage.multiRemove(['user_token', 'user_data']);
-      dispatch(logout()); // เรียก reducer logout ปกติเพื่อล้าง state
+      dispatch(logout());
     }
   }
 );
@@ -75,7 +86,6 @@ const authSlice = createSlice({
     loginSuccess: (state, action: PayloadAction<User>) => {
       state.user = action.payload;
     },
-    // เพิ่มฟังก์ชันสำหรับอัปเดตสถานะจาก Realtime Listener
     updateStatusSuccess: (state, action: PayloadAction<string>) => {
       if (state.user) {
         state.user.status = action.payload;
@@ -98,6 +108,13 @@ const authSlice = createSlice({
         state.token = action.payload.token;
       })
       .addCase(loginAsync.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      })
+      // เพิ่มสถานะการทำงานของ forgotPassword
+      .addCase(forgotPasswordAsync.pending, (state) => { state.isLoading = true; state.error = null; })
+      .addCase(forgotPasswordAsync.fulfilled, (state) => { state.isLoading = false; })
+      .addCase(forgotPasswordAsync.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string;
       });

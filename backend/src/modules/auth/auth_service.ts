@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { ENV } from '../../config/env_config';
 import crypto from 'crypto';
+import { sendResetPasswordEmail } from '../../common/utils/email_service';
 
 export class AuthService {
   async register(data: any) {
@@ -85,20 +86,24 @@ export class AuthService {
     return { success: true };
   }
 
-  async forgotPassword(email: string) {
+async forgotPassword(email: string) {
+  console.log("--- มีการร้องขอ Forgot Password สำหรับเมล: ", email);
     const { data: user, error } = await supabase
       .from('User')
-      .select('id, email')
+      .select('id, email, name')
       .eq('email', email)
       .single();
 
-    if (!user) return;
+    // จุดแก้ไข 1: ถ้าไม่พบ User ต้องบอกให้ Controller รู้
+    if (!user) {
+      throw new Error("User not found");
+    }
 
     const resetToken = crypto.randomBytes(32).toString('hex');
     const expires = new Date();
     expires.setHours(expires.getHours() + 1);
 
-    await supabase
+    const { error: updateError } = await supabase
       .from('User')
       .update({
         resetPasswordToken: resetToken,
@@ -106,8 +111,18 @@ export class AuthService {
       })
       .eq('id', user.id);
 
-    const resetUrl = `http://localhost:5173/reset-password?token=${resetToken}`;
-    console.log(`Reset link for ${email}: ${resetUrl}`);
-    // พร้อมสำหรับเชื่อมต่อระบบส่ง Email จริง
+    if (updateError) throw new Error("Failed to update reset token");
+
+    // จุดแก้ไข 2: ส่งอีเมลจริงผ่าน Service
+    // หมายเหตุ: URL ควรเปลี่ยนจาก localhost เป็น IP เครื่องนาย เพื่อให้กดจากมือถือได้
+    const resetUrl = `${ENV.FRONTEND_URL}/reset-password?token=${resetToken}`;
+    
+    try {
+      await sendResetPasswordEmail(user.email, user.name, resetUrl);
+      console.log(`Reset email sent to: ${email}`);
+    } catch (mailError) {
+      console.error("Mail service error:", mailError);
+      throw new Error("Failed to send email");
+    }
   }
 }

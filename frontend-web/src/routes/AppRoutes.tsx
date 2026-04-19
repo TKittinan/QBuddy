@@ -15,6 +15,7 @@ import Settings from "../pages/Settings";
 import Login from "../pages/Login"; 
 import InboxChat from "../pages/Inbox";
 import PostManagement from "../pages/PostManagement";
+import ResetPassword from '../pages/ResetPassword'; // Import หน้าที่สร้างใหม่
 
 import ProtectedRoute from "./ProtectedRoute"; 
 
@@ -55,6 +56,7 @@ export default function AppRoutes() {
           <Route path=":id" element={<InboxChat />} />
         </Route>
 
+        <Route path="/reset-password" element={<ResetPassword />} />
       </Route>
 
       <Route path="*" element={<div className="flex h-screen w-full items-center justify-center text-xl font-bold text-slate-500">404 - Page Not Found</div>} />

@@ -51,9 +51,17 @@ export class AuthController {
         return res.status(400).json({ message: "กรุณาระบุอีเมล" });
       }
 
+      // ส่ง email ไปให้ service จัดการ
       await auth_service.forgotPassword(email);
-      res.json({ message: "หากมีอีเมลนี้ในระบบ ระบบจะส่งลิงก์รีเซ็ตรหัสผ่านให้ท่านในเร็วๆ นี้" });
+      
+      // ส่งข้อความตอบกลับที่ชัดเจนเพื่อให้ Mobile นำไปแสดงผล
+      res.json({ message: "ระบบได้ส่งลิงก์รีเซ็ตรหัสผ่านไปที่อีเมลของท่านเรียบร้อยแล้ว" });
     } catch (error: any) {
+      // ถ้าใน service โยน Error ว่า "User not found" 
+      // เราจะส่ง 404 กลับไป เพื่อให้หน้า Mobile เข้าเงื่อนไข else และโชว์ Error สีแดง
+      if (error.message === "User not found" || error.message.includes("ไม่พบ")) {
+        return res.status(404).json({ message: "ไม่พบอีเมลนี้ในระบบ กรุณาตรวจสอบอีกครั้ง" });
+      }
       res.status(500).json({ message: error.message });
     }
   }
