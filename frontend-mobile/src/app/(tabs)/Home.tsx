@@ -11,7 +11,7 @@ import { Input } from '../../components/ui/Input';
 import { useAppSelector, useAppDispatch } from '../../redux/useRedux';
 
 import { fetchSavedPlacesAsync } from '../../redux/slices/savedPlacesSlice';
-import { fetchWeeklyTrendingAsync } from '../../redux/slices/placeSlice'; // 🌟 ใช้ Weekly
+import { fetchWeeklyTrendingAsync } from '../../redux/slices/placeSlice';
 
 export default function HomePage() {
   const router = useRouter();
@@ -21,7 +21,6 @@ export default function HomePage() {
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // 🌟 ดึงข้อมูลฮิตประจำสัปดาห์ (Weekly) แล้วหั่นเอาแค่ 5 อันดับแรก
   const weeklyTrending = useAppSelector((state: any) => state.places?.weeklyTrending || []);
   const top5Places = weeklyTrending.slice(0, 5);
 
@@ -35,7 +34,6 @@ export default function HomePage() {
           if (user?.id) {
             dispatch(fetchSavedPlacesAsync(user.id));
           }
-          // 🌟 สั่งดึงข้อมูลประจำสัปดาห์
           dispatch(fetchWeeklyTrendingAsync());
         } catch (error) {
           console.error("Failed to load home data", error);
@@ -93,7 +91,6 @@ export default function HomePage() {
             </TouchableOpacity>
           </View>
           
-          {/* 🌟 แสดง 5 อันดับร้านฮิตประจำสัปดาห์ */}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
             {top5Places.length > 0 ? (
               top5Places.map((place: any, index: number) => {
@@ -156,7 +153,7 @@ export default function HomePage() {
             <CategoryItem 
               label="หาเพื่อน" 
               icon={<Users size={20} color="#38B2AC" />} 
-              onPress={() => router.push('/(tabs)/FindFriends' as Href)} 
+              onPress={() => router.push('/page/FindFriends' as Href)} 
             />
           </View>
 

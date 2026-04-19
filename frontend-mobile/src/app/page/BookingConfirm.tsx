@@ -31,12 +31,12 @@ export default function BookingConfirm() {
     allPlaces.find((p: Place) => String(p.id) === String(ticket?.placeId || ticket?.shopId)), 
     [allPlaces, ticket]
   );
-
+  const user = useAppSelector((state: any) => state.auth?.user);
   useEffect(() => {
-    if (!ticket) {
-      dispatch(fetchTicketsAsync());
+    if (!ticket && user?.name) {
+      dispatch(fetchTicketsAsync(user.name));
     }
-  }, [ticket, dispatch]);
+  }, [ticket, dispatch, user?.name]);
 
   const formatThaiDate = (dateString: string) => {
     if (!dateString) return "-";

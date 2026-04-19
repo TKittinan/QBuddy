@@ -13,6 +13,15 @@ export class TicketController {
     }
   }
 
+  async list_by_user(req: Request, res: Response) {
+    try {
+      const tickets = await ticket_service.get_tickets_by_user(req.params.user_name as string);
+      res.json(tickets);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  }
+
   async create(req: Request, res: Response) {
     try {
       const new_ticket = await ticket_service.create_ticket(req.body);

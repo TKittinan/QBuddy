@@ -19,6 +19,18 @@ export class TicketService {
     return data;
   }
 
+  // 🌟 เพิ่มฟังก์ชันสำหรับ Query ข้อมูลคิวจาก Database
+  async get_tickets_by_user(userName: string) {
+    const { data, error } = await supabase
+      .from('Ticket')
+      .select('*')
+      .eq('name', userName)
+      .order('createdAt', { ascending: false }); // เรียงจากคิวล่าสุดไว้บนสุด
+      
+    if (error) throw new Error(error.message);
+    return data || [];
+  }
+
   async get_booked_slots(shopId: string, date: string) {
     const { data, error } = await supabase
       .from('Ticket')
