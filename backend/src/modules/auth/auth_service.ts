@@ -86,8 +86,8 @@ export class AuthService {
     return { success: true };
   }
 
-async forgotPassword(email: string) {
-  console.log("--- มีการร้องขอ Forgot Password สำหรับเมล: ", email);
+  async forgotPassword(email: string) {
+    console.log("--- มีการร้องขอ Forgot Password สำหรับเมล: ", email);
     const { data: user, error } = await supabase
       .from('User')
       .select('id, email, name')
@@ -124,5 +124,96 @@ async forgotPassword(email: string) {
       console.error("Mail service error:", mailError);
       throw new Error("Failed to send email");
     }
+  }
+
+  // ฟังก์ชันสำหรับอัปเดต Profile
+  async updateProfile(userId: string, updateData: any) {
+    if (!userId) throw new Error("User ID is required");
+
+    const updates: any = {};
+    
+    // ตรวจสอบว่ามีการส่งฟิลด์ไหนมาบ้าง แล้วจัดเตรียมข้อมูลสำหรับอัปเดต
+    if (updateData.name) updates.name = updateData.name;
+    if (updateData.email) updates.email = updateData.email;
+    
+    // ถ้ายูสเซอร์ส่งรหัสผ่านใหม่มา ต้องจับไปเข้ารหัส (Hash) ก่อนบันทึกลง Database
+    if (updateData.password) {
+      updates.password = await bcrypt.hash(updateData.password, 10);
+    }
+
+    const { data: updatedUser, error } = await supabase
+      .from('User')
+      .update(updates)
+      .eq('id', userId)
+      .select()
+      .single();
+
+    if (error) {
+      // ดักจับกรณีที่ยูสเซอร์เปลี่ยนอีเมลไปซ้ำกับคนอื่นในระบบ
+      if (error.code === '23505') throw new Error('อีเมลนี้มีผู้ใช้งานแล้ว');
+      throw new Error(error.message);
+    }
+
+    // ตัดรหัสผ่านทิ้งก่อนส่งข้อมูลกลับไปให้หน้าแอปมือถือ
+    if (updatedUser && updatedUser.password) {
+      delete updatedUser.password;
+    }
+
+    return updatedUser;
+  }
+
+  // ฟังก์ชันใหม่สำหรับจัดการการอัปโหลดรูปโปรไฟล์ไปยัง Storage
+  async updateAvatar(userId: string, file: any) {
+    if (!userId) throw new Error("User ID is required");
+
+    // 1. กำหนดชื่อไฟล์ใหม่ (สุ่มเพื่อไม่ให้ซ้ำ)
+    const fileExt = file.originalname.split('.').pop();
+    const fileName = `${userId}-${Date.now()}.${fileExt}`;
+    const filePath = `avatars/${fileName}`;
+
+    // 2. อัปโหลดไฟล์ไปยัง Supabase Storage Bucket ชื่อ 'avatars'
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('avatars')
+      .upload(filePath, file.buffer, {
+        contentType: file.mimetype,
+        upsert: true
+      });
+
+    if (uploadError) throw new Error(`Upload error: ${uploadError.message}`);
+
+    // 3. ดึง Public URL ของไฟล์ที่เพิ่งอัปโหลด
+    const { data: { publicUrl } } = supabase.storage
+      .from('avatars')
+      .getPublicUrl(filePath);
+
+    // 4. อัปเดตฟิลด์ avatarUrl ในตาราง User
+    const { data: updatedUser, error: dbError } = await supabase
+      .from('User')
+      .update({ avatarUrl: publicUrl })
+      .eq('id', userId)
+      .select()
+      .single();
+
+    if (dbError) throw new Error(`Database error: ${dbError.message}`);
+
+    // ตัดรหัสผ่านทิ้งก่อนส่งกลับ
+    if (updatedUser && updatedUser.password) {
+      delete updatedUser.password;
+    }
+
+    return updatedUser;
+  }
+
+  async updateAiConsent(userId: string, consented: boolean) {
+    const { data: updatedUser, error } = await supabase
+      .from('User')
+      .update({ aiConsented: consented }) // ใช้ชื่อฟิลด์ตามรูป b264a9
+      .eq('id', userId)
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
+    if (updatedUser && updatedUser.password) delete updatedUser.password;
+    return updatedUser;
   }
 }
