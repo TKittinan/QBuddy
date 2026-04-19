@@ -84,17 +84,26 @@ export default function QueueBooking() {
   const handlePrevMonth = () => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1));
   const handleNextMonth = () => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1));
 
+  // 🌟 ฟังก์ชันอัปเดตใหม่: รองรับร้านที่เปิดข้ามคืน (เช่น Suki Teenoi)
   const generateTimeSlots = () => {
     if (!place.openTime || !place.closeTime) return [];
     const [openH, openM] = place.openTime.split(':').map(Number);
-    const [closeH, closeM] = place.closeTime.split(':').map(Number);
+    let [closeH, closeM] = place.closeTime.split(':').map(Number);
+    
+    // ถ้าร้านปิดหลังเที่ยงคืน (เวลาปิดน้อยกว่าเวลาเปิด) ให้บวก 24 ชม.
+    if (closeH < openH) {
+      closeH += 24;
+    }
     
     let slots: string[] = [];
     let currentH = openH;
     let currentM = openM;
     
     while (currentH < closeH || (currentH === closeH && currentM <= closeM)) {
-      slots.push(`${currentH.toString().padStart(2, '0')}:${currentM.toString().padStart(2, '0')}`);
+      // แปลงเวลากลับมาให้อยู่ในรูปแบบ 00-23
+      const displayH = currentH >= 24 ? currentH - 24 : currentH;
+      slots.push(`${displayH.toString().padStart(2, '0')}:${currentM.toString().padStart(2, '0')}`);
+      
       currentM += 30;
       if (currentM >= 60) { currentH++; currentM -= 60; }
     }
@@ -107,6 +116,9 @@ export default function QueueBooking() {
     if (!selectedDate) return [];
     const bookingsForDate = activeBookings.filter(t => t.bookDate === selectedDate);
     return timeSlots.map(time => {
+      // 🌟 ป้องกันบัคถ้าแอดมินลืมใส่ประเภทโต๊ะ
+      if (!place.tableTypes || place.tableTypes.length === 0) return { time, isFull: true };
+
       const isFull = place.tableTypes?.every((tt: any) => {
         const bookedSum = bookingsForDate
           .filter(t => t.bookTime === time && t.tableType === tt.label)
@@ -119,6 +131,10 @@ export default function QueueBooking() {
 
   const isDayFull = useCallback((dateStr: string) => {
     if (timeSlots.length === 0) return true;
+    
+    // 🌟 ป้องกันบัคถ้าแอดมินลืมใส่ประเภทโต๊ะ
+    if (!place.tableTypes || place.tableTypes.length === 0) return true;
+
     const bookingsForDate = activeBookings.filter(t => t.bookDate === dateStr);
     return timeSlots.every(time => {
       return place.tableTypes?.every((tt: any) => {
@@ -233,7 +249,7 @@ export default function QueueBooking() {
                   const isPast = d.setHours(0,0,0,0) < new Date().setHours(0,0,0,0);
                   const fullyBooked = !isPast && isDayFull(dateStr); 
                   return (
-                    <TouchableOpacity key={dateStr} disabled={isPast || fullyBooked} onPress={() => { setSelectedDate(dateStr); setSelectedTime(null); }} style={[styles.dayCell, isSelected && styles.dayCellSelected, (isPast || fullyBooked) && styles.dayCellDisabled]}>
+                    <TouchableOpacity key={dateStr} disabled={isPast || fullyBooked} onPress={() => { setSelectedDate(dateStr); setSelectedTime(null); setIsTimeDropdownOpen(false); }} style={[styles.dayCell, isSelected && styles.dayCellSelected, (isPast || fullyBooked) && styles.dayCellDisabled]}>
                       <Text style={[styles.dayText, isSelected && styles.dayTextSelected, isPast && styles.dayTextDisabled, fullyBooked && { color: '#E53E3E' }]}>{dateStr.split('-')[2]}</Text>
                       {fullyBooked && <Text style={{ fontSize: 9, color: '#E53E3E', marginTop: 2, fontWeight: 'bold' }}>เต็ม</Text>}
                     </TouchableOpacity>
@@ -245,7 +261,7 @@ export default function QueueBooking() {
               <Text style={styles.sectionTitle}>เลือกเวลา</Text>
               <TouchableOpacity activeOpacity={0.8} style={[styles.dropdownHeader, !selectedDate && { backgroundColor: '#F7FAFC' }]} disabled={!selectedDate} onPress={() => setIsTimeDropdownOpen(!isTimeDropdownOpen)}>
                 <Text style={selectedTime ? styles.dropdownSelectedText : styles.dropdownPlaceholder}>{selectedDate ? (selectedTime ? `${selectedTime} น.` : 'คลิกเพื่อเลือกรอบเวลา') : "รอเลือกวันที่"}</Text>
-                <ChevronDown size={20} color="#A0AEC0" />
+                <ChevronDown size={20} color="#A0AEC0" style={{ transform: [{ rotate: isTimeDropdownOpen ? '180deg' : '0deg' }] }} />
               </TouchableOpacity>
               {isTimeDropdownOpen && selectedDate && (
                 <View style={styles.dropdownMenu}>
@@ -265,13 +281,13 @@ export default function QueueBooking() {
           <View>
             <View style={styles.sectionMargin}>
               <Text style={styles.sectionTitle}>เลือกประเภทโต๊ะ</Text>
-              {availableTables.map((table: AvailableTable) => {
+              {availableTables.length > 0 ? availableTables.map((table: AvailableTable) => {
                 const isFull = table.availableCount <= 0;
                 const isSelected = selectedTableType === table.id;
                 const maxPer = getMaxGuestsFromLabel(table.label);
                 return (
                   <TouchableOpacity key={table.id} disabled={isFull} onPress={() => setSelectedTableType(table.id)} style={[styles.tableCard, isSelected && styles.tableCardSelected, isFull && styles.tableCardDisabled]}>
-                    <View><Text style={[styles.tableCardTitle, isSelected && styles.tableCardTitleSelected]}>{table.label}</Text>
+                    <View><Text style={[styles.tableCardTitle, isSelected && styles.tableCardTitleSelected, isFull && { color: '#A0AEC0' }]}>{table.label}</Text>
                     <Text style={styles.tableCapacityText}>รองรับ {maxPer} ท่าน / 1 โต๊ะ</Text></View>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                       {isFull ? <Text style={styles.bookedText}>มีการจองแล้ว</Text> : <Text style={{ fontSize: 13, color: '#718096', fontWeight: '600', marginRight: 8 }}>ว่าง {table.availableCount} โต๊ะ</Text>}
@@ -279,7 +295,9 @@ export default function QueueBooking() {
                     </View>
                   </TouchableOpacity>
                 );
-              })}
+              }) : (
+                <View style={{ padding: 20, alignItems: 'center', backgroundColor: '#F7FAFC', borderRadius: 16, borderWidth: 1, borderColor: '#EDF2F7' }}><Text style={{ color: '#A0AEC0', fontSize: 14 }}>ร้านนี้ไม่มีประเภทโต๊ะ</Text></View>
+              )}
             </View>
             {selectedTableType && (
               <View style={styles.sectionMargin}>
