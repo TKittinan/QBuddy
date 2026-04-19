@@ -31,6 +31,4 @@ router.put('/update', auth_middleware, auth_controller.updateProfile);
 // เพิ่ม route สำหรับอัปเดตรูปโปรไฟล์ (รับไฟล์ผ่าน field ชื่อ 'avatar')
 router.put('/update-avatar', auth_middleware, upload.single('avatar'), auth_controller.updateAvatar);
 
-router.put('/consent', auth_middleware, auth_controller.updateConsent);
-
 export default router;
