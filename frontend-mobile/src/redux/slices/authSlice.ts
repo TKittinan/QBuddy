@@ -32,14 +32,21 @@ export const forgotPasswordAsync = createAsyncThunk(
 
 export const logoutAsync = createAsyncThunk(
   "auth/logoutAsync",
-  async (userId: string | undefined, { dispatch }) => {
+  async (userId: string | undefined, { getState, dispatch }) => {
     try {
-      if (userId) {
-        await supabase.from('User').update({ status: 'INACTIVE' }).eq('id', userId);
+      const state: any = getState();
+      const token = state.auth?.token;
+      
+      if (token) {
+        // ยิง API ไปบอก Backend ว่าให้เปลี่ยน status เป็น INACTIVE
+        await axios.post(`${API_BASE_URL}/auth/logout`, {}, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
       }
     } catch (error) {
       console.error("Failed to update status during logout:", error);
     } finally {
+      // เคลียร์ข้อมูลออกจากเครื่อง
       await AsyncStorage.multiRemove(['user_token', 'user_data']);
       dispatch(logout());
     }
@@ -86,7 +93,14 @@ export const updateProfileAsync = createAsyncThunk(
       const currentUserData = await AsyncStorage.getItem('user_data');
       if (currentUserData) {
         const parsedData = JSON.parse(currentUserData);
-        const newData = { ...parsedData, ...updatedUser };
+        // ดึงค่าการยินยอมจากเครื่องมาเก็บไว้ก่อน
+        const hasConsented = parsedData.aiConsented || parsedData.ai_consented;
+        const newData = { 
+          ...parsedData, 
+          ...updatedUser,
+          aiConsented: hasConsented,
+          ai_consented: hasConsented
+        };
         await AsyncStorage.setItem('user_data', JSON.stringify(newData));
       }
       return updatedUser;
@@ -96,7 +110,6 @@ export const updateProfileAsync = createAsyncThunk(
   }
 );
 
-// เพิ่มฟังก์ชันสำหรับอัปโหลดรูปโปรไฟล์
 export const uploadAvatarAsync = createAsyncThunk(
   "auth/uploadAvatar",
   async (imageUri: string, { getState, rejectWithValue }) => {
@@ -123,7 +136,14 @@ export const uploadAvatarAsync = createAsyncThunk(
       const currentUserData = await AsyncStorage.getItem('user_data');
       if (currentUserData) {
         const parsedData = JSON.parse(currentUserData);
-        const newData = { ...parsedData, ...updatedUser };
+        // ดึงค่าการยินยอมจากเครื่องมาเก็บไว้ก่อน
+        const hasConsented = parsedData.aiConsented || parsedData.ai_consented;
+        const newData = { 
+          ...parsedData, 
+          ...updatedUser,
+          aiConsented: hasConsented,
+          ai_consented: hasConsented
+        };
         await AsyncStorage.setItem('user_data', JSON.stringify(newData));
       }
       return updatedUser;
@@ -162,14 +182,29 @@ const authSlice = createSlice({
       })
       .addCase(updateProfileAsync.fulfilled, (state, action) => {
         state.isLoading = false;
-        if (state.user) state.user = { ...state.user, ...action.payload };
+        if (state.user) {
+          const hasConsented = state.user.aiConsented || state.user.ai_consented;
+          state.user = { 
+            ...state.user, 
+            ...action.payload,
+            aiConsented: hasConsented,
+            ai_consented: hasConsented
+          };
+        }
       })
-      // จัดการผลลัพธ์การอัปโหลดรูปภาพ
       .addCase(uploadAvatarAsync.fulfilled, (state, action) => {
         state.isLoading = false;
-        if (state.user) state.user = { ...state.user, ...action.payload };
+        if (state.user) {
+          const hasConsented = state.user.aiConsented || state.user.ai_consented;
+          state.user = { 
+            ...state.user, 
+            ...action.payload,
+            aiConsented: hasConsented,
+            ai_consented: hasConsented
+          };
+        }
       });
-  }
+  } 
 });
 
 export const { loginSuccess, logout, updateConsent, updateStatusSuccess } = authSlice.actions;

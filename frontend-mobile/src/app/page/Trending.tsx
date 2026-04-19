@@ -2,6 +2,7 @@ import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Platform, StatusBar, FlatList, ActivityIndicator, TextInput, RefreshControl, ScrollView } from 'react-native';
 import { ArrowLeft, Search } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
+import * as Location from 'expo-location'; // นำเข้า Location
 
 import { useAppSelector, useAppDispatch } from '../../redux/useRedux';
 import { fetchWeeklyTrendingAsync } from '../../redux/slices/placeSlice'; 
@@ -23,13 +24,36 @@ export default function Trending() {
   const [displayedCount, setDisplayedCount] = useState(10); 
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [userLocation, setUserLocation] = useState<Location.LocationObject | null>(null); // State เก็บตำแหน่งผู้ใช้
   
   const FILTER_TAGS = ['ร้านอาหาร', 'คาเฟ่', 'เสริมสวยอื่นๆ', 'ยอดฮิต'];
 
   const [subFilter, setSubFilter] = useState('ทั้งหมด');
   const SUB_FILTERS = ['ทั้งหมด', 'ร้านอาหาร', 'คาเฟ่', 'เสริมสวยอื่นๆ'];
 
+  // ฟังก์ชันคำนวณระยะทาง (Haversine Formula)
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    if (!lat1 || !lon1 || !lat2 || !lon2) return null;
+    const R = 6371; // รัศมีโลกเป็นกิโลเมตร
+    const dLat = (lat2 - lat1) * (Math.PI / 180);
+    const dLon = (lon2 - lon1) * (Math.PI / 180);
+    const a = 
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return (R * c).toFixed(1);
+  };
+
   useEffect(() => {
+    // ขอสิทธิ์และดึงตำแหน่งปัจจุบันของผู้ใช้
+    (async () => {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === 'granted') {
+        let location = await Location.getCurrentPositionAsync({});
+        setUserLocation(location);
+      }
+    })();
+
     if (allPlaces.length === 0) {
       dispatch(fetchWeeklyTrendingAsync());
     }
@@ -136,24 +160,31 @@ export default function Trending() {
         data={displayedPlaces}
         keyExtractor={(item: Place) => item.id}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#D69E2E']} tintColor="#D69E2E" />}
-        renderItem={({ item, index }) => (
-          <View style={{ position: 'relative' }}>
-            <Card 
-              place={item}
-              title={item.name} 
-              location={item.branch} 
-              distance={typeof item.distance === 'number' ? `${item.distance} กม.` : item.distance} 
-              category={item.category} 
-              showBookingBadge={true}
-              onPress={(id: string) => router.push({ pathname: '/page/PlaceDetail', params: { id } })}
-            />
-            {index < 3 && (
-              <View style={styles.rankBadge}>
-                <Text style={styles.rankText}>#{index + 1}</Text>
-              </View>
-            )}
-          </View>
-        )}
+        renderItem={({ item, index }) => {
+          // คำนวณระยะทางโดยใช้ lat และ lng ตามไฟล์ types ของคุณ
+          const dist = userLocation && item.lat && item.lng
+            ? `${calculateDistance(userLocation.coords.latitude, userLocation.coords.longitude, parseFloat(item.lat as any), parseFloat(item.lng as any))} กม.`
+            : "ไม่ทราบระยะทาง";
+
+          return (
+            <View style={{ position: 'relative' }}>
+              <Card 
+                place={item}
+                title={item.name} 
+                location={item.branch} 
+                distance={dist} // ส่งค่าที่คำนวณได้จริงไป
+                category={item.category} 
+                showBookingBadge={true}
+                onPress={(id: string) => router.push({ pathname: '/page/PlaceDetail', params: { id } })}
+              />
+              {index < 3 && (
+                <View style={styles.rankBadge}>
+                  <Text style={styles.rankText}>#{index + 1}</Text>
+                </View>
+              )}
+            </View>
+          );
+        }}
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={<Text style={styles.emptyText}>ยังไม่มีข้อมูลการจองในหมวดหมู่นี้</Text>}

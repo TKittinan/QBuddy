@@ -1,9 +1,10 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Platform, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context'; 
 import { Utensils, Coffee, Scissors, Users, Sparkles } from 'lucide-react-native';
 import { useRouter, Href, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Location from 'expo-location'; // เพิ่มการนำเข้า Location
 
 import { AIChat } from '../../components/ui/AIChat';
 import { CategoryItem } from '../../components/ui/CategoryItem';
@@ -20,14 +21,36 @@ export default function HomePage() {
   const user = useAppSelector((state: any) => state.auth?.user);
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [userLocation, setUserLocation] = useState<Location.LocationObject | null>(null); // State เก็บตำแหน่งผู้ใช้
 
+  // ดึงข้อมูลฮิตประจำสัปดาห์ (Weekly) แล้วหั่นเอาแค่ 5 อันดับแรก
   const weeklyTrending = useAppSelector((state: any) => state.places?.weeklyTrending || []);
   const top5Places = weeklyTrending.slice(0, 5);
+
+  // ฟังก์ชันคำนวณระยะทาง (Haversine Formula)
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    if (!lat1 || !lon1 || !lat2 || !lon2) return null;
+    const R = 6371; // รัศมีโลกเป็นกิโลเมตร
+    const dLat = (lat2 - lat1) * (Math.PI / 180);
+    const dLon = (lon2 - lon1) * (Math.PI / 180);
+    const a = 
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return (R * c).toFixed(1); // คืนค่าเป็นกม. ทศนิยม 1 ตำแหน่ง
+  };
 
   useFocusEffect(
     useCallback(() => {
       const fetchHomeData = async () => {
         try {
+          // ขอสิทธิ์และดึงตำแหน่งปัจจุบัน
+          let { status } = await Location.requestForegroundPermissionsAsync();
+          if (status === 'granted') {
+            let location = await Location.getCurrentPositionAsync({});
+            setUserLocation(location);
+          }
+
           const storedAvatar = await AsyncStorage.getItem('@user_avatar');
           if (storedAvatar) setAvatarUri(storedAvatar);
           
@@ -53,6 +76,8 @@ export default function HomePage() {
     }
   };
 
+  const displayAvatar = user?.avatarUrl || avatarUri || 'https://i.pravatar.cc/150?u=a042581f4e29026024d';
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <View style={styles.headerContainer}>
@@ -62,7 +87,7 @@ export default function HomePage() {
             <Text style={styles.userName}>สวัสดี คุณ {user?.name || 'User'}</Text>
           </View>
           <View style={styles.profileWrapper}>
-            <Image source={{ uri: avatarUri || 'https://i.pravatar.cc/150?u=a042581f4e29026024d' }} style={styles.profileImg} />
+            <Image source={{ uri: displayAvatar }} style={styles.profileImg} />
             <View style={styles.onlineStatus} />
           </View>
         </View>
@@ -83,7 +108,7 @@ export default function HomePage() {
           
           <View style={[styles.sectionHeader, { justifyContent: 'space-between' }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Text style={styles.sectionTitle}>AI Recommendation</Text>
+              <Text style={styles.sectionTitle}>TOP 10</Text>
               <Sparkles size={18} color="#2D3748" />
             </View>
             <TouchableOpacity onPress={() => router.push('/page/Trending' as any)}>
@@ -109,6 +134,11 @@ export default function HomePage() {
                 
                 const tags = place.category ? place.category.split(',').map((c: string) => c.trim()).slice(0, 2) : [];
 
+                // คำนวณระยะทางจริง
+                const dist = userLocation && place.latitude && place.longitude
+                  ? `${calculateDistance(userLocation.coords.latitude, userLocation.coords.longitude, parseFloat(place.latitude), parseFloat(place.longitude))} กม.`
+                  : '-';
+
                 return (
                   <TouchableOpacity 
                     key={place.id || index} 
@@ -119,7 +149,7 @@ export default function HomePage() {
                       title={place.name} 
                       imageUri={displayImg} 
                       location={place.branch || 'สาขาหลัก'} 
-                      distance={place.distance ? `${place.distance} กม.` : '-'} 
+                      distance={dist} // ส่งระยะทางที่คำนวณได้ไป
                       tags={tags} 
                     />
                   </TouchableOpacity>
