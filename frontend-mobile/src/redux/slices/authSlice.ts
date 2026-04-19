@@ -133,6 +133,27 @@ export const uploadAvatarAsync = createAsyncThunk(
   }
 );
 
+  export const updateAiConsentAsync = createAsyncThunk(
+  "auth/updateAiConsent",
+  async (consented: boolean, { getState, rejectWithValue }) => {
+    try {
+      const state: any = getState();
+      const token = state.auth?.token;
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+
+      const response = await axios.put(`${API_BASE_URL}/auth/consent`, { consented }, config);
+      return response.data.user;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || "Failed to update consent");
+    }
+  }
+);
+
+// ใน extraReducers อย่าลืมเพิ่ม:
+// .addCase(updateAiConsentAsync.fulfilled, (state, action) => {
+//   if (state.user) state.user.aiConsented = action.payload.aiConsented;
+// })
+
 const authSlice = createSlice({
   name: "auth",
   initialState,

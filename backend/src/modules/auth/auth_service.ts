@@ -203,4 +203,17 @@ export class AuthService {
 
     return updatedUser;
   }
+
+  async updateAiConsent(userId: string, consented: boolean) {
+    const { data: updatedUser, error } = await supabase
+      .from('User')
+      .update({ aiConsented: consented }) // ใช้ชื่อฟิลด์ตามรูป b264a9
+      .eq('id', userId)
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
+    if (updatedUser && updatedUser.password) delete updatedUser.password;
+    return updatedUser;
+  }
 }

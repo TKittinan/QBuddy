@@ -126,4 +126,19 @@ export class AuthController {
       res.status(500).json({ message: error.message });
     }
   }
+
+  async updateConsent(req: Request, res: Response) {
+    try {
+      const userId = (req as any).user?.user_id;
+      const { consented } = req.body; // รับค่า true/false จากหน้าบ้าน
+
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+      // เรียกใช้ service โดยใช้ชื่อฟิลด์ aiConsented ตาม schema ของคุณ
+      const updatedUser = await auth_service.updateAiConsent(userId, consented);
+      res.json({ message: "Consent updated successfully", user: updatedUser });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  }
 }
