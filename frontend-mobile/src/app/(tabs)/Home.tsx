@@ -13,7 +13,7 @@ import { useAppSelector } from '../../redux/useRedux';
 export default function HomePage() {
   const router = useRouter();
   
-  // 🌟 ลบ Mock ทิ้ง ดึง User จาก DB จริง
+  // ลบ Mock ทิ้ง ดึง User จาก DB จริง
   const user = useAppSelector((state: any) => state.auth?.user);
   
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
