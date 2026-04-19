@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Image, Alert, Platform, StatusBar, RefreshControl } from 'react-native';
 import { Store, Clock, Users, AlertCircle, Calendar as CalendarIcon, Ticket as TicketIcon } from 'lucide-react-native';
-import { useRouter, useFocusEffect } from 'expo-router'; // 🌟 เพิ่ม useFocusEffect
+import { useRouter, useFocusEffect } from 'expo-router'; 
 
 import { useAppDispatch, useAppSelector } from '../../redux/useRedux';
 import { updateQueueStatusAsync, fetchTicketsAsync } from '../../redux/slices/queueSlice'; 
@@ -25,10 +25,9 @@ export default function QueuePage() {
   const [activeFilter, setActiveFilter] = useState<FilterType>('active');
   const [refreshing, setRefreshing] = useState(false);
 
-  // 🌟 ใช้ Email เป็นหลัก ถ้าไม่มีค่อยใช้ชื่อ (ช่วยให้ดึงข้อมูลจาก Database แม่นยำขึ้น)
   const identifier = user?.email || user?.name;
 
-  // 🌟 ใช้ useFocusEffect เพื่อให้โหลดข้อมูล "เฉพาะตอนที่เราเปิดหน้านี้" เท่านั้น (ไม่โหลดล่วงหน้า)
+  // 🌟 ดึงข้อมูลเฉพาะตอนเปิดหน้านี้เท่านั้น
   useFocusEffect(
     useCallback(() => {
       if (identifier) {
@@ -37,10 +36,9 @@ export default function QueuePage() {
       if (places.length === 0) {
         dispatch(fetchPlacesAsync());
       }
-    }, [dispatch, identifier])
+    }, [dispatch, identifier, places.length])
   );
 
-  // 🌟 โหลดข้อมูลใหม่เมื่อผู้ใช้เลื่อนหน้าจอลง (Pull to Refresh)
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
@@ -55,10 +53,10 @@ export default function QueuePage() {
     }
   }, [dispatch, identifier]);
 
-  // 🌟 ใช้ข้อมูลทั้งหมดที่ Backend กรองมาให้แล้ว (มั่นใจได้ว่าเป็นของ User นี้ 100%)
   const myTickets = allTickets;
 
-  const activeTickets = myTickets.filter((t: any) => t.status === 'Waiting' || t.status === 'Serving');
+  // 🌟 เพิ่มเงื่อนไขดักจับ กรณีข้อมูลเก่ามากๆ ไม่มี status หลุดมา
+  const activeTickets = myTickets.filter((t: any) => !t.status || t.status === 'Waiting' || t.status === 'Serving');
   const historyTickets = myTickets.filter((t: any) => t.status === 'Completed' || t.status === 'Cancelled' || t.status === 'Skipped');
 
   const handleCancelQueue = (ticketId: string) => {
@@ -129,7 +127,7 @@ export default function QueuePage() {
             <View>
               {activeTickets.map((ticket: any) => {
                 const targetPlaceId = ticket.placeId || ticket.shopId;
-                const shop = places.find((p: any) => p.id === targetPlaceId) || { name: 'Unknown Shop', logoUrl: 'https://via.placeholder.com/150', tableTypes: [], branch: '' };
+                const shop = places.find((p: any) => p.id === targetPlaceId) || { name: 'ร้านที่จอง (ข้อมูลเก่า)', logoUrl: 'https://via.placeholder.com/150', tableTypes: [], branch: '' };
 
                 const queuesAhead = allTickets.filter((t: any) => 
                   (t.placeId === targetPlaceId || t.shopId === targetPlaceId) &&
@@ -209,7 +207,7 @@ export default function QueuePage() {
                 <Text style={styles.dateLabel}>{dateKey}</Text>
                 {groupedHistory[dateKey].map((booking: any) => {
                   const targetPlaceId = booking.placeId || booking.shopId;
-                  const shop: any = places.find((p: any) => p.id === targetPlaceId) || { name: 'Unknown Shop', logoUrl: 'https://via.placeholder.com/150' };
+                  const shop: any = places.find((p: any) => p.id === targetPlaceId) || { name: 'ร้านที่จอง (ข้อมูลเก่า)', logoUrl: 'https://via.placeholder.com/150' };
                   const isSuccess = booking.status === 'Completed';
                   return (
                     <View key={booking.id} style={[styles.historyCard, isSuccess ? styles.historyCardSuccess : styles.historyCardCancelled]}>
