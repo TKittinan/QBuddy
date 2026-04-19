@@ -11,9 +11,9 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input'; 
 import { Pagination } from '../../components/ui/Pagination'; 
 import { useAppDispatch, useAppSelector } from '../../redux/useRedux';
-import { logoutAsync, updateStatusSuccess } from '../../redux/slices/authSlice'; 
+// เพิ่ม uploadAvatarAsync ในการนำเข้า
+import { logoutAsync, updateStatusSuccess, updateProfileAsync, uploadAvatarAsync } from '../../redux/slices/authSlice'; 
 
-// 🌟 1. นำเข้า fetchSavedPlacesAsync
 import { fetchSavedPlacesAsync, toggleSavePlaceAsync, toggleSavePlaceLocal } from '../../redux/slices/savedPlacesSlice'; 
 import { Place } from '../../types';
 import { supabase } from '../../config'; 
@@ -24,7 +24,8 @@ import * as z from "zod";
 
 const editProfileSchema = z.object({
   name: z.string().min(1, "กรุณากรอกชื่อ-นามสกุล"),
-  email: z.string().email("รูปแบบอีเมลไม่ถูกต้อง")
+  email: z.string().email("รูปแบบอีเมลไม่ถูกต้อง"),
+  password: z.string().optional()
 });
 
 type EditProfileFormData = z.infer<typeof editProfileSchema>;
@@ -55,10 +56,9 @@ export default function ProfilePage() {
 
   const { control, handleSubmit, reset, formState: { errors } } = useForm<EditProfileFormData>({
     resolver: zodResolver(editProfileSchema),
-    defaultValues: { name: user?.name || '', email: user?.email || '' }
+    defaultValues: { name: user?.name || '', email: user?.email || '', password: '' }
   });
 
-  // 🌟 2. เพิ่ม useEffect ตัวนี้ เพื่อดึงรายการ Save มาจาก Database ทุกครั้งที่เข้ามาหน้านี้
   useEffect(() => {
     if (user?.id) {
       dispatch(fetchSavedPlacesAsync(user.id));
@@ -92,6 +92,49 @@ export default function ProfilePage() {
     loadProfileData();
   }, []);
 
+  // ฟังก์ชันใหม่สำหรับจัดการการกดเปลี่ยนรูปโปรไฟล์
+  const handleEditPhoto = async () => {
+    Alert.alert(
+      "เปลี่ยนรูปโปรไฟล์",
+      "เลือกช่องทางที่ต้องการ",
+      [
+        {
+          text: "ถ่ายรูปใหม่",
+          onPress: async () => {
+            const result = await ImagePicker.launchCameraAsync({
+              allowsEditing: true,
+              aspect: [1, 1],
+              quality: 0.5,
+            });
+            if (!result.canceled) handleUploadImage(result.assets[0].uri);
+          }
+        },
+        {
+          text: "เลือกจากคลังรูปภาพ",
+          onPress: async () => {
+            const result = await ImagePicker.launchImageLibraryAsync({
+              allowsEditing: true,
+              aspect: [1, 1],
+              quality: 0.5,
+            });
+            if (!result.canceled) handleUploadImage(result.assets[0].uri);
+          }
+        },
+        { text: "ยกเลิก", style: "cancel" }
+      ]
+    );
+  };
+
+  const handleUploadImage = async (uri: string) => {
+    try {
+      await dispatch(uploadAvatarAsync(uri)).unwrap();
+      setAvatarUri(uri);
+      Alert.alert("สำเร็จ", "อัปเดตรูปโปรไฟล์เรียบร้อยแล้ว");
+    } catch (error: any) {
+      Alert.alert("ผิดพลาด", error);
+    }
+  };
+
   const savedPlacesList = useMemo(() => {
     return allPlaces.filter((place: Place) => savedPlaceIds.includes(place.id));
   }, [allPlaces, savedPlaceIds]);
@@ -99,7 +142,7 @@ export default function ProfilePage() {
   const totalPages = Math.ceil(savedPlacesList.length / ITEMS_PER_PAGE);
 
   const openModal = (key: keyof typeof modals) => {
-    if (key === 'edit') reset({ name: user?.name || '', email: user?.email || '' }); 
+    if (key === 'edit') reset({ name: user?.name || '', email: user?.email || '', password: '' }); 
     setModals({ ...modals, [key]: true });
   };
   const closeModal = (key: keyof typeof modals) => setModals({ ...modals, [key]: false });
@@ -125,9 +168,24 @@ export default function ProfilePage() {
   };
 
   const onSaveProfile = async (data: EditProfileFormData) => {
-    setUserName(data.name);
-    Alert.alert('สำเร็จ', 'อัปเดตข้อมูลโปรไฟล์เรียบร้อยแล้ว');
-    closeModal('edit');
+    const updateData: any = {};
+    if (data.name !== user?.name) updateData.name = data.name;
+    if (data.email !== user?.email) updateData.email = data.email;
+    if (data.password && data.password.trim().length > 0) updateData.password = data.password;
+
+    if (Object.keys(updateData).length === 0) {
+      Alert.alert('แจ้งเตือน', 'คุณยังไม่ได้แก้ไขข้อมูลใดๆ');
+      return;
+    }
+
+    try {
+      await dispatch(updateProfileAsync(updateData)).unwrap();
+      setUserName(data.name);
+      Alert.alert('สำเร็จ', 'อัปเดตข้อมูลโปรไฟล์เรียบร้อยแล้ว');
+      closeModal('edit');
+    } catch (error: any) {
+      Alert.alert('เกิดข้อผิดพลาด', error);
+    }
   };
 
   const removeSavedPlace = (placeId: string) => {
@@ -169,11 +227,24 @@ export default function ProfilePage() {
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
           <View className="items-center mt-8 mb-6">
             <View className="relative">
-              <Image source={{ uri: avatarUri || 'https://i.pravatar.cc/150?u=a042581f4e29026024d' }} className="w-28 h-28 rounded-full border-4 border-white shadow-sm" />
-              <View className={`absolute bottom-1 right-1 w-6 h-6 rounded-full border-4 border-white ${user?.status === 'ACTIVE' ? 'bg-green-500' : 'bg-gray-400'}`} />
+              {/* แสดงรูปโปรไฟล์ปัจจุบันและเพิ่มความสามารถในการเปลี่ยนรูป */}
+              <Image 
+                source={{ uri: user?.avatarUrl || avatarUri || 'https://i.pravatar.cc/150?u=a042581f4e29026024d' }} 
+                className="w-28 h-28 rounded-full border-4 border-white shadow-sm" 
+              />
+              
+              {/* ปุ่มกล้องถ่ายรูปสำหรับแก้ไข */}
+              <TouchableOpacity 
+                onPress={handleEditPhoto}
+                className="absolute bottom-0 right-0 bg-[#6FA4A1] p-2 rounded-full border-2 border-white shadow-md"
+              >
+                <Camera size={18} color="white" />
+              </TouchableOpacity>
+
+              <View className={`absolute top-1 right-1 w-6 h-6 rounded-full border-4 border-white ${user?.status === 'ACTIVE' ? 'bg-green-500' : 'bg-gray-400'}`} />
             </View>
-            <Text className="text-2xl font-extrabold text-gray-800 mt-4">{userName}</Text>
-            <Text className="text-sm text-gray-500 mt-1">queue.ai/u/{userName.toLowerCase().replace(/\s/g, '')}</Text>
+            <Text className="text-2xl font-extrabold text-gray-800 mt-4">{user?.name || userName}</Text>
+            <Text className="text-sm text-gray-500 mt-1">queue.ai/u/{(user?.name || userName).toLowerCase().replace(/\s/g, '')}</Text>
           </View>
 
           <View className="px-5">
@@ -191,7 +262,70 @@ export default function ProfilePage() {
         </ScrollView>
       </View>
 
-      {/* Modal ต่างๆ คงเดิมตามปกติ... */}
+      <Modal visible={modals.edit} animationType="slide" transparent={true} statusBarTranslucent={true}>
+        <View className="flex-1 justify-end bg-black/50">
+          <View className="bg-white rounded-t-3xl p-6 pb-10">
+            <View className="flex-row justify-between items-center mb-6">
+              <Text className="text-xl font-bold text-gray-800">Edit Profile</Text>
+              <TouchableOpacity onPress={() => closeModal('edit')}><X color="#4A5568" /></TouchableOpacity>
+            </View>
+
+            <Text className="text-sm font-bold text-gray-600 mb-2">Name</Text>
+            <Controller
+              control={control}
+              name="name"
+              render={({ field: { onChange, value } }) => (
+                <View>
+                  <Input 
+                    placeholder="Enter your name" 
+                    value={value} 
+                    onChangeText={onChange} 
+                  />
+                  {errors.name?.message && <Text className="text-red-500 text-xs mt-1">{errors.name.message}</Text>}
+                </View>
+              )}
+            />
+
+            <Text className="text-sm font-bold text-gray-600 mb-2 mt-4">Email</Text>
+            <Controller
+              control={control}
+              name="email"
+              render={({ field: { onChange, value } }) => (
+                <View>
+                  <Input 
+                    placeholder="Enter your email" 
+                    value={value} 
+                    onChangeText={onChange} 
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                  />
+                  {errors.email?.message && <Text className="text-red-500 text-xs mt-1">{errors.email.message}</Text>}
+                </View>
+              )}
+            />
+
+            <Text className="text-sm font-bold text-gray-600 mb-2 mt-4">New Password</Text>
+            <Controller
+              control={control}
+              name="password"
+              render={({ field: { onChange, value } }) => (
+                <View>
+                  <Input 
+                    placeholder="Leave blank to keep current password" 
+                    value={value || ''} 
+                    onChangeText={onChange} 
+                    secureTextEntry
+                  />
+                  {errors.password?.message && <Text className="text-red-500 text-xs mt-1">{errors.password.message}</Text>}
+                </View>
+              )}
+            />
+
+            <Button title="Save Changes" className="bg-[#6FA4A1] mt-8" onPress={handleSubmit(onSaveProfile)} />
+          </View>
+        </View>
+      </Modal>
+
       <Modal visible={modals.saved} animationType="slide" statusBarTranslucent={true}>
         <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
           <View className="flex-1 bg-[#F7FAFC]">
