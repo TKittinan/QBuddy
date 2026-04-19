@@ -15,7 +15,7 @@ interface AvailableTable extends TableType {
   availableCount: number;
 }
 
-// 🌟 ฟังก์ชันช่วยดึงจำนวนคนสูงสุดจากชื่อโต๊ะ (เช่น "3-4 คน" -> 4)
+// Function สำหรับดึงตัวเลขจำนวนคนสูงสุดจาก label ของโต๊ะ
 const getMaxGuestsFromLabel = (label?: string) => {
   if (!label) return 2;
   const nums = label.match(/\d+/g);
@@ -47,9 +47,9 @@ export default function QueueBooking() {
 
   const [activeBookings, setActiveBookings] = useState<any[]>([]);
 
+  // ดึงข้อมูลการจองที่ active อยู่เพื่อนำมาคำนวณจำนวนโต๊ะว่าง
   useEffect(() => {
     if (!place?.id) return;
-    // 🌟 ดึงคิวผ่านเส้นทาง API ใหม่ใน Backend
     axios.get(`${API_BASE_URL}/tickets/active-bookings?shopId=${place.id}`)
       .then(res => setActiveBookings(res.data || []))
       .catch(err => console.error("Fetch active bookings failed", err));
@@ -58,7 +58,9 @@ export default function QueueBooking() {
   if (!place) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <View style={styles.header}><TouchableOpacity onPress={() => router.back()}><ArrowLeft size={24} color="#1F2937" /></TouchableOpacity></View>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()}><ArrowLeft size={24} color="#1F2937" /></TouchableOpacity>
+        </View>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}><Text>ไม่พบข้อมูลร้าน</Text></View>
       </SafeAreaView>
     );
@@ -86,9 +88,11 @@ export default function QueueBooking() {
     if (!place.openTime || !place.closeTime) return [];
     const [openH, openM] = place.openTime.split(':').map(Number);
     const [closeH, closeM] = place.closeTime.split(':').map(Number);
+    
     let slots: string[] = [];
     let currentH = openH;
     let currentM = openM;
+    
     while (currentH < closeH || (currentH === closeH && currentM <= closeM)) {
       slots.push(`${currentH.toString().padStart(2, '0')}:${currentM.toString().padStart(2, '0')}`);
       currentM += 30;
@@ -99,7 +103,6 @@ export default function QueueBooking() {
 
   const timeSlots = useMemo(() => generateTimeSlots(), [place]);
 
-  // 🌟 เช็คว่าเวลาไหนเต็มบ้าง (capacity = จำนวนสต็อกโต๊ะ)
   const timeSlotAvailability = useMemo(() => {
     if (!selectedDate) return [];
     const bookingsForDate = activeBookings.filter(t => t.bookDate === selectedDate);
@@ -137,15 +140,16 @@ export default function QueueBooking() {
     });
   }, [selectedDate, selectedTime, place, activeBookings]);
 
-  useEffect(() => { setTableCount(1); }, [selectedTableType]);
+  useEffect(() => {
+    setTableCount(1);
+  }, [selectedTableType]);
 
   const handleNextStep = () => {
     if (currentStep === 1) {
       if (!selectedDate) return Alert.alert("แจ้งเตือน", "กรุณาเลือกวันที่");
       if (!selectedTime) return Alert.alert("แจ้งเตือน", "กรุณาเลือกรอบเวลา");
       setCurrentStep(2);
-    } else if (currentStep === 2) {
-      if (!selectedTableType) return Alert.alert("แจ้งเตือน", "กรุณาเลือกประเภทโต๊ะ");
+    } else {
       submitBooking();
     }
   };
@@ -153,14 +157,13 @@ export default function QueueBooking() {
   const submitBooking = async () => {
     if (!user) return Alert.alert("ข้อผิดพลาด", "คุณยังไม่ได้เข้าสู่ระบบ");
     const selectedTableObj = availableTables.find(t => t.id === selectedTableType);
-    if (!selectedTableObj) return;
+    if (!selectedTableObj) return Alert.alert("แจ้งเตือน", "กรุณาเลือกประเภทโต๊ะ");
 
-    // 🌟 คำนวณจำวนคนสูงสุดจากป้ายชื่อโต๊ะ
     const maxGuestsPerTable = getMaxGuestsFromLabel(selectedTableObj.label);
     const maxGuestsTotal = maxGuestsPerTable * tableCount;
     
     if (guests > maxGuestsTotal) {
-      return Alert.alert("แจ้งเตือน", `โต๊ะ ${tableCount} โต๊ะ นั่งได้สูงสุด ${maxGuestsTotal} ท่าน`);
+      return Alert.alert("แจ้งเตือน", `โต๊ะจำนวน ${tableCount} ตัว รองรับได้สูงสุด ${maxGuestsTotal} ท่าน`);
     }
 
     const newTicket: any = {
@@ -258,11 +261,11 @@ export default function QueueBooking() {
               {availableTables.map((table: AvailableTable) => {
                 const isFull = table.availableCount <= 0;
                 const isSelected = selectedTableType === table.id;
-                const maxGuestsPer = getMaxGuestsFromLabel(table.label);
+                const maxPer = getMaxGuestsFromLabel(table.label);
                 return (
                   <TouchableOpacity key={table.id} disabled={isFull} onPress={() => setSelectedTableType(table.id)} style={[styles.tableCard, isSelected && styles.tableCardSelected, isFull && styles.tableCardDisabled]}>
                     <View><Text style={[styles.tableCardTitle, isSelected && styles.tableCardTitleSelected]}>{table.label}</Text>
-                    <Text style={styles.tableCapacityText}>สำหรับ {maxGuestsPer} ท่าน / 1 โต๊ะ</Text></View>
+                    <Text style={styles.tableCapacityText}>รองรับ {maxPer} ท่าน / 1 โต๊ะ</Text></View>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                       {isFull ? <Text style={styles.bookedText}>มีการจองแล้ว</Text> : <Text style={{ fontSize: 13, color: '#718096', fontWeight: '600', marginRight: 8 }}>ว่าง {table.availableCount} โต๊ะ</Text>}
                       {isSelected && !isFull && <Check size={20} color="#2D3748" />}

@@ -109,6 +109,7 @@ export class TicketService {
     const bookDate = data.bookDate;
     const tableCount = data.tableCount || 1;
 
+    // เช็คสต็อกโต๊ะด้วย capacity
     const { data: tableInfo } = await supabase
       .from('TableType')
       .select('capacity')
@@ -130,7 +131,7 @@ export class TicketService {
       const totalStock = tableInfo.capacity || 1; 
 
       if (bookedSum + tableCount > totalStock) {
-        throw new Error(`โต๊ะประเภท ${targetTableType} เต็มแล้วสำหรับเวลา ${data.bookTime} น.`);
+        throw new Error(`ประเภทโต๊ะ ${targetTableType} เต็มแล้วสำหรับเวลา ${data.bookTime} น.`);
       }
     }
 
