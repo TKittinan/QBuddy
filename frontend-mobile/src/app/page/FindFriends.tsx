@@ -1,441 +1,323 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Image, ScrollView, Modal, Alert, SafeAreaView, KeyboardAvoidingView, Platform, StatusBar } from 'react-native';
-import { Search, Plus, Minus, X, ArrowLeft, MapPin, MessageCircle, CheckCircle2 } from 'lucide-react-native';
-import * as Location from 'expo-location';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { View, Text, TextInput, TouchableOpacity, Image, ScrollView, Modal, Alert, SafeAreaView, KeyboardAvoidingView, Platform, StatusBar, RefreshControl } from 'react-native';
+import { Search, Plus, Minus, X, ArrowLeft, MessageCircle, UserCheck } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
+import axios from 'axios';
 
 import { useAppSelector, useAppDispatch } from '../../redux/useRedux';
 import { addPostAsync, joinPostAsync, fetchPostsAsync, updatePostStatus } from '../../redux/slices/postSlice';
+import { API_BASE_URL } from "../../config";
 
 import { PartyActivity, Ticket, Place, User, Guest, TableType } from '../../types';
 import { RootState } from '../../redux'; 
+
+export interface ExtendedPartyActivity extends PartyActivity {
+  host?: { id?: string; name: string; avatarUrl?: string; interests?: string[]; successRate?: number };
+  place?: { name: string; branch?: string | null };
+  matchRate?: number;
+  remainingSeats?: number;
+}
 
 export default function FindFriendsPage() {
   const router = useRouter();
   const dispatch = useAppDispatch(); 
   
   const user: User | null = useAppSelector((state: RootState) => state.auth.user);
-  
-  const allActivities: PartyActivity[] = useAppSelector((state: RootState) => state.post.posts || []);
+  const allActivities = useAppSelector((state: RootState) => state.post.posts as ExtendedPartyActivity[] || []);
   const allTickets: Ticket[] = useAppSelector((state: RootState) => state.queue.tickets || []);
   const places: Place[] = useAppSelector((state: RootState) => state.places.places || []);
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeFilter, setActiveFilter] = useState('ร้านอาหาร');
-  const [location, setLocation] = useState<Location.LocationObject | null>(null);
+  const [activeFilter, setActiveFilter] = useState('ทั้งหมด');
+  const [refreshing, setRefreshing] = useState(false);
   
   const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
   const [activityDesc, setActivityDesc] = useState('');
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
 
   const [isJoinModalVisible, setIsJoinModalVisible] = useState(false);
-  const [selectedActivityToJoin, setSelectedActivityToJoin] = useState<PartyActivity | null>(null);
+  const [selectedActivityToJoin, setSelectedActivityToJoin] = useState<ExtendedPartyActivity | null>(null);
   const [joinPax, setJoinPax] = useState<number>(1);
 
   const [isChatListModalVisible, setIsChatListModalVisible] = useState(false);
 
+  // 🌟 ดึงหมวดหมู่ที่มีในระบบจริง + เพิ่มหมวดหมู่ "ประกาศของฉัน"
+  const dynamicCategories = useMemo(() => {
+    const cats = new Set(allActivities.map(a => a.category));
+    return ['ทั้งหมด', 'ประกาศของฉัน', ...Array.from(cats)];
+  }, [allActivities]);
+
   const myActiveTickets = useMemo(() => {
     if (!user) return [];
     return allTickets.filter((t: Ticket) => 
-      t.name === user.name && 
+      (t.name === user.name || t.email === user.email) && 
       (t.status === 'Waiting' || t.status === 'Serving') &&
       t.tableType 
     );
   }, [allTickets, user]);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status === 'granted') {
-          const currentLocation = await Location.getCurrentPositionAsync({});
-          setLocation(currentLocation);
-        }
-      } catch (e) {
-        console.log("Permission error");
-      }
-    })();
-  }, []);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await dispatch(fetchPostsAsync());
+    setRefreshing(false);
+  }, [dispatch]);
 
   useEffect(() => {
-    if (location && user?.id) {
-      dispatch(fetchPostsAsync({ 
-        lat: location.coords.latitude, 
-        lng: location.coords.longitude, 
-        userId: user.id 
-      }));
-    } else {
-      dispatch(fetchPostsAsync());
-    }
-  }, [location, user]);
+    dispatch(fetchPostsAsync());
+  }, [dispatch]);
 
   const processedData = useMemo(() => {
-    let nearby: PartyActivity[] = [];
-    let aiRecommended: PartyActivity[] = [];
+    let list: ExtendedPartyActivity[] = [];
+    let aiRecommended: ExtendedPartyActivity[] = [];
 
-    allActivities.forEach((act: any) => {
-      if (act.status !== 'open' && act.status !== 'Open') return;
-      if (act.category !== activeFilter) return;
-      
-      const matchTitleOrDesc = (act.title?.includes(searchQuery) || act.description?.includes(searchQuery) || act.activity?.includes(searchQuery) || act.name?.includes(searchQuery));
-      if (searchQuery && !matchTitleOrDesc) return;
-      
-      const distance = Number(act.distance) || 0;
-      
-      if (distance <= 10) {
-        const matchRate = act.matchRate || 0;
-        const isRecommended = act.isRecommended || false;
-        
-        // 🌟 ดึงข้อมูลจากฐานข้อมูลจริง
-        const confirmedJoinedPax = act.joinedGuests?.filter((g: any) => g.status === 'confirmed').reduce((sum: number, g: any) => sum + g.pax, 0) || 0;
-        const remainingSeats = (act.maxGuests || act.linkedTicket?.tableCapacity || 0) - confirmedJoinedPax;
+    allActivities.forEach((act) => {
+      // 🌟 กรองตาม Filter (ประกาศของฉัน / หมวดหมู่)
+      if (activeFilter === 'ประกาศของฉัน') {
+        if (act.hostId !== user?.id) return;
+      } else if (activeFilter !== 'ทั้งหมด' && act.category !== activeFilter) {
+        return;
+      }
 
-        const actWithDetails = { 
-          ...act, 
-          distance: distance.toFixed(1), 
-          matchRate, 
-          remainingSeats 
-        };
-        
-        nearby.push(actWithDetails);
-        if (isRecommended && act.hostId !== user?.id) aiRecommended.push(actWithDetails);
+      const searchMatch = (act.title?.toLowerCase().includes(searchQuery.toLowerCase()) || act.description?.toLowerCase().includes(searchQuery.toLowerCase()));
+      if (searchQuery && !searchMatch) return;
+      
+      // 🌟 คำนวณที่ว่างจริงจากการจองที่โฮสต์ยืนยันแล้ว
+      const confirmedPax = act.joinedGuests?.filter((g: Guest) => g.status === 'confirmed').reduce((sum, g) => sum + (g.pax || 0), 0) || 0;
+      const remaining = Math.max(0, (act.maxGuests || 0) - confirmedPax);
+
+      const actWithDetails = { ...act, remainingSeats: remaining };
+      list.push(actWithDetails);
+
+      // 🌟 AI แนะนำ: Match Rate >= 85% และ Host Success Rate >= 85%
+      const hostRate = act.host?.successRate || 0;
+      if (act.matchRate && act.matchRate >= 85 && hostRate >= 85 && act.hostId !== user?.id && act.status === 'Open') {
+        aiRecommended.push(actWithDetails);
       }
     });
 
-    return { nearby, aiRecommended: aiRecommended.sort((a, b) => (b.matchRate || 0) - (a.matchRate || 0)) };
+    return { list, aiRecommended: aiRecommended.sort((a, b) => (Number(b.matchRate) || 0) - (Number(a.matchRate) || 0)) };
   }, [allActivities, activeFilter, searchQuery, user]);
 
   const handleCreateActivity = () => {
     if (!user) return;
-    if (!activityDesc || !selectedTicketId) {
-      Alert.alert('แจ้งเตือน', 'กรุณาระบุรายละเอียดและเลือกคิวของคุณ');
-      return;
+    if (!activityDesc || !selectedTicketId) return Alert.alert('แจ้งเตือน', 'กรุณาระบุรายละเอียดและเลือกคิว');
+
+    const linkedTicket = allTickets.find(t => t.id === selectedTicketId);
+    const shop = places.find(p => p.id === linkedTicket?.shopId || p.id === linkedTicket?.placeId);
+    // 🌟 แก้ไข: เทียบด้วย label เพราะ Ticket เก็บชื่อประเภทโต๊ะไว้
+    const tableInfo = shop?.tableTypes?.find(t => t.label === linkedTicket?.tableType);
+
+    if (!tableInfo || tableInfo.capacity <= (linkedTicket?.guests || 0)) {
+      return Alert.alert('สร้างไม่ได้', 'โต๊ะที่คุณจองมีความจุพอดีกับจำนวนคนของคุณแล้ว ไม่มีที่ว่างให้เพื่อนร่วมโต๊ะครับ');
     }
 
-    const linkedTicket = myActiveTickets.find((t: Ticket) => t.id === selectedTicketId);
-    if (!linkedTicket) return;
-
-    const shop = places.find((p: Place) => p.id === linkedTicket.shopId);
-    
-    const tableInfo = shop?.tableTypes?.find((t: TableType) => t.id === linkedTicket.tableType);
-
-    if (!tableInfo || tableInfo.capacity <= linkedTicket.guests) {
-      Alert.alert('สร้างไม่ได้', 'โต๊ะที่คุณจองมีความจุพอดีกับจำนวนคนของคุณแล้ว ไม่มีที่ว่างให้เพื่อนร่วมโต๊ะครับ');
-      return;
-    }
-
-    // 🌟 Payload แมพเข้ากับ PartyActivity DB Schema ตามที่ party_service ต้องการ
-    const newActivity: any = {
-      title: `หาเพื่อนไป ${shop?.name || 'ร้านอาหาร'}`,
+    const newActivity: Partial<PartyActivity> = {
+      title: `ไป ${shop?.name || 'ร้านอาหาร'}`,
       description: activityDesc,
-      category: linkedTicket.service || 'ร้านอาหาร',
-      tags: [linkedTicket.tableType || 'General'],
-      meetingDate: linkedTicket.bookDate,
-      meetingTime: linkedTicket.bookTime,
-      lat: location ? location.coords.latitude : 13.7563,
-      lng: location ? location.coords.longitude : 100.5018,
-      maxGuests: tableInfo.capacity - linkedTicket.guests, // ส่งที่นั่งที่รับเพิ่มได้เข้า DB
+      category: linkedTicket?.service || 'ร้านอาหาร',
+      meetingDate: linkedTicket?.bookDate,
+      meetingTime: linkedTicket?.bookTime,
+      maxGuests: tableInfo.capacity - (linkedTicket?.guests || 0),
       status: 'Open',
       hostId: user.id,
-      placeId: linkedTicket.shopId || linkedTicket.placeId,
+      placeId: shop?.id,
+      lat: 0, lng: 0 // ไม่ใช้ระยะทางแล้ว
     };
 
-    dispatch(addPostAsync(newActivity));
-    Alert.alert('สำเร็จ', 'ประกาศหากิจกรรมของคุณถูกสร้างเรียบร้อยแล้ว');
+    dispatch(addPostAsync(newActivity as PartyActivity));
     setIsCreateModalVisible(false);
     setActivityDesc('');
-    setSelectedTicketId(null);
-    setActiveFilter(linkedTicket.service || 'ร้านอาหาร');
   };
 
-  const openJoinModal = (activity: any) => {
-    if (!user) return;
-    if (activity.joinedGuests?.some((g: any) => g.userId === user.id) || activity.hostId === user.id) {
-      router.push({ 
-        pathname: '/page/Chat', 
-        params: { friendName: activity.host?.name || activity.name, isHost: 'false', activityId: activity.id, guestId: user.id } 
-      });
-      return;
+  // 🌟 ฟังก์ชันสำหรับให้ Host กดยืนยันสมาชิกจากหน้ารายการแชท
+  const handleConfirmGuest = async (activityId: string, guestUserId: string) => {
+    try {
+      await axios.post(`${API_BASE_URL}/posts/confirm-guest`, { activityId, userId: guestUserId });
+      Alert.alert('สำเร็จ', 'ยืนยันเพื่อนร่วมโต๊ะเรียบร้อยแล้ว');
+      dispatch(fetchPostsAsync());
+    } catch (e) {
+      Alert.alert('ผิดพลาด', 'ไม่สามารถยืนยันสมาชิกได้');
     }
-    
-    setSelectedActivityToJoin(activity);
-    setJoinPax(1);
-    setIsJoinModalVisible(true);
   };
 
-  const submitJoinActivity = () => {
-    if (!selectedActivityToJoin || !user) return;
-    
-    const remaining = selectedActivityToJoin.remainingSeats || 0;
-    if (joinPax > remaining) {
-      Alert.alert('ขออภัย', `จำนวนคนเกินที่ว่างครับ (เหลือว่างแค่ ${remaining} ที่)`);
-      return;
-    }
-
-    dispatch(joinPostAsync({ 
-      activity_id: selectedActivityToJoin.id, 
-      user_id: user.id,
-      pax: joinPax
-    }));
-
-    Alert.alert('สำเร็จ', 'ส่งคำขอเข้าร่วมเรียบร้อยแล้ว! สามารถทักแชทหาโฮสต์ได้เลย');
-    setIsJoinModalVisible(false);
-  };
-
-  const handleCloseActivity = (activityId: string) => {
-    Alert.alert('ยืนยันปิดประกาศ', 'คุณแน่ใจหรือไม่ว่าได้คนครบแล้ว? (ประกาศจะหายไปจากหน้าค้นหา แต่ยังสามารถคุยในห้องแชทได้)', [
-      { text: 'ยกเลิก', style: 'cancel' },
-      { text: 'ยืนยันคิวครบ', onPress: () => dispatch(updatePostStatus({ id: activityId, status: 'Closed' })) }
-    ]);
-  };
-
-  const activeChats = allActivities.filter((act: any) => act.hostId === user?.id || act.joinedGuests?.some((g: any) => g.userId === user?.id));
+  const activeChats = allActivities.filter(act => act.hostId === user?.id || act.joinedGuests?.some(g => g.userId === user?.id));
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#F7FAFC' }}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-        
-        <View style={{ paddingHorizontal: 20, paddingBottom: 16, backgroundColor: '#6FA4A1', borderBottomLeftRadius: 24, borderBottomRightRadius: 24, paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 16 : 16, zIndex: 10 }}>
+        <View style={{ padding: 20, backgroundColor: '#6FA4A1', borderBottomLeftRadius: 24, borderBottomRightRadius: 24, paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 16 : 16 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 12 }}><ArrowLeft size={24} color="#FFFFFF" /></TouchableOpacity>
-            <View>
+            <TouchableOpacity onPress={() => router.back()}><ArrowLeft size={24} color="#FFFFFF" /></TouchableOpacity>
+            <View style={{ marginLeft: 12 }}>
               <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#FFFFFF' }}>หาเพื่อน</Text>
-              <Text style={{ fontSize: 12, color: '#E6FFFA' }}>ค้นหาคนที่สนใจเหมือนคุณ</Text>
             </View>
           </View>
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+        <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#6FA4A1" colors={["#6FA4A1"]} />}>
           
           <View style={{ paddingHorizontal: 20, marginTop: 16 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, borderWidth: 1, borderColor: '#EDF2F7' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, borderWidth: 1, borderColor: '#EDF2F7' }}>
               <Search size={20} color="#A0AEC0" />
-              <TextInput style={{ flex: 1, marginLeft: 12, fontSize: 15, color: '#2D3748' }} placeholder="อยากทำกิจกรรมอะไร หรือ ค้นหาชื่อเพื่อน..." value={searchQuery} onChangeText={setSearchQuery} placeholderTextColor="#A0AEC0" />
+              <TextInput style={{ flex: 1, marginLeft: 12, fontSize: 15 }} placeholder="ค้นหาประกาศ..." value={searchQuery} onChangeText={setSearchQuery} />
             </View>
           </View>
 
           <View style={{ paddingLeft: 20, marginTop: 16 }}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {['ร้านอาหาร', 'คาเฟ่', 'เสริมสวยอื่นๆ'].map(cat => (
-                 <TouchableOpacity key={cat} onPress={() => setActiveFilter(cat)} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, marginRight: 8, borderWidth: 1, backgroundColor: activeFilter === cat ? '#6FA4A1' : '#FFFFFF', borderColor: activeFilter === cat ? '#6FA4A1' : '#E2E8F0' }}>
+              {dynamicCategories.map(cat => (
+                 <TouchableOpacity key={cat} onPress={() => setActiveFilter(cat)} style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, marginRight: 8, borderWidth: 1, backgroundColor: activeFilter === cat ? '#6FA4A1' : '#FFFFFF', borderColor: activeFilter === cat ? '#6FA4A1' : '#E2E8F0' }}>
                    <Text style={{ fontSize: 14, fontWeight: '600', color: activeFilter === cat ? '#FFFFFF' : '#4A5568' }}>{cat}</Text>
                  </TouchableOpacity>
               ))}
             </ScrollView>
           </View>
 
+          {/* AI แนะนำ */}
           <View style={{ marginTop: 24, paddingLeft: 20 }}>
-            <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#2D3748', marginBottom: 12 }}>AI แนะนำเพื่อนที่เข้ากันได้</Text>
+            <Text style={{ fontSize: 16, fontWeight: 'bold', marginBottom: 12 }}>AI แนะนำ (Match % สูง + สำเร็จเยอะ)</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {processedData.aiRecommended.length > 0 ? processedData.aiRecommended.map((friend: any) => (
-                <View key={friend.id} style={{ backgroundColor: '#FFFFFF', borderRadius: 16, width: 180, marginRight: 16, borderWidth: 1, borderColor: '#EDF2F7', overflow: 'hidden', paddingBottom: 16 }}>
-                  <View style={{ height: 160, position: 'relative' }}>
-                    <Image source={{ uri: friend.host?.avatarUrl || friend.avatar || 'https://i.pravatar.cc/150' }} style={{ width: '100%', height: '100%' }} />
-                    <View style={{ position: 'absolute', top: 8, right: 8, backgroundColor: '#6FA4A1', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 }}>
-                      <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: 'bold' }}>{friend.matchRate}% Match</Text>
-                    </View>
-                  </View>
-                  <View style={{ paddingHorizontal: 12, paddingTop: 12 }}>
-                    <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#2D3748' }}>{friend.host?.name || friend.name}</Text>
-                    <Text style={{ fontSize: 11, color: '#718096', marginTop: 2 }}>{friend.place?.name || friend.linkedTicket?.shopName}</Text>
-                    <TouchableOpacity onPress={() => openJoinModal(friend)} style={{ marginTop: 12, paddingVertical: 8, borderRadius: 8, alignItems: 'center', borderWidth: 1, backgroundColor: '#6FA4A1', borderColor: '#6FA4A1' }}>
-                      <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#FFFFFF' }}>ขอเข้าร่วม</Text>
+              {processedData.aiRecommended.map((friend) => (
+                <View key={friend.id} style={{ backgroundColor: '#FFF', borderRadius: 16, width: 180, marginRight: 16, borderWidth: 1, borderColor: '#EDF2F7', paddingBottom: 16 }}>
+                  <Image source={{ uri: friend.host?.avatarUrl || 'https://i.pravatar.cc/150' }} style={{ width: '100%', height: 120, borderTopLeftRadius: 16, borderTopRightRadius: 16 }} />
+                  <View style={{ padding: 12 }}>
+                    <Text style={{ fontWeight: 'bold' }}>{friend.host?.name}</Text>
+                    <Text style={{ color: '#38A169', fontSize: 11 }}>Match {friend.matchRate}%</Text>
+                    <TouchableOpacity onPress={() => { setSelectedActivityToJoin(friend); setJoinPax(1); setIsJoinModalVisible(true); }} style={{ marginTop: 8, backgroundColor: '#6FA4A1', paddingVertical: 6, borderRadius: 8, alignItems: 'center' }}>
+                      <Text style={{ color: '#FFF', fontSize: 12, fontWeight: 'bold' }}>ขอเข้าร่วม</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
-              )) : <Text style={{ color: '#A0AEC0', fontStyle: 'italic', marginTop: 8 }}>ยังไม่มี AI แนะนำในหมวดหมู่นี้</Text>}
+              ))}
             </ScrollView>
           </View>
 
           <View style={{ paddingHorizontal: 20, marginTop: 32 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#2D3748' }}>ประกาศหาเพื่อน</Text>
-              <TouchableOpacity onPress={() => setIsCreateModalVisible(true)} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#6FA4A1', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 }}>
-                <Plus size={16} color="#FFF" />
-                <Text style={{ color: '#FFFFFF', fontWeight: 'bold', marginLeft: 4, fontSize: 13 }}>สร้างกิจกรรม</Text>
+              <Text style={{ fontSize: 16, fontWeight: 'bold' }}>ประกาศทั้งหมด</Text>
+              <TouchableOpacity onPress={() => setIsCreateModalVisible(true)} style={{ backgroundColor: '#6FA4A1', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 }}>
+                <Text style={{ color: '#FFF', fontWeight: 'bold' }}>+ สร้างกิจกรรม</Text>
               </TouchableOpacity>
             </View>
 
-            {processedData.nearby.length > 0 ? processedData.nearby.map((act: any) => {
-              const isHost = act.hostId === user?.id;
-              const hasJoined = act.joinedGuests?.some((g: any) => g.userId === user?.id);
-              
-              const hostAvatar = act.host?.avatarUrl || act.avatar || 'https://i.pravatar.cc/150';
-              const hostName = act.host?.name || act.name;
-              const shopNameDisplay = act.place?.name ? `${act.place.name} ${act.place.branch||''}` : act.linkedTicket?.shopName;
-              const meetingTimeDisplay = act.meetingTime || act.linkedTicket?.bookTime;
-              const descDisplay = act.description || act.activity;
-
-              return (
-                <View key={act.id} style={{ backgroundColor: '#FFFFFF', borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#EDF2F7' }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-                    <Image source={{ uri: hostAvatar }} style={{ width: 44, height: 44, borderRadius: 22, marginRight: 12 }} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#2D3748' }}>{hostName} {isHost && '(คุณ)'}</Text>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
-                        <MapPin size={12} color="#A0AEC0" />
-                        <Text style={{ fontSize: 11, color: '#A0AEC0', marginLeft: 4 }}>{shopNameDisplay} • {meetingTimeDisplay}</Text>
-                      </View>
-                    </View>
+            {processedData.list.map((act) => (
+              <View key={act.id} style={{ backgroundColor: '#FFF', borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#EDF2F7', opacity: act.status === 'Closed' ? 0.6 : 1 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                  <Image source={{ uri: act.host?.avatarUrl || 'https://i.pravatar.cc/150' }} style={{ width: 40, height: 40, borderRadius: 20, marginRight: 12 }} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontWeight: 'bold' }}>{act.host?.name} {act.hostId === user?.id && '(คุณ)'}</Text>
+                    <Text style={{ fontSize: 11, color: '#A0AEC0' }}>{act.place?.name} • {act.meetingTime}</Text>
                   </View>
-
-                  <Text style={{ fontSize: 14, color: '#4A5568', marginBottom: 12 }}>{descDisplay}</Text>
-                  
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#F7FAFC', padding: 12, borderRadius: 12 }}>
-                    <View>
-                      <Text style={{ fontSize: 11, color: '#718096' }}>โควต้าโต๊ะ (รับเพิ่ม)</Text>
-                      <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#2D3748' }}>ทั้งหมด {act.maxGuests || act.linkedTicket?.tableCapacity} ท่าน</Text>
-                    </View>
-                    <View style={{ alignItems: 'flex-end' }}>
-                      <Text style={{ fontSize: 11, color: '#DD6B20', fontWeight: 'bold' }}>ที่นั่งว่าง</Text>
-                      <Text style={{ fontSize: 16, fontWeight: '900', color: '#DD6B20' }}>{act.remainingSeats} ท่าน</Text>
-                    </View>
-                  </View>
-
-                  <View style={{ flexDirection: 'row', marginTop: 12 }}>
-                    {isHost ? (
-                      <TouchableOpacity onPress={() => handleCloseActivity(act.id)} style={{ flex: 1, backgroundColor: '#E53E3E', paddingVertical: 10, borderRadius: 10, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}>
-                        <CheckCircle2 size={16} color="#FFF" style={{ marginRight: 6 }}/>
-                        <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 }}>ยืนยันคิวครบ (ปิดรับ)</Text>
-                      </TouchableOpacity>
-                    ) : (
-                      <TouchableOpacity onPress={() => openJoinModal(act)} style={{ flex: 1, backgroundColor: hasJoined ? '#EDF2F7' : '#6FA4A1', paddingVertical: 10, borderRadius: 10, alignItems: 'center' }}>
-                        <Text style={{ color: hasJoined ? '#4A5568' : '#FFFFFF', fontWeight: 'bold', fontSize: 14 }}>{hasJoined ? 'เข้าห้องแชท' : 'ขอเข้าร่วม'}</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
+                  {act.status === 'Closed' && <View style={{ backgroundColor: '#FED7D7', padding: 4, borderRadius: 4 }}><Text style={{ color: '#C53030', fontSize: 10, fontWeight: 'bold' }}>เต็มแล้ว</Text></View>}
                 </View>
-              );
-            }) : <View style={{ alignItems: 'center', paddingVertical: 32 }}><Text style={{ color: '#A0AEC0' }}>ยังไม่มีโพสต์ในหมวดหมู่นี้</Text></View>}
+                <Text style={{ fontSize: 14, color: '#4A5568' }}>{act.description}</Text>
+                <View style={{ marginTop: 10, backgroundColor: '#F7FAFC', padding: 8, borderRadius: 8 }}>
+                  {/* 🌟 แสดงจำนวนที่ว่างจริงที่คำนวณมาแล้ว */}
+                  <Text style={{ fontSize: 12 }}>ที่นั่งว่างสำหรับเพื่อน: <Text style={{ fontWeight: 'bold', color: '#DD6B20' }}>{act.remainingSeats} ท่าน</Text></Text>
+                </View>
+                <TouchableOpacity onPress={() => { setSelectedActivityToJoin(act); setJoinPax(1); setIsJoinModalVisible(true); }} disabled={act.status === 'Closed'} style={{ marginTop: 12, backgroundColor: act.status === 'Closed' ? '#EDF2F7' : '#6FA4A1', paddingVertical: 10, borderRadius: 10, alignItems: 'center' }}>
+                  <Text style={{ color: act.status === 'Closed' ? '#A0AEC0' : '#FFF', fontWeight: 'bold' }}>
+                    {act.hostId === user?.id ? 'จัดการประกาศ' : act.joinedGuests?.some(g => g.userId === user?.id) ? 'เข้าห้องแชท' : 'ขอเข้าร่วม'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            ))}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
 
-      <TouchableOpacity 
-        onPress={() => setIsChatListModalVisible(true)}
-        style={{ position: 'absolute', bottom: 30, right: 20, backgroundColor: '#2D3748', width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: {width: 0, height: 4}, shadowOpacity: 0.2, shadowRadius: 5, elevation: 6 }}
-      >
+      <TouchableOpacity onPress={() => setIsChatListModalVisible(true)} style={{ position: 'absolute', bottom: 30, right: 20, backgroundColor: '#2D3748', width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center', elevation: 5 }}>
         <MessageCircle size={28} color="#FFFFFF" />
-        {activeChats.length > 0 && (
-          <View style={{ position: 'absolute', top: 0, right: 0, backgroundColor: '#E53E3E', width: 18, height: 18, borderRadius: 9, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#2D3748' }}><Text style={{ color: '#FFF', fontSize: 9, fontWeight: 'bold' }}>{activeChats.length}</Text></View>
-        )}
       </TouchableOpacity>
 
-      <Modal visible={isCreateModalVisible} animationType="slide" transparent={true}>
-        <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' }}>
-          <View style={{ backgroundColor: '#FFFFFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, minHeight: '50%' }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-              <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#2D3748' }}>สร้างกิจกรรมหาเพื่อน</Text>
-              <TouchableOpacity onPress={() => setIsCreateModalVisible(false)}><X color="#4A5568" /></TouchableOpacity>
+      {/* Modal ยืนยันเข้าร่วมพร้อมระบุจำนวนคน */}
+      <Modal visible={isJoinModalVisible} transparent animationType="fade">
+        <View style={{ flex: 1, justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.6)', padding: 20 }}>
+          <View style={{ backgroundColor: '#FFF', borderRadius: 24, padding: 24 }}>
+            <Text style={{ fontSize: 18, fontWeight: 'bold', textAlign: 'center' }}>เข้าร่วมปาร์ตี้</Text>
+            <Text style={{ textAlign: 'center', marginVertical: 10 }}>ว่าง {selectedActivityToJoin?.remainingSeats} ที่นั่ง</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginVertical: 20 }}>
+              <TouchableOpacity onPress={() => setJoinPax(Math.max(1, joinPax - 1))} style={{ padding: 15, backgroundColor: '#F7FAFC', borderRadius: 12 }}><Minus size={20}/></TouchableOpacity>
+              <Text style={{ fontSize: 24, fontWeight: 'bold', marginHorizontal: 30 }}>{joinPax}</Text>
+              <TouchableOpacity onPress={() => setJoinPax(joinPax + 1)} style={{ padding: 15, backgroundColor: '#F7FAFC', borderRadius: 12 }}><Plus size={20}/></TouchableOpacity>
             </View>
-
-            <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#4A5568', marginBottom: 8 }}>รายละเอียดกิจกรรม</Text>
-            <TextInput style={{ backgroundColor: '#F7FAFC', borderWidth: 1, borderColor: '#EDF2F7', borderRadius: 12, padding: 16, fontSize: 15, color: '#2D3748', height: 100, textAlignVertical: 'top', marginBottom: 20 }} placeholder="เช่น หาคนหารชาบูจ้า คิวได้ตอนบ่ายสอง..." multiline value={activityDesc} onChangeText={setActivityDesc} />
-
-            <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#4A5568', marginBottom: 8 }}>เลือกคิวของคุณเพื่อเปิดแชร์</Text>
-            <ScrollView style={{ maxHeight: 150, marginBottom: 24 }}>
-              {myActiveTickets.length > 0 ? myActiveTickets.map((ticket: Ticket) => {
-                const shop = places.find((p: Place) => p.id === (ticket.shopId || ticket.placeId));
-                const tableInfo = shop?.tableTypes?.find((t: TableType) => t.id === ticket.tableType);
-                const isSelected = selectedTicketId === ticket.id;
-                
-                return (
-                  <TouchableOpacity key={ticket.id} onPress={() => setSelectedTicketId(ticket.id)} style={{ padding: 16, borderRadius: 12, borderWidth: 1, marginBottom: 8, backgroundColor: isSelected ? '#E6FFFA' : '#FFFFFF', borderColor: isSelected ? '#38B2AC' : '#EDF2F7' }}>
-                    <Text style={{ fontWeight: 'bold', color: '#2D3748' }}>{shop?.name}</Text>
-                    <Text style={{ fontSize: 12, color: '#718096', marginTop: 4 }}>เวลา: {ticket.bookTime} | คิว: {ticket.id}</Text>
-                    <Text style={{ fontSize: 11, color: '#DD6B20', marginTop: 4, fontWeight: 'bold' }}>โต๊ะนั่งได้ {tableInfo?.capacity || '?'} คน (คุณจองไว้ {ticket.guests} คน)</Text>
-                  </TouchableOpacity>
-                );
-              }) : <Text style={{ color: '#A0AEC0', fontStyle: 'italic', padding: 10 }}>คุณยังไม่มีคิวที่สามารถแชร์ได้ (ต้องระบุโต๊ะตอนจอง)</Text>}
-            </ScrollView>
-
-            <TouchableOpacity onPress={handleCreateActivity} style={{ backgroundColor: '#6FA4A1', paddingVertical: 16, borderRadius: 16, alignItems: 'center' }}>
-              <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' }}>ประกาศหากิจกรรม</Text>
+            <TouchableOpacity onPress={() => {
+              if(joinPax > (selectedActivityToJoin?.remainingSeats || 0)) return Alert.alert('ที่นั่งไม่พอ');
+              dispatch(joinPostAsync({ activity_id: selectedActivityToJoin?.id || '', user_id: user?.id || '', pax: joinPax }));
+              setIsJoinModalVisible(false);
+            }} style={{ backgroundColor: '#6FA4A1', padding: 16, borderRadius: 16, alignItems: 'center' }}>
+              <Text style={{ color: '#FFF', fontWeight: 'bold' }}>ยืนยันส่งคำขอ</Text>
             </TouchableOpacity>
+            <TouchableOpacity onPress={() => setIsJoinModalVisible(false)} style={{ marginTop: 15, alignItems: 'center' }}><Text style={{ color: '#A0AEC0' }}>ยกเลิก</Text></TouchableOpacity>
           </View>
         </View>
       </Modal>
 
-      <Modal visible={isJoinModalVisible} animationType="fade" transparent={true}>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)', padding: 20 }}>
-          <View style={{ backgroundColor: '#FFFFFF', borderRadius: 24, padding: 24, width: '100%' }}>
-            <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#2D3748', textAlign: 'center', marginBottom: 8 }}>เข้าร่วมปาร์ตี้</Text>
-            <Text style={{ fontSize: 14, color: '#718096', textAlign: 'center', marginBottom: 24 }}>ร้าน {selectedActivityToJoin?.place?.name || selectedActivityToJoin?.linkedTicket?.shopName}</Text>
-            
-            <View style={{ backgroundColor: '#FFF5F5', padding: 12, borderRadius: 12, marginBottom: 24, alignItems: 'center' }}>
-              <Text style={{ color: '#C53030', fontWeight: 'bold' }}>รับได้อีกสูงสุด: {selectedActivityToJoin?.remainingSeats} ท่าน</Text>
-            </View>
-
-            <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#4A5568', textAlign: 'center', marginBottom: 12 }}>คุณมากี่คน?</Text>
-            <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 32 }}>
-              <TouchableOpacity onPress={() => setJoinPax(Math.max(1, joinPax - 1))} style={{ backgroundColor: '#F7FAFC', padding: 16, borderRadius: 16 }}><Minus size={24} color="#4A5568" /></TouchableOpacity>
-              <View style={{ width: 80, alignItems: 'center' }}><Text style={{ fontSize: 32, fontWeight: '900', color: '#2D3748' }}>{joinPax}</Text></View>
-              <TouchableOpacity onPress={() => setJoinPax(joinPax + 1)} style={{ backgroundColor: '#F7FAFC', padding: 16, borderRadius: 16 }}><Plus size={24} color="#4A5568" /></TouchableOpacity>
-            </View>
-
-            <View style={{ flexDirection: 'row', gap: 12 }}>
-              <TouchableOpacity onPress={() => setIsJoinModalVisible(false)} style={{ flex: 1, paddingVertical: 14, borderRadius: 12, backgroundColor: '#EDF2F7', alignItems: 'center' }}><Text style={{ fontWeight: 'bold', color: '#4A5568' }}>ยกเลิก</Text></TouchableOpacity>
-              <TouchableOpacity onPress={submitJoinActivity} style={{ flex: 1, paddingVertical: 14, borderRadius: 12, backgroundColor: '#6FA4A1', alignItems: 'center' }}><Text style={{ fontWeight: 'bold', color: '#FFFFFF' }}>ยืนยันส่งคำขอ</Text></TouchableOpacity>
-            </View>
+      {/* Modal รายการแชทและการยืนยันของ Host */}
+      <Modal visible={isChatListModalVisible} transparent animationType="slide">
+        <View style={{ flex: 1, backgroundColor: '#F7FAFC' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#EDF2F7' }}>
+            <Text style={{ fontSize: 20, fontWeight: 'bold' }}>คำขอเข้าร่วม</Text>
+            <TouchableOpacity onPress={() => setIsChatListModalVisible(false)}><X size={24}/></TouchableOpacity>
           </View>
-        </View>
-      </Modal>
-
-      <Modal visible={isChatListModalVisible} animationType="slide" transparent={true}>
-        <View style={{ flex: 1, backgroundColor: '#F7FAFC', marginTop: Platform.OS === 'ios' ? 40 : 0 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 16, backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#EDF2F7' }}>
-            <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#2D3748' }}>กล่องข้อความ (คำขอเข้าร่วม)</Text>
-            <TouchableOpacity onPress={() => setIsChatListModalVisible(false)} style={{ padding: 4 }}><X size={24} color="#4A5568" /></TouchableOpacity>
-          </View>
-          <ScrollView contentContainerStyle={{ padding: 20 }}>
-            {activeChats.length > 0 ? activeChats.map((chat: any) => {
-              const isMeHost = chat.hostId === user?.id;
-              
-              if (isMeHost) {
-                return chat.joinedGuests?.map((guest: any) => (
-                  <TouchableOpacity 
-                    key={guest.userId} 
-                    onPress={() => { 
-                      setIsChatListModalVisible(false); 
-                      router.push({ pathname: '/page/Chat', params: { friendName: `Guest ID: ${guest.userId.substring(0,4)}`, isHost: 'true', activityId: chat.id, guestId: guest.userId } }); 
-                    }} 
-                    style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', padding: 16, borderRadius: 16, marginBottom: 12, shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 5, elevation: 2 }}
-                  >
-                    <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#E6FFFA', justifyContent: 'center', alignItems: 'center', marginRight: 16 }}>
-                      <MessageCircle size={24} color="#38B2AC" />
+          <ScrollView style={{ padding: 20 }}>
+            {activeChats.map((chat) => (
+              <View key={chat.id}>
+                {chat.hostId === user?.id ? (
+                  chat.joinedGuests?.map(guest => (
+                    <View key={guest.userId} style={{ backgroundColor: '#FFF', padding: 16, borderRadius: 16, marginBottom: 12, flexDirection: 'row', alignItems: 'center' }}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontWeight: 'bold' }}>ผู้ขอเข้าร่วม ({guest.pax} คน)</Text>
+                        <Text style={{ fontSize: 12, color: '#718096' }}>ร้าน: {chat.place?.name}</Text>
+                      </View>
+                      {guest.status === 'pending' ? (
+                        <TouchableOpacity onPress={() => handleConfirmGuest(chat.id, guest.userId)} style={{ backgroundColor: '#38A169', padding: 8, borderRadius: 8 }}>
+                          <UserCheck size={20} color="#FFF"/>
+                        </TouchableOpacity>
+                      ) : (
+                        <Text style={{ color: '#38A169', fontWeight: 'bold' }}>ยืนยันแล้ว</Text>
+                      )}
+                      <TouchableOpacity style={{ marginLeft: 10 }} onPress={() => { setIsChatListModalVisible(false); router.push({ pathname: '/page/Chat', params: { friendName: 'Guest', activityId: chat.id, guestId: guest.userId } }); }}>
+                        <MessageCircle size={24} color="#6FA4A1"/>
+                      </TouchableOpacity>
                     </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#2D3748' }}>คำขอจาก ID: {guest.userId.substring(0,8)}...</Text>
-                      <Text style={{ fontSize: 13, color: '#718096', marginTop: 4 }}>มา {guest.pax} ท่าน • ไปที่ {chat.place?.name || chat.linkedTicket?.shopName}</Text>
-                    </View>
+                  ))
+                ) : (
+                  <TouchableOpacity onPress={() => { setIsChatListModalVisible(false); router.push({ pathname: '/page/Chat', params: { friendName: chat.host?.name, activityId: chat.id, guestId: user?.id } }); }} style={{ backgroundColor: '#FFF', padding: 16, borderRadius: 16, marginBottom: 12 }}>
+                    <Text style={{ fontWeight: 'bold' }}>ปาร์ตี้ของ {chat.host?.name}</Text>
+                    <Text style={{ fontSize: 12 }}>สถานะ: {chat.joinedGuests?.find(g => g.userId === user?.id)?.status === 'confirmed' ? 'รับเข้ากลุ่มแล้ว' : 'รอการยืนยัน'}</Text>
                   </TouchableOpacity>
-                ));
-              } else {
-                const myRequest = chat.joinedGuests?.find((g: any) => g.userId === user?.id);
-                return (
-                  <TouchableOpacity 
-                    key={chat.id} 
-                    onPress={() => { 
-                      setIsChatListModalVisible(false); 
-                      router.push({ pathname: '/page/Chat', params: { friendName: chat.host?.name || chat.name, isHost: 'false', activityId: chat.id, guestId: user?.id } }); 
-                    }} 
-                    style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', padding: 16, borderRadius: 16, marginBottom: 12, shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 5, elevation: 2 }}
-                  >
-                    <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#E6FFFA', justifyContent: 'center', alignItems: 'center', marginRight: 16 }}>
-                      <MessageCircle size={24} color="#38B2AC" />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#2D3748' }}>ปาร์ตี้โฮสต์: {chat.host?.name || chat.name}</Text>
-                      <Text style={{ fontSize: 13, color: '#718096', marginTop: 4 }}>สถานะ: {myRequest?.status === 'confirmed' ? 'ยืนยันแล้ว' : 'รอการอนุมัติ'}</Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              }
-            }) : <Text style={{ textAlign: 'center', color: '#A0AEC0', marginTop: 40 }}>ยังไม่มีคำขอในขณะนี้</Text>}
+                )}
+              </View>
+            ))}
           </ScrollView>
         </View>
       </Modal>
 
+      {/* Modal สร้างกิจกรรม (UI เดิม) */}
+      <Modal visible={isCreateModalVisible} animationType="slide" transparent>
+        <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <View style={{ backgroundColor: '#FFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, height: '70%' }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 }}>
+              <Text style={{ fontSize: 18, fontWeight: 'bold' }}>สร้างกิจกรรมหาเพื่อน</Text>
+              <TouchableOpacity onPress={() => setIsCreateModalVisible(false)}><X/></TouchableOpacity>
+            </View>
+            <TextInput multiline style={{ backgroundColor: '#F7FAFC', borderRadius: 12, padding: 16, height: 100, textAlignVertical: 'top' }} placeholder="รายละเอียด..." value={activityDesc} onChangeText={setActivityDesc} />
+            <Text style={{ fontWeight: 'bold', marginVertical: 15 }}>เลือกคิวที่ต้องการแชร์</Text>
+            <ScrollView>
+              {myActiveTickets.map(ticket => (
+                <TouchableOpacity key={ticket.id} onPress={() => setSelectedTicketId(ticket.id)} style={{ padding: 16, borderRadius: 12, borderWidth: 1, marginBottom: 8, backgroundColor: selectedTicketId === ticket.id ? '#E6FFFA' : '#FFF', borderColor: selectedTicketId === ticket.id ? '#38B2AC' : '#EDF2F7' }}>
+                  <Text style={{ fontWeight: 'bold' }}>{places.find(p => p.id === ticket.shopId || p.id === ticket.placeId)?.name}</Text>
+                  <Text style={{ fontSize: 12 }}>คิว: {ticket.id} | ประเภท: {ticket.tableType}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity onPress={handleCreateActivity} style={{ backgroundColor: '#6FA4A1', padding: 16, borderRadius: 16, alignItems: 'center', marginTop: 20 }}>
+              <Text style={{ color: '#FFF', fontWeight: 'bold' }}>ประกาศหากิจกรรม</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
