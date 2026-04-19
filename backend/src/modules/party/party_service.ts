@@ -11,6 +11,7 @@ type PartyWithDetails = any & {
 };
 
 export class PartyService {
+  /* คำนวณระยะทางระหว่างพิกัด */
   private calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
     const R = 6371;
     const dLat = (lat2 - lat1) * (Math.PI / 180);
@@ -20,6 +21,7 @@ export class PartyService {
     return R * c;
   }
 
+  /* ตรวจสอบเงื่อนไข AI แนะนำ */
   private checkIsAiRecommended(successRate: number, sharedInterests: number): { matchRate: number; isRecommended: boolean; } {
     let matchScore = 60 + (sharedInterests * 15);
     if (successRate >= 85) matchScore += 20;
@@ -30,13 +32,13 @@ export class PartyService {
     };
   }
 
+  /* ดึงรายการกิจกรรมทั้งหมด */
   async get_all_parties(userLat?: number, userLng?: number, currentUserId?: string): Promise<PartyWithDetails[]> {
+    /* ดึงข้อมูลจาก PartyActivity โดยไม่กรอง hostId ออก เพื่อให้เจ้าของโพสต์เห็นประกาศของตนเอง */
     let query = supabase.from('PartyActivity').select(`*, host:User!hostId (id, name, avatarUrl, interests), place:Place (name, branch), joinedGuests:Guest (*)`).eq('status', 'Open').order('createdAt', { ascending: false });
-    if (currentUserId) query = query.neq('hostId', currentUserId);
     
     const { data: parties, error } = await query;
     
-    // ดัก Error เพื่อให้โชว์ใน Terminal จะได้รู้ว่าพังเพราะอะไร
     if (error) {
       console.error("GET PARTIES ERROR:", error);
       return [];
@@ -72,6 +74,7 @@ export class PartyService {
     });
   }
 
+  /* ยืนยันผู้เข้าร่วม */
   async confirm_guest(activityId: string, userId: string) {
     const { data: guest, error: guestError } = await supabase.from('Guest').update({ status: 'confirmed' }).eq('activityId', activityId).eq('userId', userId).select().single();
     if (guestError) throw new Error(guestError.message);
@@ -86,8 +89,8 @@ export class PartyService {
     return guest;
   }
 
+  /* สร้างกิจกรรมใหม่ */
   async create_party(data: any) {
-    //จัด Format คอลัมน์ให้ตรงเป๊ะกับ Database
     const payload = {
       title: data.title,
       description: data.description,
@@ -119,12 +122,14 @@ export class PartyService {
     return newParty;
   }
 
+  /* เข้าร่วมกิจกรรม */
   async join_party(data: { activity_id: string; user_id: string; pax: number }) {
     const { data: joinData, error } = await supabase.from('Guest').insert([{ activityId: data.activity_id, userId: data.user_id, pax: data.pax, status: 'pending' }]).select().single();
     if (error) throw new Error(error.message);
     return joinData;
   }
 
+  /* ลบกิจกรรม */
   async delete_party(id: string) {
     const { error } = await supabase.from('PartyActivity').delete().eq('id', id);
     if (error) throw new Error(error.message);
