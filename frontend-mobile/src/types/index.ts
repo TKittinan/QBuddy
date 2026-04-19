@@ -33,8 +33,8 @@ export interface Place {
   avgServiceTime?: number;
   openTime?: string;
   closeTime?: string;
-  latitude?: number | string;  // เพิ่มบรรทัดนี้
-  longitude?: number | string; // เพิ่มบรรทัดนี้
+  lat?: number;
+  lng?: number;
   monthlyBookings?: number;
   weeklyBookings?: number;
   phone?: string;
