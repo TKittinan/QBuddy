@@ -21,7 +21,8 @@ export const fetchPostsAsync = createAsyncThunk(
   "post/fetchPosts",
   async (params: { lat?: number; lng?: number; userId?: string } | void, { rejectWithValue }) => {
     try {
-      const url = new URL(`${API_BASE_URL}/posts`);
+      
+      const url = new URL(`${API_BASE_URL}/parties`); 
       if (params) {
         if (params.lat) url.searchParams.set('lat', String(params.lat));
         if (params.lng) url.searchParams.set('lng', String(params.lng));
@@ -40,23 +41,21 @@ export const addPostAsync = createAsyncThunk(
   "post/addPost",
   async (postData: Partial<PartyActivity>, { rejectWithValue }) => {
     try {
-      const response = await axios.post(`${API_BASE_URL}/posts`, postData);
+      
+      const response = await axios.post(`${API_BASE_URL}/parties`, postData); 
       return response.data;
     } catch (error: any) {
+      console.log("🚨 FULL API ERROR:", error.response?.data || error.message || error);
       return rejectWithValue(error.response?.data?.message || "Failed to add post");
     }
   }
 );
 
-// 🌟 แก้ไข: ให้รับ Payload เป็น { activity_id, user_id, pax } เพื่อส่งให้ Backend โดยตรง
 export const joinPostAsync = createAsyncThunk(
   "post/joinPost",
   async (joinData: { activity_id: string; user_id: string; pax: number }, { rejectWithValue }) => {
     try {
-      // 🌟 แก้ไข: ยิงไปที่ /posts/join (ตามที่ party_routes.ts ตั้งไว้)
-      const response = await axios.post(`${API_BASE_URL}/posts/join`, joinData);
-      
-      // ส่งข้อมูลเดิมกลับไปให้ Reducer อัปเดตหน้าจอพร้อมกับ Data ที่ได้จาก DB
+      const response = await axios.post(`${API_BASE_URL}/parties/join`, joinData);
       return { ...joinData, data: response.data };
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || "Failed to join post");
@@ -68,7 +67,8 @@ export const updatePostStatus = createAsyncThunk(
   "post/updateStatus",
   async ({ id, status }: { id: string; status: ActivityStatus }, { rejectWithValue }) => {
     try {
-      await axios.patch(`${API_BASE_URL}/posts/${id}/status`, { status });
+      
+      await axios.patch(`${API_BASE_URL}/parties/${id}/status`, { status });
       return { id, status };
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || "Failed to update status");
@@ -85,7 +85,6 @@ const postSlice = createSlice({
         state.joinedPosts.push(action.payload);
       }
     },
-    // 🌟 แก้ไข payload ให้ตรงกับโครงสร้างใหม่
     optimisticJoin: (state, action: PayloadAction<{activity_id: string; user_id: string; pax: number}>) => {
       const post = state.posts.find(p => p.id === action.payload.activity_id);
       if (post) {
@@ -122,7 +121,6 @@ const postSlice = createSlice({
         state.isLoading = false;
         state.error = action.payload as string;
       })
-      // 🌟 แก้ไข: จัดการ State หลังจาก Join สำเร็จด้วยข้อมูลโครงสร้างใหม่
       .addCase(joinPostAsync.fulfilled, (state, action) => {
         const { activity_id, user_id, pax, data } = action.payload;
         const index = state.posts.findIndex(p => p.id === activity_id);

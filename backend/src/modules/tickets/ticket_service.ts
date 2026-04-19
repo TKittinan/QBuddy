@@ -65,7 +65,27 @@ export class TicketService {
     return data || [];
   }
 
-  // 🌟 ลอจิกใหม่สุดเป๊ะ: สร้าง Ticket ID แบบ SMP1-CM1
+  // 🌟 อัปเกรดฟังก์ชัน: ดึงตัวเลขจากประเภทโต๊ะมาคำนวณ (ฉลาดและแม่นยำกว่าเดิม)
+  private get_table_code(tableType: string): string {
+    // ดึงเฉพาะตัวเลขออกมาจากข้อความ (เช่น "3-4 คน" -> ได้อาเรย์ [3, 4])
+    const nums = String(tableType || '').match(/\d+/g);
+    
+    // ถ้าไม่มีตัวเลขเลย ให้เป็น X
+    if (!nums || nums.length === 0) return 'X';
+
+    // หาตัวเลขที่มากที่สุดในประเภทนั้น (เช่น จาก [3, 4] จะได้ 4)
+    const maxCapacity = Math.max(...nums.map(Number));
+
+    if (maxCapacity <= 2) return 'A';
+    if (maxCapacity <= 4) return 'B';
+    if (maxCapacity <= 6) return 'C';
+    if (maxCapacity <= 8) return 'D';
+    if (maxCapacity <= 10) return 'E';
+    
+    // 🌟 ถ้ามากกว่า 10 (เช่น 11, 12, 20) ให้เป็น X ทันที!
+    return 'X';
+  }
+
   private async generate_id(placeId: string, tableType: string) {
     const now = new Date();
     const cycleStart = new Date(now);
@@ -78,7 +98,7 @@ export class TicketService {
       .from('Ticket')
       .select('*', { count: 'exact', head: true })
       .eq('placeId', placeId) 
-      .eq('tableType', tableType)
+      .eq('tableType', tableType) 
       .gte('createdAt', cycleStart.toISOString())
       .lt('createdAt', cycleEnd.toISOString());
 
@@ -87,22 +107,20 @@ export class TicketService {
     let prefixPart = 'XX';
     let branchNumPart = '1';
 
-    // ถ้า Place ID เป็นแบบมีขีด เช่น SMP-001
     if (placeId.includes('-')) {
       const parts = placeId.split('-');
-      prefixPart = parts[0]; // ได้ "SMP"
-      branchNumPart = parseInt(parts[1], 10).toString(); // "001" -> กลายเป็น "1" ทันที
+      prefixPart = parts[0]; 
+      branchNumPart = parseInt(parts[1], 10).toString(); 
     } else {
-      // ถ้าเป็นรหัสแบบเก่าที่ไม่มีขีด ก็ยังรองรับอยู่
       prefixPart = placeId.replace(/[0-9]/g, '').toUpperCase();
       const nums = placeId.match(/\d+/);
       branchNumPart = nums ? parseInt(nums[0], 10).toString() : "1";
     }
 
+    const tableCode = this.get_table_code(tableType);
     const runningNumber = (count || 0) + 1;
     
-    // ประกอบร่าง: ได้ SMP1-CM1 ตามสั่ง 100%
-    return `${prefixPart}${branchNumPart}-CM${runningNumber}`;
+    return `${prefixPart}${branchNumPart}${tableCode}-CM${runningNumber}`;
   }
 
   async get_queue_status(ticketId: string) {
