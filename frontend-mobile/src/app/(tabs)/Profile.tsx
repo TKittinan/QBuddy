@@ -6,17 +6,17 @@ import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
+import axios from 'axios'; 
 
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input'; 
 import { Pagination } from '../../components/ui/Pagination'; 
 import { useAppDispatch, useAppSelector } from '../../redux/useRedux';
-// เพิ่ม uploadAvatarAsync ในการนำเข้า
 import { logoutAsync, updateStatusSuccess, updateProfileAsync, uploadAvatarAsync } from '../../redux/slices/authSlice'; 
 
 import { fetchSavedPlacesAsync, toggleSavePlaceAsync, toggleSavePlaceLocal } from '../../redux/slices/savedPlacesSlice'; 
 import { Place } from '../../types';
-import { supabase } from '../../config'; 
+import { supabase, API_BASE_URL } from '../../config'; 
 
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -92,7 +92,6 @@ export default function ProfilePage() {
     loadProfileData();
   }, []);
 
-  // ฟังก์ชันใหม่สำหรับจัดการการกดเปลี่ยนรูปโปรไฟล์
   const handleEditPhoto = async () => {
     Alert.alert(
       "เปลี่ยนรูปโปรไฟล์",
@@ -195,17 +194,56 @@ export default function ProfilePage() {
     if (savedPlacesList.length <= 1) closeModal('saved'); 
   };
 
-  const submitReport = () => {
-    if (reportIssue.trim() === '') return Alert.alert('แจ้งเตือน', 'กรุณาระบุรายละเอียดปัญหาที่พบ');
-    Alert.alert('ส่งรายงานเรียบร้อย', 'เราได้รับข้อมูล Ticket ของคุณแล้ว เจ้าหน้าที่จะทำการตรวจสอบและแจ้งกลับให้เร็วที่สุดครับ', [{ text: 'ตกลง', onPress: () => { setReportIssue(''); closeModal('report'); } }]);
-  };
+  // -------------------------------------------------------------------------
+  // จุดที่แก้ไข: เปลี่ยนเป็น Async และยิง API ไปหา Backend
+  // -------------------------------------------------------------------------
+ const submitReport = async () => {
+    if (reportIssue.trim() === '') {
+      if (Platform.OS === 'web') {
+        window.alert('กรุณาระบุรายละเอียดปัญหาที่พบ');
+      } else {
+        Alert.alert('แจ้งเตือน', 'กรุณาระบุรายละเอียดปัญหาที่พบ');
+      }
+      return;
+    }
+    
+    try {
+      console.log("กำลังส่งข้อมูล Ticket...", reportIssue.trim()); // เพิ่ม Log ดูว่าปุ่มทำงานไหม
+      
+      // ยิงข้อมูลไปหา Backend ที่เราทำไว้
+      await axios.post(`${API_BASE_URL}/support/tickets`, {
+        user_id: user?.id || 'guest-123',
+        userId: user?.id || 'guest-123', 
+        subject: reportIssue.trim(),
+        category: 'General' 
+      });
 
+      console.log("ส่งข้อมูลสำเร็จ!"); // เพิ่ม Log เมื่อสำเร็จ
+
+      if (Platform.OS === 'web') {
+        // สำหรับบน Web
+        window.alert('ส่งรายงานเรียบร้อย\nเราได้รับข้อมูล Ticket ของคุณแล้ว เจ้าหน้าที่จะทำการตรวจสอบและแจ้งกลับให้เร็วที่สุดครับ');
+        setReportIssue('');
+        closeModal('report');
+      } else {
+        // สำหรับบน มือถือ (iOS/Android)
+        Alert.alert('ส่งรายงานเรียบร้อย', 'เราได้รับข้อมูล Ticket ของคุณแล้ว เจ้าหน้าที่จะทำการตรวจสอบและแจ้งกลับให้เร็วที่สุดครับ', [
+          { text: 'ตกลง', onPress: () => { setReportIssue(''); closeModal('report'); } }
+        ]);
+      }
+    } catch (error) {
+      console.error("Failed to submit report:", error);
+      if (Platform.OS === 'web') {
+        window.alert('เกิดข้อผิดพลาด: ไม่สามารถส่งรายงานได้ กรุณาลองใหม่อีกครั้ง');
+      } else {
+        Alert.alert('เกิดข้อผิดพลาด', 'ไม่สามารถส่งรายงานได้ กรุณาลองใหม่อีกครั้ง');
+      }
+    }
+  };
   // -------------------------------------------------------------------------
-  // จุดที่แก้ไข: รองรับการกด Logout ทั้งบน Web และ Mobile
-  // -------------------------------------------------------------------------
+
   const handleLogout = () => {
     if (Platform.OS === 'web') {
-      // สำหรับบน Web Browser
       const confirmLogout = window.confirm('คุณต้องการออกจากระบบใช่หรือไม่?');
       if (confirmLogout) {
         dispatch(logoutAsync(user?.id)).then(() => {
@@ -213,7 +251,6 @@ export default function ProfilePage() {
         });
       }
     } else {
-      // สำหรับบน iOS / Android
       Alert.alert('ยืนยันออกจากระบบ', 'คุณต้องการออกจากระบบใช่หรือไม่?', [
         { text: 'ยกเลิก', style: 'cancel' },
         { 
@@ -227,7 +264,6 @@ export default function ProfilePage() {
       ]);
     }
   };
-  // -------------------------------------------------------------------------
 
   const MenuItem = ({ icon: Icon, title, subtitle, onPress, iconColor = "#475569" }: MenuItemProps) => (
     <TouchableOpacity onPress={onPress} className="flex-row items-center bg-white p-4 rounded-2xl mb-3 shadow-sm border border-gray-100">
@@ -249,13 +285,11 @@ export default function ProfilePage() {
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
           <View className="items-center mt-8 mb-6">
             <View className="relative">
-              {/* แสดงรูปโปรไฟล์ปัจจุบันและเพิ่มความสามารถในการเปลี่ยนรูป */}
               <Image 
                 source={{ uri: user?.avatarUrl || avatarUri || 'https://i.pravatar.cc/150?u=a042581f4e29026024d' }} 
                 className="w-28 h-28 rounded-full border-4 border-white shadow-sm" 
               />
               
-              {/* ปุ่มกล้องถ่ายรูปสำหรับแก้ไข */}
               <TouchableOpacity 
                 onPress={handleEditPhoto}
                 className="absolute bottom-0 right-0 bg-[#6FA4A1] p-2 rounded-full border-2 border-white shadow-md"

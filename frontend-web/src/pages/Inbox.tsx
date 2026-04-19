@@ -6,28 +6,23 @@ import { fetchInboxTickets, sendReplyAsync, resolveTicketAsync } from "../redux/
 import { Button } from "../components/ui/Button";
 import { StatusBadge } from "../components/ui/StatusBadge";
 import { ChatMessage } from "../components/ui/User/ChatMessage";
-import { useAuth } from "../context/auth/use.Auth";
 
 export default function Inbox() {
   const { id } = useParams<{ id: string }>(); 
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const { user } = useAuth();
   
   const [replyText, setReplyText] = useState("");
 
-  // ดึงข้อมูลจาก Redux Store โดยตรง
   const { tickets, loading } = useAppSelector((state) => state.inbox);
   const activeTicket = tickets.find(t => t.id === id);
 
-  // 1. ดึงข้อมูลผ่าน Thunk (สะอาดมาก!)
   useEffect(() => {
     dispatch(fetchInboxTickets());
     const intervalId = setInterval(() => dispatch(fetchInboxTickets()), 15000);
     return () => clearInterval(intervalId);
   }, [dispatch]);
 
-  // กรณีหา Ticket ไม่เจอ
   if (!activeTicket) {
     return (
       <div className="flex-1 hidden lg:flex flex-col items-center justify-center text-slate-400 p-6 text-center">
@@ -38,32 +33,27 @@ export default function Inbox() {
     );
   }
 
-  // 2. ส่งข้อความผ่าน Thunk
   const handleSendReply = async () => {
     if (!replyText.trim()) return;
 
-    const newMessage = {
-      id: `msg_${Date.now()}`, 
-      senderId: "admin",
-      senderName: user?.name || "Admin",
-      text: replyText.trim(),
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
-
     try {
-      // เรียก Thunk แทนการ fetch เอง
-      await dispatch(sendReplyAsync({ ticketId: activeTicket.id, message: newMessage })).unwrap();
+      await dispatch(sendReplyAsync({ 
+        ticketId: activeTicket.id, 
+        message: replyText.trim() 
+      })).unwrap();
+      
       setReplyText("");
+      dispatch(fetchInboxTickets()); 
     } catch (error) {
       alert("ไม่สามารถส่งข้อความได้ กรุณาลองใหม่อีกครั้ง");
     }
   };
 
-  // 3. ปิดเคสผ่าน Thunk
   const handleResolve = async () => {
     if (window.confirm("คุณแน่ใจหรือไม่ว่าต้องการปิดเคสนี้?")) {
       try {
         await dispatch(resolveTicketAsync(activeTicket.id)).unwrap();
+        dispatch(fetchInboxTickets());
       } catch (error) {
         alert("ไม่สามารถปิดเคสได้ กรุณาลองใหม่อีกครั้ง");
       }
@@ -72,7 +62,6 @@ export default function Inbox() {
 
   return (
     <>
-      {/* Header Section */}
       <div className="p-4 lg:p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-start justify-between bg-slate-50/50 gap-4 sm:gap-0">
         <div className="flex items-start gap-3">
           <button onClick={() => navigate("/inbox")} className="lg:hidden p-2 -ml-2 text-slate-500 hover:bg-slate-200 rounded-full shrink-0">
@@ -83,7 +72,8 @@ export default function Inbox() {
               <h3 className="text-base lg:text-lg font-bold text-slate-800 truncate">{activeTicket.subject}</h3>
               <StatusBadge status={activeTicket.status === "Pending" ? "Waiting" : "Completed"} />
             </div>
-            <p className="text-xs lg:text-sm text-slate-500 font-medium truncate">Ticket ID: {activeTicket.id} • User: {activeTicket.userName}</p>
+            {/*  จุดที่แก้: ใส่ (activeTicket as any) เพื่อข้าม Type check */}
+            <p className="text-xs lg:text-sm text-slate-500 font-medium truncate">Ticket ID: {activeTicket.id} • User: {(activeTicket as any).userId || 'Unknown'}</p>
           </div>
         </div>
         
@@ -94,18 +84,22 @@ export default function Inbox() {
         )}
       </div>
 
-      {/* Chat Messages Section */}
       <div className="flex-1 overflow-y-auto p-4 lg:p-6 bg-slate-50/30">
-        {loading && activeTicket.messages.length === 0 ? (
+        {loading && activeTicket.messages?.length === 0 ? (
           <p className="text-center text-slate-400">Loading messages...</p>
         ) : (
-          activeTicket.messages.map(msg => (
-            <ChatMessage key={msg.id} text={msg.text} senderName={msg.senderName} timestamp={msg.timestamp} isAdmin={msg.senderId === "admin"} />
+          activeTicket.messages?.map((msg: any) => (
+            <ChatMessage 
+              key={msg.id} 
+              text={msg.text} 
+              senderName={msg.sender?.name || (msg.senderId === "admin" ? "Admin" : "User")} 
+              timestamp={new Date(msg.createdAt || msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} 
+              isAdmin={msg.senderId === "admin"} 
+            />
           ))
         )}
       </div>
 
-      {/* Input Section */}
       <div className="p-3 lg:p-4 bg-white border-t border-slate-100">
         <div className="flex items-end gap-2 lg:gap-3">
           <textarea

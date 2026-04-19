@@ -19,13 +19,19 @@ export default function InboxLayout() {
   const filteredTickets = useMemo(() => {
     let result = [...tickets];
     if (filterStatus !== "All") result = result.filter(t => t.status === filterStatus);
+    
     if (searchQuery) {
       const lowerQ = searchQuery.toLowerCase();
-      result = result.filter(t => 
-        t.userName.toLowerCase().includes(lowerQ) || 
-        t.subject.toLowerCase().includes(lowerQ) ||
-        t.id.toLowerCase().includes(lowerQ)
-      );
+      result = result.filter(t => {
+        //  จุดที่แก้: ใส่ as any เพื่อดัก TypeScript
+        const name = t.userName || (t as any).User?.name || (t as any).userId || "";
+        const subject = t.subject || "";
+        const id = t.id || "";
+        
+        return name.toLowerCase().includes(lowerQ) || 
+               subject.toLowerCase().includes(lowerQ) ||
+               id.toLowerCase().includes(lowerQ);
+      });
     }
     return result;
   }, [tickets, searchQuery, filterStatus]);
@@ -45,13 +51,12 @@ export default function InboxLayout() {
           title="Support Inbox" 
           onMenuClick={() => setIsSidebarOpen(true)} 
           searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery} // เชื่อมช่อง Search บน Header ให้ใช้งานได้จริง
+          setSearchQuery={setSearchQuery} 
         />
 
         <main className="flex-1 p-0 lg:p-6 overflow-hidden bg-slate-50">
           <div className="max-w-[1400px] mx-auto h-full flex lg:gap-6 bg-white lg:bg-transparent">
             
-            {/* แผงซ้าย (รายชื่อ) */}
             <div className={`w-full lg:w-1/3 bg-white lg:rounded-2xl lg:shadow-sm border-r lg:border border-slate-100 flex-col overflow-hidden shrink-0 ${isViewingChat ? 'hidden lg:flex' : 'flex'}`}>
               <div className="p-4 border-b border-slate-100 space-y-4 bg-slate-50/50">
                 <div className="flex gap-2">
@@ -67,7 +72,10 @@ export default function InboxLayout() {
                     className={`block w-full text-left p-4 rounded-xl transition-all border ${activeTicketId === ticket.id ? "bg-[#5AB2A8]/10 border-[#5AB2A8]/30" : "bg-white border-transparent hover:bg-slate-50 border-b border-slate-100 lg:border-transparent lg:border-b-0"}`}
                   >
                     <div className="flex justify-between items-start mb-1.5">
-                      <span className={`text-sm font-bold truncate pr-2 ${activeTicketId === ticket.id ? "text-[#5AB2A8]" : "text-slate-800"}`}>{ticket.userName}</span>
+                      {/* จุดที่แก้: ใส่ as any เพื่อดัก TypeScript */}
+                      <span className={`text-sm font-bold truncate pr-2 ${activeTicketId === ticket.id ? "text-[#5AB2A8]" : "text-slate-800"}`}>
+                        {ticket.userName || (ticket as any).User?.name || 'Unknown User'}
+                      </span>
                     </div>
                     <p className="text-xs text-slate-500 font-medium truncate mb-2">{ticket.subject}</p>
                     <div className="flex items-center gap-2">
@@ -83,7 +91,6 @@ export default function InboxLayout() {
               </div>
             </div>
 
-            {/* แผงขวา (หน้าต่างแชท) */}
             <div className={`w-full lg:flex-1 bg-white lg:rounded-2xl lg:shadow-sm lg:border border-slate-100 flex-col overflow-hidden ${!isViewingChat ? 'hidden lg:flex' : 'flex'}`}>
               <Outlet />
             </div>

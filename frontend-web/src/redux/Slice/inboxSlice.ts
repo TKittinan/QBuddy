@@ -1,25 +1,34 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
 import { API_BASE_URL } from "../../config";
-import type { SupportTicket, Message } from "../../types";
+import type { SupportTicket } from "../../types";
 
-// 1. AsyncThunk สำหรับดึง Ticket ทั้งหมด
+// 1. AsyncThunk สำหรับดึง Ticket ทั้งหมดของ Admin
 export const fetchInboxTickets = createAsyncThunk("inbox/fetchAll", async (_, { rejectWithValue }) => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/support-tickets`);
-    return response.data;
+    // สมมติว่า Backend ผูก route ไว้ที่ /api/support
+    const response = await axios.get(`${API_BASE_URL}/support/tickets`);
+    // คืนค่าเป็น Array ของ Tickets (รองรับกรณี Backend ห่อด้วย { data: ... })
+    return response.data?.data || response.data;
   } catch (err: any) {
     return rejectWithValue(err.response?.data?.message || "Failed to fetch tickets");
   }
 });
 
-// 2. AsyncThunk สำหรับส่งคำตอบ (Reply)
+// 2. AsyncThunk สำหรับส่งคำตอบ (Reply) จาก Admin
 export const sendReplyAsync = createAsyncThunk(
   "inbox/sendReply",
-  async ({ ticketId, message }: { ticketId: string; message: Message }, { rejectWithValue }) => {
+  async ({ ticketId, message }: { ticketId: string; message: string }, { rejectWithValue }) => {
     try {
-      const response = await axios.post(`${API_BASE_URL}/support-tickets/${ticketId}/reply`, { message });
-      return { ticketId, message: response.data }; // คาดหวังว่า Backend จะคืน Message ที่สมบูรณ์กลับมา
+      // ปรับชื่อตัวแปรให้ตรงกับฝั่ง Backend ที่ต้องการ (ticket_id, sender_id, text)
+      const payload = {
+        ticket_id: ticketId,
+        sender_id: "admin",
+        text: message
+      };
+      
+      const response = await axios.post(`${API_BASE_URL}/support/messages`, payload);
+      return { ticketId, message: response.data }; 
     } catch (err: any) {
       return rejectWithValue(err.response?.data?.message || "Failed to send reply");
     }
@@ -31,7 +40,7 @@ export const resolveTicketAsync = createAsyncThunk(
   "inbox/resolve",
   async (ticketId: string, { rejectWithValue }) => {
     try {
-      await axios.patch(`${API_BASE_URL}/support-tickets/${ticketId}/resolve`, { status: "Resolved" });
+      await axios.put(`${API_BASE_URL}/support/tickets/${ticketId}/status`, { status: "Resolved" });
       return ticketId;
     } catch (err: any) {
       return rejectWithValue(err.response?.data?.message || "Failed to resolve ticket");
@@ -55,7 +64,6 @@ const inboxSlice = createSlice({
   name: "inbox",
   initialState,
   reducers: {
-    // เคลียร์ Error ในหน้า UI
     clearInboxError: (state) => {
       state.error = null;
     }
@@ -76,6 +84,8 @@ const inboxSlice = createSlice({
       .addCase(sendReplyAsync.fulfilled, (state, action) => {
         const ticket = state.tickets.find(t => t.id === action.payload.ticketId);
         if (ticket) {
+          // ถ้าไม่มี array messages ให้สร้างใหม่
+          if (!ticket.messages) ticket.messages = [];
           ticket.messages.push(action.payload.message);
         }
       })
