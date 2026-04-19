@@ -37,46 +37,33 @@ export default function UserManagement() {
   const [roleFilter, setRoleFilter] = useState<string>("All");
   const [statusFilter, setStatusFilter] = useState<string>("All");
 
-  const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
-
   const { control, handleSubmit, reset, formState: { errors } } = useForm<UserFormData>({
     resolver: zodResolver(userSchema),
     defaultValues: { name: "", email: "", phone: "", role: "CUSTOMER", password: "" }
   });
 
-  // 🌟 จุดที่แก้ 1: เพิ่มการ Refresh อัตโนมัติทุก 5 วินาที
-  useEffect(() => { 
-    dispatch(fetchUsers()); 
-    const interval = setInterval(() => {
-      dispatch(fetchUsers());
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [dispatch]);
-
+  // ใช้ Supabase Realtime ดักฟังการเปลี่ยนแปลงจาก Database โดยตรง
   useEffect(() => {
-    const channel = supabase.channel('online-status', {
-      config: {
-        presence: {
-          key: 'user_id',
-        },
-      },
-    });
+    // โหลดข้อมูลครั้งแรก
+    dispatch(fetchUsers());
 
-    channel
-      .on('presence', { event: 'sync' }, () => {
-        const newState = channel.presenceState();
-        const onlineIds = Object.values(newState)
-          .flat()
-          .map((presence: any) => presence.user_id);
-        
-        setOnlineUsers(onlineIds);
-      })
+    // สมัครรับการแจ้งเตือนเมื่อตาราง User มีการ UPDATE
+    const channel = supabase
+      .channel('realtime-user-status')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'User' },
+        () => {
+          // เมื่อข้อมูลใน DB เปลี่ยน ให้ทำการ Fetch ข้อมูลใหม่เพื่ออัปเดตหน้าจอ
+          dispatch(fetchUsers());
+        }
+      )
       .subscribe();
 
     return () => {
-      channel.unsubscribe();
+      supabase.removeChannel(channel);
     };
-  }, []);
+  }, [dispatch]);
 
   const onSubmit = async (data: UserFormData) => {
     try {
@@ -86,10 +73,12 @@ export default function UserManagement() {
       };
 
       if (editingUser) {
+        // กรณีอัปเดตข้อมูล ไม่ต้องส่ง status ไปทับ
         await dispatch(updateUserAsync({ ...editingUser, ...payload })).unwrap();
         alert("อัปเดตข้อมูลผู้ใช้สำเร็จ!");
       } else {
-        await dispatch(addUserAsync(payload)).unwrap();
+        // กรณีเพิ่มผู้ใช้ใหม่ บังคับแนบ status เป็น INACTIVE ไปด้วย
+        await dispatch(addUserAsync({ ...payload, status: "INACTIVE" })).unwrap();
         alert("เพิ่มผู้ใช้สำเร็จ!");
       }
       
@@ -123,6 +112,7 @@ export default function UserManagement() {
     }
   };
 
+  // กรองข้อมูลโดยอิงจากสถานะใน Database ตรงๆ
   const filteredUsers = useMemo(() => {
     return (users || []).filter((u) => {
       const matchesRole = roleFilter === "All" || u.role === roleFilter;
@@ -157,17 +147,11 @@ export default function UserManagement() {
       header: "Status", 
       key: "status", 
       className: "w-[15%] text-center", 
-      render: (row) => {
-        // 🌟 จุดที่แก้ 2: บังคับแปลง Type เป็น String ให้เหมือนกันก่อนเช็ค
-        const isOnline = onlineUsers.some(id => String(id) === String(row.id));
-        const displayStatus = isOnline ? "ACTIVE" : row.status;
-
-        return (
-          <div className="flex justify-center">
-            <StatusBadge status={displayStatus} />
-          </div>
-        );
-      } 
+      render: (row) => (
+        <div className="flex justify-center">
+          <StatusBadge status={row.status} />
+        </div>
+      )
     },
     { header: "Actions", key: "actions", className: "w-[15%] text-right pr-6", render: (row) => (
       <div className="flex justify-end">

@@ -2,12 +2,14 @@ import { supabase } from '../../config/supabase';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { ENV } from '../../config/env_config';
-import crypto from 'crypto'; // เพิ่มสำหรับสร้าง Token สุ่ม
+import crypto from 'crypto';
 
 export class AuthService {
   async register(data: any) {
     const hashed_password = await bcrypt.hash(data.password, 10);
     
+    console.log("กำลังสร้าง User ใหม่ด้วยสถานะ: INACTIVE"); // ใส่ไว้เช็คใน Terminal
+
     const { data: newUser, error } = await supabase
       .from('User')
       .insert([{
@@ -16,7 +18,7 @@ export class AuthService {
         phone: data.phone,
         password: hashed_password,
         role: data.role || 'CUSTOMER',
-        status: 'INACTIVE'
+        status: 'INACTIVE' // บังคับส่งค่านี้ไปที่ Supabase เสมอ
       }])
       .select()
       .single();
@@ -44,45 +46,59 @@ export class AuthService {
     if (!is_match) {
       throw new Error('Email or password incorrect');
     }
+
+    // เมื่อ Login สำเร็จค่อยเปลี่ยนเป็น ACTIVE
     const { error: updateError } = await supabase
       .from('User')
       .update({ status: 'ACTIVE' })
       .eq('id', user.id);
 
     if (updateError) {
-      console.error("Failed to update user status:", updateError);
+      console.error("Failed to update user status to ACTIVE:", updateError);
     }
+
     const token = jwt.sign(
       { user_id: user.id, role: user.role },
       ENV.JWT_SECRET, 
       { expiresIn: '1d' }
     );
+
     const { password, ...userWithoutPassword } = user;
-    
     userWithoutPassword.status = 'ACTIVE';
 
     return { user: userWithoutPassword, token };
   }
 
-  // Logic สำหรับจัดการลืมรหัสผ่าน
+  async logout(userId: string) {
+    if (!userId) return;
+
+    const { error } = await supabase
+      .from('User')
+      .update({ status: 'INACTIVE' })
+      .eq('id', userId);
+
+    if (error) {
+      console.error("Failed to update user status to INACTIVE:", error);
+      throw new Error("Logout failed on server");
+    }
+
+    return { success: true };
+  }
+
   async forgotPassword(email: string) {
-    // 1. หา User จากอีเมล
     const { data: user, error } = await supabase
       .from('User')
       .select('id, email')
       .eq('email', email)
       .single();
 
-    // ถ้าไม่เจอ User เราจะไม่ Throw error เพื่อความปลอดภัย (Security)
     if (!user) return;
 
-    // 2. สร้าง Token สุ่ม (ใช้ crypto) และตั้งเวลาหมดอายุ (เช่น 1 ชั่วโมง)
     const resetToken = crypto.randomBytes(32).toString('hex');
     const expires = new Date();
-    expires.setHours(expires.getHours() + 1); // หมดอายุใน 1 ชม.
+    expires.setHours(expires.getHours() + 1);
 
-    // 3. บันทึกลง Supabase ในคอลัมน์ที่นายเพิ่งสร้าง
-    const { error: updateError } = await supabase
+    await supabase
       .from('User')
       .update({
         resetPasswordToken: resetToken,
@@ -90,15 +106,8 @@ export class AuthService {
       })
       .eq('id', user.id);
 
-    if (updateError) throw new Error("Failed to set reset token");
-
-    // 4. ส่งอีเมล (อันนี้คือจุดที่นายต้องใช้ service ส่งเมล เช่น Resend หรือ Nodemailer)
-    // ผมทำตัวอย่างการสร้าง Link ให้ครับ
-    const resetUrl = `http://localhost:3000/reset-password?token=${resetToken}`;
-    
-    console.log(`Email sent to ${email} with link: ${resetUrl}`);
-    
-    // TODO: นายต้องเรียกฟังก์ชันส่งอีเมลจริงตรงนี้
-    // await emailService.send(email, "Reset Password", `คลิกที่นี่เพื่อเปลี่ยนรหัส: ${resetUrl}`);
+    const resetUrl = `http://localhost:5173/reset-password?token=${resetToken}`;
+    console.log(`Reset link for ${email}: ${resetUrl}`);
+    // พร้อมสำหรับเชื่อมต่อระบบส่ง Email จริง
   }
 }

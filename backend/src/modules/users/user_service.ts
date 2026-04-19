@@ -36,7 +36,7 @@ export class UserService {
         phone: data.phone,
         password: hashed_password,
         role: data.role || 'CUSTOMER',
-        status: 'ACTIVE'
+        status: 'INACTIVE'
       }])
       .select()
       .single();
