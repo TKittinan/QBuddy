@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, Text, TouchableOpacity, Image, SafeAreaView, Platform, StatusBar, FlatList, StyleSheet, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, Image, SafeAreaView, Platform, StatusBar, FlatList, StyleSheet } from 'react-native';
 import { ArrowLeft, MessageSquare, MapPin, Sparkles } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useAppSelector } from '../../redux/useRedux';
@@ -18,24 +18,38 @@ export default function SmartFeedPage() {
 
   const aiRecommendedPlaces = useMemo(() => {
     if (!user) return [];
-    const completedTickets = allTickets.filter((t: any) => t.name === user.name && t.status === 'Completed');
-    const bookedShopIds = completedTickets.map((t: any) => t.shopId);
+    
+    // 1. หารายการจองที่สำเร็จแล้วของ User คนนี้ (รองรับการเช็คทั้ง userId และ name)
+    const completedTickets = allTickets.filter(
+      (t: any) => (t.userId === user.id || t.name === user.name) && (t.status === 'Completed' || t.status === 'COMPLETED')
+    );
+    
+    // 2. ดึง ID ร้านที่เคยไป (รองรับทั้ง shopId และ placeId)
+    const bookedShopIds = completedTickets.map((t: any) => t.shopId || t.placeId);
+    
+    // 3. ดึงข้อมูลร้านที่เคยไปเพื่อหาหมวดหมู่
     const bookedShops = allPlaces.filter((p: any) => bookedShopIds.includes(p.id));
     
-    // 🌟 เปลี่ยนจากเก็บ tags เป็นเก็บ category ร้านที่เคยไป
+    // 4. เก็บหมวดหมู่ร้านที่เคยไปแบบไม่ซ้ำกัน
     const favoriteCategories = new Set<string>();
     bookedShops.forEach((shop: any) => {
       if (shop.category) favoriteCategories.add(shop.category);
     });
 
-    // เลือกร้านที่หมวดหมู่ตรงกับที่เคยไป แต่ยังไม่เคยไปสาขานั้น
+    // 5. เลือกร้านที่หมวดหมู่ตรงกับที่เคยไป แต่ยังไม่เคยไปสาขานั้น
     let recommended = allPlaces.filter((p: any) => {
       if (bookedShopIds.includes(p.id)) return false; 
       return favoriteCategories.has(p.category); 
     });
 
+    // 6. ถ้าไม่มีร้านแนะนำเลย ให้แสดงร้านที่ระบบตั้งให้เป็นร้านแนะนำ (isRecommended)
     if (recommended.length === 0) {
       recommended = allPlaces.filter((p: any) => p.isRecommended && !bookedShopIds.includes(p.id));
+    }
+
+    // 7. ถ้ายังไม่มีอีก ให้ดึงร้านที่ยังไม่เคยไปมาแสดงแทน จะได้ไม่เกิดหน้าจอว่าง
+    if (recommended.length === 0) {
+      recommended = allPlaces.filter((p: any) => !bookedShopIds.includes(p.id)).slice(0, 5);
     }
 
     return recommended;
@@ -57,10 +71,10 @@ export default function SmartFeedPage() {
         <Text style={styles.placeName}>{place.name}</Text>
         <View style={styles.infoRow}>
           <MapPin size={14} color="#6FA4A1" style={{ marginRight: 4 }} />
-          <Text style={styles.distanceText}>{place.distance}</Text>
+          <Text style={styles.distanceText}>{place.distance || 'ไม่ระบุระยะทาง'}</Text>
         </View>
         <View style={styles.tagsRow}>
-          {/* 🌟 แสดง Category ร้านตรงๆ */}
+          {/* แสดง Category ร้านตรงๆ */}
           {place.category && <Text style={styles.tagText}>{place.category}</Text>}
         </View>
       </View>
