@@ -1,40 +1,45 @@
-import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Image, Platform, StatusBar, ScrollView } from 'react-native';
+import React, { useMemo, useEffect } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Image, Platform, StatusBar, ScrollView, ActivityIndicator } from 'react-native';
 import { ArrowLeft, Calendar, Clock, Users, Store } from 'lucide-react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useAppSelector } from '../../redux/useRedux';
+import { useAppSelector, useAppDispatch } from '../../redux/useRedux';
+import { fetchTicketsAsync } from '../../redux/slices/queueSlice';
 import { Place, Ticket } from '../../types';
 
 interface LocalRootState {
-  queue: { tickets: Ticket[] | { data: Ticket[] } };
-  places: { places: Place[] | { data: Place[] } };
+  queue: { tickets: Ticket[]; isLoading: boolean };
+  places: { places: Place[] };
 }
 
 export default function BookingConfirm() {
   const router = useRouter();
+  const dispatch = useAppDispatch();
   const { ticketId } = useLocalSearchParams();
 
-  const queueState = useAppSelector((state: LocalRootState) => state.queue);
+  const queueState = useAppSelector((state: any) => state.queue);
+  const isLoading = queueState.isLoading;
   const rawTickets = queueState?.tickets || [];
   const allTickets: Ticket[] = Array.isArray(rawTickets) ? rawTickets : (rawTickets as any).data || [];
 
-  const placesState = useAppSelector((state: LocalRootState) => state.places);
-  const rawPlaces = placesState?.places || [];
-  const allPlaces: Place[] = Array.isArray(rawPlaces) ? rawPlaces : (rawPlaces as any).data || [];
+  const allPlaces: Place[] = useAppSelector((state: any) => state.places.places);
 
-  const ticket = useMemo(() => allTickets.find((t: Ticket) => String(t.id) === String(ticketId)), [allTickets, ticketId]);
-  const place = useMemo(() => allPlaces.find((p: Place) => String(p.id) === String(ticket?.shopId)), [allPlaces, ticket?.shopId]);
+  const ticket = useMemo(() => 
+    allTickets.find((t: Ticket) => String(t.id).trim() === String(ticketId).trim()), 
+    [allTickets, ticketId]
+  );
+  const place = useMemo(() => 
+    allPlaces.find((p: Place) => String(p.id) === String(ticket?.placeId || ticket?.shopId)), 
+    [allPlaces, ticket]
+  );
 
-  if (!ticket || !place) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.header}><TouchableOpacity onPress={() => router.replace('/(tabs)/Home')}><ArrowLeft size={24} color="#1F2937" /></TouchableOpacity></View>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}><Text style={{ color: '#718096' }}>ไม่พบข้อมูลการจอง</Text></View>
-      </SafeAreaView>
-    );
-  }
+  useEffect(() => {
+    if (!ticket) {
+      dispatch(fetchTicketsAsync());
+    }
+  }, [ticket, dispatch]);
 
   const formatThaiDate = (dateString: string) => {
+    if (!dateString) return "-";
     try {
       const date = new Date(dateString);
       return date.toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -43,10 +48,41 @@ export default function BookingConfirm() {
     }
   };
 
+  if (isLoading && !ticket) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color="#6FA4A1" />
+          <Text style={{ marginTop: 10, color: '#718096' }}>กำลังตรวจสอบคิวของคุณ...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!ticket || !place) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.replace('/(tabs)/Home')}>
+            <ArrowLeft size={24} color="#1F2937" />
+          </TouchableOpacity>
+        </View>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 }}>
+          <Text style={{ color: '#718096', textAlign: 'center' }}>ไม่พบข้อมูลการจอง ID: {ticketId}</Text>
+          <TouchableOpacity style={{ marginTop: 20 }} onPress={() => router.replace('/(tabs)/Home')}>
+            <Text style={{ color: '#6FA4A1', fontWeight: 'bold' }}>กลับหน้าหลัก</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.replace('/(tabs)/Home')} style={styles.backBtn}><ArrowLeft size={24} color="#1F2937" /></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.replace('/(tabs)/Home')} style={styles.backBtn}>
+          <ArrowLeft size={24} color="#1F2937" />
+        </TouchableOpacity>
         <Text style={styles.headerTitle}>รายละเอียดคิว</Text>
         <View style={{ width: 40 }} />
       </View>
@@ -63,7 +99,6 @@ export default function BookingConfirm() {
 
           <Text style={styles.queueLabel}>Booking ID ของคุณ</Text>
           <View style={styles.queueNumberWrapper}>
-            {/* 🌟 ปรับขนาดฟอนต์ให้เล็กลงนิดนึง เพื่อให้โชว์ ID แบบเต็มๆ ได้ และใส่ adjustsFontSizeToFit กันล้นจอ */}
             <Text style={styles.queueNumber} numberOfLines={1} adjustsFontSizeToFit>
               {ticket.id}
             </Text>
@@ -71,7 +106,9 @@ export default function BookingConfirm() {
           
           <View style={styles.statusBadge}>
             <View style={styles.dot} />
-            <Text style={styles.statusText}>{ticket.status === 'Waiting' ? 'กำลังรอคิว' : 'ยืนยันแล้ว'}</Text>
+            <Text style={styles.statusText}>
+              {ticket.status === 'Waiting' ? 'กำลังรอคิว' : 'ยืนยันการจองแล้ว'}
+            </Text>
           </View>
         </View>
 
@@ -106,11 +143,10 @@ export default function BookingConfirm() {
             <View style={styles.iconBg}><Users size={20} color="#6FA4A1" /></View>
             <View style={styles.detailTextWrapper}>
               <Text style={styles.detailLabel}>จำนวน</Text>
-              <Text style={styles.detailValue}>{ticket.guests} ท่าน ({ticket.tableType || 'ไม่ระบุประเภทโต๊ะ'})</Text>
+              <Text style={styles.detailValue}>{ticket.guests} ท่าน ({ticket.tableType || 'โต๊ะมาตรฐาน'})</Text>
             </View>
           </View>
         </View>
-
       </ScrollView>
 
       <View style={styles.bottomBar}>
@@ -136,7 +172,7 @@ const styles = StyleSheet.create({
   divider: { height: 1, width: '100%', backgroundColor: '#EDF2F7', marginVertical: 20, borderStyle: 'dashed' },
   queueLabel: { fontSize: 14, color: '#718096', fontWeight: '600', marginBottom: 12 },
   queueNumberWrapper: { width: '100%', alignItems: 'center', marginBottom: 16 },
-  queueNumber: { fontSize: 26, fontWeight: '900', color: '#6FA4A1', letterSpacing: 1, textAlign: 'center' },
+  queueNumber: { fontSize: 24, fontWeight: '900', color: '#6FA4A1', letterSpacing: 0.5, textAlign: 'center' },
   statusBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#E6FFFA', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#38B2AC', marginRight: 8 },
   statusText: { fontSize: 13, color: '#319795', fontWeight: '700' },
@@ -147,7 +183,7 @@ const styles = StyleSheet.create({
   detailTextWrapper: { flex: 1 },
   detailLabel: { fontSize: 13, color: '#718096', marginBottom: 2 },
   detailValue: { fontSize: 15, fontWeight: '700', color: '#2D3748' },
-  bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#FFFFFF', paddingHorizontal: 20, paddingTop: 16, paddingBottom: Platform.OS === 'ios' ? 32 : 20, borderTopWidth: 1, borderTopColor: '#EDF2F7', shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 10 },
-  homeBtn: { backgroundColor: '#F7FAFC', paddingVertical: 16, borderRadius: 16, alignItems: 'center', borderWidth: 1, borderColor: '#EDF2F7' },
-  homeBtnText: { color: '#4A5568', fontSize: 16, fontWeight: '800' },
+  bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#FFFFFF', paddingHorizontal: 20, paddingTop: 16, paddingBottom: Platform.OS === 'ios' ? 32 : 20, borderTopWidth: 1, borderTopColor: '#EDF2F7' },
+  homeBtn: { backgroundColor: '#344054', paddingVertical: 16, borderRadius: 16, alignItems: 'center' },
+  homeBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '800' },
 });

@@ -73,8 +73,19 @@ export class TicketService {
     if (error) throw new Error(error.message);
 
     const tableCode = this.get_table_code(tableType);
-    const runningNumber = ((count || 0) + 1).toString().padStart(3, '0');
-    return `${placeId.replace(/-/g, '')}${tableCode}-CM${runningNumber}`;
+
+    /* จุดที่แก้ไข: 
+      1. ลบเครื่องหมายขีด (-) ออก
+      2. ใช้ Regex ตัดเลข 0 ที่นำหน้าตัวเลขลำดับใน placeId (เช่น ASA001 -> ASA1)
+    */
+    const cleanPlaceId = placeId.replace(/-/g, '').replace(/([A-Z]+)0+/, '$1');
+    
+    /* จุดที่แก้ไข: 
+      ลบ .padStart(3, '0') ออกเพื่อให้แสดงเป็นเลขลำดับจริง (เช่น 1, 15)
+    */
+    const runningNumber = (count || 0) + 1;
+    
+    return `${cleanPlaceId}${tableCode}-CM${runningNumber}`;
   }
 
   async get_queue_status(ticketId: string) {
@@ -108,7 +119,6 @@ export class TicketService {
     const bookDate = data.bookDate;
     const tableCount = data.tableCount || 1;
 
-    // เช็คสต็อกโต๊ะด้วย capacity
     const { data: tableInfo } = await supabase
       .from('TableType')
       .select('capacity')
