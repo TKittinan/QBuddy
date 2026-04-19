@@ -14,8 +14,7 @@ export class TicketService {
       .from('Ticket')
       .select('*')
       .eq('placeId', placeId)
-      .order('createdAt', { ascending: true });
-    
+      .order('createdAt', { ascending: true }); 
     if (error) throw new Error(error.message);
     return data;
   }
