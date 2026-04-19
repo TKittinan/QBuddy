@@ -1,8 +1,9 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Image, SafeAreaView, Platform, StatusBar, FlatList, StyleSheet } from 'react-native';
 import { ArrowLeft, MessageSquare, MapPin, Sparkles } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useAppSelector } from '../../redux/useRedux';
+import * as Location from 'expo-location'; // นำเข้า Location
 
 export default function SmartFeedPage() {
   const router = useRouter();
@@ -16,38 +17,56 @@ export default function SmartFeedPage() {
   const rawTickets = queueState?.tickets?.data || queueState?.tickets || queueState?.allTickets?.data || queueState?.allTickets || [];
   const allTickets = Array.isArray(rawTickets) ? rawTickets : [];
 
+  const [userLocation, setUserLocation] = useState<Location.LocationObject | null>(null); // State เก็บตำแหน่งผู้ใช้
+
+  // ฟังก์ชันคำนวณระยะทาง (Haversine Formula)
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    if (!lat1 || !lon1 || !lat2 || !lon2) return null;
+    const R = 6371; // รัศมีโลกเป็นกิโลเมตร
+    const dLat = (lat2 - lat1) * (Math.PI / 180);
+    const dLon = (lon2 - lon1) * (Math.PI / 180);
+    const a = 
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return (R * c).toFixed(1);
+  };
+
+  useEffect(() => {
+    // ขอสิทธิ์และดึงตำแหน่งปัจจุบันของผู้ใช้
+    (async () => {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === 'granted') {
+        let location = await Location.getCurrentPositionAsync({});
+        setUserLocation(location);
+      }
+    })();
+  }, []);
+
   const aiRecommendedPlaces = useMemo(() => {
     if (!user) return [];
     
-    // 1. หารายการจองที่สำเร็จแล้วของ User คนนี้ (รองรับการเช็คทั้ง userId และ name)
     const completedTickets = allTickets.filter(
       (t: any) => (t.userId === user.id || t.name === user.name) && (t.status === 'Completed' || t.status === 'COMPLETED')
     );
     
-    // 2. ดึง ID ร้านที่เคยไป (รองรับทั้ง shopId และ placeId)
     const bookedShopIds = completedTickets.map((t: any) => t.shopId || t.placeId);
-    
-    // 3. ดึงข้อมูลร้านที่เคยไปเพื่อหาหมวดหมู่
     const bookedShops = allPlaces.filter((p: any) => bookedShopIds.includes(p.id));
     
-    // 4. เก็บหมวดหมู่ร้านที่เคยไปแบบไม่ซ้ำกัน
     const favoriteCategories = new Set<string>();
     bookedShops.forEach((shop: any) => {
       if (shop.category) favoriteCategories.add(shop.category);
     });
 
-    // 5. เลือกร้านที่หมวดหมู่ตรงกับที่เคยไป แต่ยังไม่เคยไปสาขานั้น
     let recommended = allPlaces.filter((p: any) => {
       if (bookedShopIds.includes(p.id)) return false; 
       return favoriteCategories.has(p.category); 
     });
 
-    // 6. ถ้าไม่มีร้านแนะนำเลย ให้แสดงร้านที่ระบบตั้งให้เป็นร้านแนะนำ (isRecommended)
     if (recommended.length === 0) {
       recommended = allPlaces.filter((p: any) => p.isRecommended && !bookedShopIds.includes(p.id));
     }
 
-    // 7. ถ้ายังไม่มีอีก ให้ดึงร้านที่ยังไม่เคยไปมาแสดงแทน จะได้ไม่เกิดหน้าจอว่าง
     if (recommended.length === 0) {
       recommended = allPlaces.filter((p: any) => !bookedShopIds.includes(p.id)).slice(0, 5);
     }
@@ -62,24 +81,30 @@ export default function SmartFeedPage() {
     });
   };
 
-  const renderPlaceCard = ({ item: place }: { item: any }) => (
-    <TouchableOpacity style={styles.card} activeOpacity={0.9} onPress={() => handleViewDetail(place.id)}>
-      <View style={styles.imageWrapper}>
-        <Image source={{ uri: place.image || place.logoUrl }} style={styles.cardImage} />
-      </View>
-      <View style={styles.cardContent}>
-        <Text style={styles.placeName}>{place.name}</Text>
-        <View style={styles.infoRow}>
-          <MapPin size={14} color="#6FA4A1" style={{ marginRight: 4 }} />
-          <Text style={styles.distanceText}>{place.distance || 'ไม่ระบุระยะทาง'}</Text>
+  const renderPlaceCard = ({ item: place }: { item: any }) => {
+    // คำนวณระยะทางโดยใช้ lat และ lng ตามไฟล์ types ของคุณ
+    const dist = userLocation && place.lat && place.lng
+      ? `${calculateDistance(userLocation.coords.latitude, userLocation.coords.longitude, parseFloat(place.lat), parseFloat(place.lng))} กม.`
+      : 'ไม่ทราบระยะทาง';
+
+    return (
+      <TouchableOpacity style={styles.card} activeOpacity={0.9} onPress={() => handleViewDetail(place.id)}>
+        <View style={styles.imageWrapper}>
+          <Image source={{ uri: place.image || place.logoUrl }} style={styles.cardImage} />
         </View>
-        <View style={styles.tagsRow}>
-          {/* แสดง Category ร้านตรงๆ */}
-          {place.category && <Text style={styles.tagText}>{place.category}</Text>}
+        <View style={styles.cardContent}>
+          <Text style={styles.placeName}>{place.name}</Text>
+          <View style={styles.infoRow}>
+            <MapPin size={14} color="#6FA4A1" style={{ marginRight: 4 }} />
+            <Text style={styles.distanceText}>{dist}</Text>
+          </View>
+          <View style={styles.tagsRow}>
+            {place.category && <Text style={styles.tagText}>{place.category}</Text>}
+          </View>
         </View>
-      </View>
-    </TouchableOpacity>
-  );
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>

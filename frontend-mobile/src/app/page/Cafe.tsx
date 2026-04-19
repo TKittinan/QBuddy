@@ -7,6 +7,7 @@ import { CategoryChips } from '../../components/ui/CategoryChips';
 import { fetchPlacesAsync } from '../../redux/slices/placeSlice';
 import { Card } from '../../components/ui/Card';
 import { Place } from '../../types';
+import * as Location from 'expo-location'; // เพิ่มการนำเข้า Location
 
 interface LocalRootState { places: { places: Place[] | { data: Place[] } }; }
 
@@ -20,10 +21,33 @@ export default function Cafe() {
   const [displayedCount, setDisplayedCount] = useState(10); 
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  
+  const [userLocation, setUserLocation] = useState<Location.LocationObject | null>(null); // State เก็บตำแหน่งผู้ใช้
+
   const FILTER_TAGS = ['ร้านอาหาร', 'คาเฟ่', 'เสริมสวยอื่นๆ', 'ยอดฮิต'];
 
+  // ฟังก์ชันคำนวณระยะทาง
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    if (!lat1 || !lon1 || !lat2 || !lon2) return null;
+    const R = 6371;
+    const dLat = (lat2 - lat1) * (Math.PI / 180);
+    const dLon = (lon2 - lon1) * (Math.PI / 180);
+    const a = 
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return (R * c).toFixed(1);
+  };
+
   useEffect(() => {
+    // ขอสิทธิ์และดึงตำแหน่งปัจจุบัน
+    (async () => {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === 'granted') {
+        let location = await Location.getCurrentPositionAsync({});
+        setUserLocation(location);
+      }
+    })();
+
     if (allPlaces.length === 0) dispatch(fetchPlacesAsync());
   }, [dispatch, allPlaces.length]);
 
@@ -88,9 +112,23 @@ export default function Cafe() {
         data={displayedPlaces}
         keyExtractor={(item: Place) => item.id}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#6FA4A1']} tintColor="#6FA4A1" />}
-        renderItem={({ item }) => (
-          <Card place={item} title={item.name} location={item.branch} distance={typeof item.distance === 'number' ? `${item.distance} กม.` : item.distance} category={item.category} onPress={() => router.push({ pathname: '/page/PlaceDetail', params: { id: item.id } })} />
-        )}
+        renderItem={({ item }) => {
+          // คำนวณระยะทาง พร้อมใช้ Type Assertion (as any) เพื่อป้องกัน Error TypeScript
+          const dist = userLocation && (item as any).latitude && (item as any).longitude
+            ? `${calculateDistance(userLocation.coords.latitude, userLocation.coords.longitude, parseFloat((item as any).latitude), parseFloat((item as any).longitude))} กม.`
+            : "ไม่ทราบระยะทาง";
+
+          return (
+            <Card 
+              place={item} 
+              title={item.name} 
+              location={item.branch} 
+              distance={dist} 
+              category={item.category} 
+              onPress={() => router.push({ pathname: '/page/PlaceDetail', params: { id: item.id } })} 
+            />
+          );
+        }}
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={<Text style={styles.emptyText}>ไม่พบข้อมูลในหมวดหมู่นี้</Text>}

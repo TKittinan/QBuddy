@@ -7,6 +7,7 @@ import { CategoryChips } from '../../components/ui/CategoryChips';
 import { fetchPlacesAsync } from '../../redux/slices/placeSlice';
 import { Card } from '../../components/ui/Card';
 import { Place } from '../../types';
+import * as Location from 'expo-location'; //  เพิ่มการนำเข้า Location
 
 interface LocalRootState { places: { places: Place[] | { data: Place[] } }; }
 
@@ -20,10 +21,33 @@ export default function Restaurant() {
   const [displayedCount, setDisplayedCount] = useState(10); 
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  
+  const [userLocation, setUserLocation] = useState<Location.LocationObject | null>(null); //  State เก็บตำแหน่งผู้ใช้
+
   const FILTER_TAGS = ['ร้านอาหาร', 'คาเฟ่', 'เสริมสวยอื่นๆ', 'ยอดฮิต'];
 
+  //  ฟังก์ชันคำนวณระยะทาง
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    if (!lat1 || !lon1 || !lat2 || !lon2) return null;
+    const R = 6371;
+    const dLat = (lat2 - lat1) * (Math.PI / 180);
+    const dLon = (lon2 - lon1) * (Math.PI / 180);
+    const a = 
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return (R * c).toFixed(1);
+  };
+
   useEffect(() => {
+    //  ขอสิทธิ์และดึงตำแหน่งปัจจุบันของผู้ใช้
+    (async () => {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === 'granted') {
+        let location = await Location.getCurrentPositionAsync({});
+        setUserLocation(location);
+      }
+    })();
+
     if (allPlaces.length === 0) {
       dispatch(fetchPlacesAsync());
     }
@@ -90,9 +114,23 @@ export default function Restaurant() {
         data={displayedPlaces}
         keyExtractor={(item: Place) => item.id}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#6FA4A1']} tintColor="#6FA4A1" />}
-        renderItem={({ item }) => (
-          <Card place={item} title={item.name} location={item.branch} distance={typeof item.distance === 'number' ? `${item.distance} กม.` : item.distance} category={item.category} onPress={() => router.push({ pathname: '/page/PlaceDetail', params: { id: item.id } })} />
-        )}
+        renderItem={({ item }) => {
+          //  คำนวณระยะทางสำหรับร้านนี้
+          const dist = userLocation && item.lat && item.lng
+            ? `${calculateDistance(userLocation.coords.latitude, userLocation.coords.longitude, parseFloat(item.lat as any), parseFloat(item.lng as any))} กม.`
+            : "ไม่ทราบระยะทาง";
+
+          return (
+            <Card 
+              place={item} 
+              title={item.name} 
+              location={item.branch} 
+              distance={dist} //  ส่งระยะทางที่คำนวณได้จริงไปที่ Card
+              category={item.category} 
+              onPress={() => router.push({ pathname: '/page/PlaceDetail', params: { id: item.id } })} 
+            />
+          );
+        }}
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={<Text style={styles.emptyText}>ไม่พบข้อมูลในหมวดหมู่นี้</Text>}
@@ -109,7 +147,6 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 16, paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 16 : 16, backgroundColor: '#FFFFFF' },
   headerTitle: { fontSize: 18, fontWeight: '800', color: '#1F2937' },
   searchPadding: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 10, backgroundColor: '#FFFFFF' },
-  // 🌟 ปรับกรอบ Search Bar ให้มนขึ้นและดูสะอาดตาเหมือนหน้า Trending
   searchMinimalWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', paddingHorizontal: 16, borderRadius: 16, height: 48, borderWidth: 1, borderColor: '#EDF2F7' }, 
   searchInput: { flex: 1, marginLeft: 10, fontSize: 14, color: '#2D3748', height: '100%' },
   listContainer: { paddingHorizontal: 20, paddingBottom: 40, paddingTop: 10 },
