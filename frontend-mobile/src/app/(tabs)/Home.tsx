@@ -11,7 +11,7 @@ import { Input } from '../../components/ui/Input';
 import { useAppSelector, useAppDispatch } from '../../redux/useRedux';
 
 import { fetchSavedPlacesAsync } from '../../redux/slices/savedPlacesSlice';
-import { fetchWeeklyTrendingAsync } from '../../redux/slices/placeSlice'; // 🌟 ใช้ Weekly
+import { fetchWeeklyTrendingAsync } from '../../redux/slices/placeSlice'; // ใช้ Weekly
 
 export default function HomePage() {
   const router = useRouter();
@@ -21,7 +21,7 @@ export default function HomePage() {
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // 🌟 ดึงข้อมูลฮิตประจำสัปดาห์ (Weekly) แล้วหั่นเอาแค่ 5 อันดับแรก
+  // ดึงข้อมูลฮิตประจำสัปดาห์ (Weekly) แล้วหั่นเอาแค่ 5 อันดับแรก
   const weeklyTrending = useAppSelector((state: any) => state.places?.weeklyTrending || []);
   const top5Places = weeklyTrending.slice(0, 5);
 
@@ -35,7 +35,7 @@ export default function HomePage() {
           if (user?.id) {
             dispatch(fetchSavedPlacesAsync(user.id));
           }
-          // 🌟 สั่งดึงข้อมูลประจำสัปดาห์
+          // สั่งดึงข้อมูลประจำสัปดาห์
           dispatch(fetchWeeklyTrendingAsync());
         } catch (error) {
           console.error("Failed to load home data", error);
@@ -55,6 +55,9 @@ export default function HomePage() {
     }
   };
 
+  // จุดที่เพิ่ม: เช็ครูปจาก Redux (อัปเดตแบบ Real-time) ก่อน ถ้าไม่มีค่อยใช้รูปจาก Storage หรือรูป Default
+  const displayAvatar = user?.avatarUrl || avatarUri || 'https://i.pravatar.cc/150?u=a042581f4e29026024d';
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <View style={styles.headerContainer}>
@@ -64,7 +67,8 @@ export default function HomePage() {
             <Text style={styles.userName}>สวัสดี คุณ {user?.name || 'User'}</Text>
           </View>
           <View style={styles.profileWrapper}>
-            <Image source={{ uri: avatarUri || 'https://i.pravatar.cc/150?u=a042581f4e29026024d' }} style={styles.profileImg} />
+            {/* 🌟 ใช้ displayAvatar ที่เราเช็คไว้แล้ว */}
+            <Image source={{ uri: displayAvatar }} style={styles.profileImg} />
             <View style={styles.onlineStatus} />
           </View>
         </View>
@@ -93,7 +97,7 @@ export default function HomePage() {
             </TouchableOpacity>
           </View>
           
-          {/* 🌟 แสดง 5 อันดับร้านฮิตประจำสัปดาห์ */}
+          {/* แสดง 5 อันดับร้านฮิตประจำสัปดาห์ */}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
             {top5Places.length > 0 ? (
               top5Places.map((place: any, index: number) => {
