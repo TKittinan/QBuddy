@@ -7,6 +7,7 @@ const party_controller = new PartyController();
 router.get('/', party_controller.list);
 router.post('/', party_controller.create);
 router.post('/join', party_controller.join);
+router.post('/confirm-guest', party_controller.confirm); 
 router.delete('/:id', party_controller.delete);
 
 export default router;
