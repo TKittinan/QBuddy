@@ -28,7 +28,7 @@ app.use('/api/support', support_routes);
 app.use('/api/settings', settings);
 app.use('/api/dashboard', dashboard_routes);
 
-app.use("/api/ai-chat", aiRoutes);
+app.use('/api/ai-chat', aiRoutes);
 
 app.use('/api/saved-places', savedPlaceRoutes);
 

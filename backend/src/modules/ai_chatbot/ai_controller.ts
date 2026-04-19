@@ -30,3 +30,13 @@ export const askAI = async (req: Request, res: Response) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+export const getHistory = async (req: Request, res: Response) => {
+  try {
+    // ตอนนี้เราส่ง Array ว่างๆ กลับไปก่อน เพื่อไม่ให้แอป Mobile พังตอนโหลดหน้าแรกค่ะ
+    // (ถ้าอนาคตต้าทำระบบบันทึกแชทลง Database ค่อยมาดึงข้อมูลตรงนี้ค่ะ)
+    res.json([]);
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+};
