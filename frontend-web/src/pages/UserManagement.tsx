@@ -53,7 +53,7 @@ export default function UserManagement() {
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'User' },
-        (payload) => {
+        () => {
           // เมื่อข้อมูลใน DB เปลี่ยน ให้ทำการ Fetch ข้อมูลใหม่เพื่ออัปเดตหน้าจอ
           dispatch(fetchUsers());
         }
@@ -73,10 +73,12 @@ export default function UserManagement() {
       };
 
       if (editingUser) {
+        // กรณีอัปเดตข้อมูล ไม่ต้องส่ง status ไปทับ
         await dispatch(updateUserAsync({ ...editingUser, ...payload })).unwrap();
         alert("อัปเดตข้อมูลผู้ใช้สำเร็จ!");
       } else {
-        await dispatch(addUserAsync(payload)).unwrap();
+        // กรณีเพิ่มผู้ใช้ใหม่ บังคับแนบ status เป็น INACTIVE ไปด้วย
+        await dispatch(addUserAsync({ ...payload, status: "INACTIVE" })).unwrap();
         alert("เพิ่มผู้ใช้สำเร็จ!");
       }
       

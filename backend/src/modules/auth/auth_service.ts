@@ -8,6 +8,8 @@ export class AuthService {
   async register(data: any) {
     const hashed_password = await bcrypt.hash(data.password, 10);
     
+    console.log("กำลังสร้าง User ใหม่ด้วยสถานะ: INACTIVE"); // ใส่ไว้เช็คใน Terminal
+
     const { data: newUser, error } = await supabase
       .from('User')
       .insert([{
@@ -16,7 +18,7 @@ export class AuthService {
         phone: data.phone,
         password: hashed_password,
         role: data.role || 'CUSTOMER',
-        status: 'INACTIVE'
+        status: 'INACTIVE' // บังคับส่งค่านี้ไปที่ Supabase เสมอ
       }])
       .select()
       .single();
@@ -45,7 +47,7 @@ export class AuthService {
       throw new Error('Email or password incorrect');
     }
 
-    // อัปเดตสถานะเป็น ACTIVE ใน Database เมื่อล็อกอินสำเร็จ
+    // เมื่อ Login สำเร็จค่อยเปลี่ยนเป็น ACTIVE
     const { error: updateError } = await supabase
       .from('User')
       .update({ status: 'ACTIVE' })
@@ -62,14 +64,11 @@ export class AuthService {
     );
 
     const { password, ...userWithoutPassword } = user;
-    
-    // คืนค่าสถานะใหม่กลับไปให้ Frontend ด้วย
     userWithoutPassword.status = 'ACTIVE';
 
     return { user: userWithoutPassword, token };
   }
 
-  // เพิ่มฟังก์ชัน Logout เพื่อเปลี่ยนสถานะกลับเป็น INACTIVE
   async logout(userId: string) {
     if (!userId) return;
 
@@ -99,7 +98,7 @@ export class AuthService {
     const expires = new Date();
     expires.setHours(expires.getHours() + 1);
 
-    const { error: updateError } = await supabase
+    await supabase
       .from('User')
       .update({
         resetPasswordToken: resetToken,
@@ -107,11 +106,8 @@ export class AuthService {
       })
       .eq('id', user.id);
 
-    if (updateError) throw new Error("Failed to set reset token");
-
-    const resetUrl = `http://localhost:3000/reset-password?token=${resetToken}`;
-    console.log(`Email sent to ${email} with link: ${resetUrl}`);
-    
-    // สามารถเพิ่ม logic การส่งอีเมลจริงได้ที่นี่
+    const resetUrl = `http://localhost:5173/reset-password?token=${resetToken}`;
+    console.log(`Reset link for ${email}: ${resetUrl}`);
+    // พร้อมสำหรับเชื่อมต่อระบบส่ง Email จริง
   }
 }

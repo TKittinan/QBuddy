@@ -6,7 +6,14 @@ const auth_service = new AuthService();
 export class AuthController {
   async register(req: Request, res: Response) {
     try {
-      const user = await auth_service.register(req.body);
+      const userData = {
+        ...req.body,
+        // ถ้าหน้าบ้านไม่ส่ง status มา หรือส่งมาเป็นค่าอื่น 
+        // เราจะบังคับให้เป็น INACTIVE สำหรับการลงทะเบียนใหม่
+        status: req.body.status || 'INACTIVE' 
+      };
+
+      const user = await auth_service.register(userData);
       res.status(201).json(user);
     } catch (error: any) {
       res.status(400).json({ message: error.message });
@@ -22,10 +29,8 @@ export class AuthController {
     }
   }
 
-  // เพิ่มฟังก์ชัน logout เพื่อส่งต่อ userId ไปยัง service สำหรับอัปเดตสถานะ
   async logout(req: Request, res: Response) {
     try {
-      // ดึง userId จาก middleware (ที่แนบมากับ req.user หลังตรวจสอบ Token)
       const userId = (req as any).user?.user_id;
 
       if (!userId) {
@@ -58,7 +63,6 @@ export class AuthController {
       const userId = (req as any).user?.user_id; 
       if (!userId) return res.status(401).json({ message: 'Unauthorized' });
       
-      // ส่วนนี้สามารถเรียกใช้ userService.getById(userId) เพื่อคืนค่าโปรไฟล์ล่าสุดได้
       res.json({ user_id: userId });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
