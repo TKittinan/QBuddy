@@ -30,11 +30,10 @@ export const sendAiMessageAsync = createAsyncThunk(
         }
       };
 
-      // ส่ง config พ่วงไปด้วยค่ะ
       const response = await axios.post(`${API_BASE_URL}/ai-chat`, { message }, config);
       return response.data; 
     } catch (error: any) {
-      // ดึงข้อความ Error จริงๆ จาก Backend มาโชว์ จะได้รู้ว่าพังเพราะอะไรค่ะ
+
       console.error("AI Error:", error.response?.data);
       return rejectWithValue(error.response?.data?.message || "AI failed to respond");
     }
