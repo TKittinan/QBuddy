@@ -26,7 +26,7 @@ export default function LoginPage() {
   const dispatch = useAppDispatch();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [apiError, setApiError] = useState<string | null>(null); 
+  const [apiError, setApiError] = useState('');
 
   const { control, handleSubmit, formState: { errors } } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -34,21 +34,17 @@ export default function LoginPage() {
   });
 
   const onLoginSubmit = async (data: LoginFormData) => {
+    setApiError('');
     setIsLoading(true);
-    setApiError(null);
-    
     try {
-      // ใช้ตัวแปร data ที่รับมาจาก Parameter ของฟังก์ชัน (ซึ่งก็คือ Email/Password ที่ยูสเซอร์กรอก)
-      const result = await dispatch(loginAsync(data)).unwrap();
+      // 🌟 ยิงไปที่ Backend จริงผ่าน Redux Async Thunk
+      const payload = {
+        email: data.emailOrPhone, 
+        password: data.password
+      };
       
-      // ตรวจสอบสถานะการยินยอม AI จากข้อมูล User ที่ Backend ส่งกลับมา
-      if (result.user.aiConsented) {
-        // ถ้าเคยยินยอมแล้ว (true) ให้ข้ามไปหน้า Home ทันที
-        router.replace('/(tabs)/Home');
-      } else {
-        // ถ้ายังไม่เคยยินยอม (false) ให้ส่งไปหน้า AIConsent ก่อน
-        router.replace('/(auth)/AIConsent');
-      }
+      await dispatch(loginAsync(payload)).unwrap();
+      // หากล็อคอินผ่าน Redux จะจัดการ State และ AsyncStorage ให้เอง เลย์เอาต์หลักจะพาข้ามหน้าให้
       
     } catch (error: any) {
       setApiError(error || 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ');
