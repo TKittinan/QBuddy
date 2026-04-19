@@ -210,21 +210,4 @@ export class AuthService {
 
     return updatedUser;
   }
-
-  async updateAiConsent(userId: string, consented: boolean) {
-    const { data: updatedUser, error } = await supabase
-      .from('User')
-      .update({ ai_consented: consented })
-      .eq('id', userId)
-      .select()
-      .single();
-  
-    if (error) throw new Error(`Failed to update consent: ${error.message}`);
-    
-    if (updatedUser && updatedUser.password) {
-      delete updatedUser.password;
-    }
-  
-    return updatedUser;
-  }
 }
