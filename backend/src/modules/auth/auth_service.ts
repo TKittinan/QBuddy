@@ -8,14 +8,12 @@ import { sendResetPasswordEmail } from '../../common/utils/email_service';
 export class AuthService {
   async register(data: any) {
     const hashed_password = await bcrypt.hash(data.password, 10);
-    
-    console.log("กำลังสร้าง User ใหม่ด้วยสถานะ: INACTIVE");
 
     const { data: newUser, error } = await supabase
       .from('User')
       .insert([{
         name: data.name,
-        email: data.email.toLowerCase(), // บังคับตัวเล็กเสมอ
+        email: data.email.toLowerCase(),
         phone: data.phone,
         password: hashed_password,
         role: data.role || 'CUSTOMER',
@@ -43,12 +41,6 @@ export class AuthService {
     }
 
     const { data: user, error } = await query.single();
-
-    console.log("--------------------------------------------------");
-    console.log("🔍 [LOGIN ATTEMPT] สิ่งที่ส่งมา:", data.email || data.phone);
-    console.log("🔍 [DB RESULT] หา User เจอไหม?:", user ? "เจอ!" : "ไม่เจอ!");
-    if (error) console.log("🔍 [DB ERROR]:", error.message, error.code);
-    console.log("--------------------------------------------------");
 
     if (error) {
       if (error.code === 'PGRST116') {
