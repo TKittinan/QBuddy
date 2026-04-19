@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Platform, Statu
 import { ArrowLeft, Search } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useAppSelector, useAppDispatch } from '../../redux/useRedux';
+import { CategoryChips } from '../../components/ui/CategoryChips';
 import { fetchPlacesAsync } from '../../redux/slices/placeSlice';
 import { Card } from '../../components/ui/Card';
 import { Place } from '../../types';
@@ -21,6 +22,7 @@ export default function Beauty() {
   const [displayedCount, setDisplayedCount] = useState(10); 
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const FILTER_TAGS = ['ร้านอาหาร', 'คาเฟ่', 'เสริมสวยอื่นๆ'];
 
   useEffect(() => {
     if (allPlaces.length === 0) {
@@ -34,9 +36,15 @@ export default function Beauty() {
     setRefreshing(false);
   }, [dispatch]);
 
+  const handleCategoryChange = (tag: string) => {
+    if (tag === activeCategoryTag) return;
+    if (tag === 'ร้านอาหาร') router.replace('/page/Restaurant');
+    else if (tag === 'คาเฟ่') router.replace('/page/Cafe');
+    else if (tag === 'เสริมสวยอื่นๆ') router.replace('/page/Beauty');
+  };
+
   const filteredPlaces = useMemo(() => {
     const basePlaces = allPlaces.filter((place: Place) => {
-      // 🌟 เช็ค Active เสมอ
       if (place.status?.toLowerCase() !== 'active') return false;
       if (!place.category) return false;
       const categoriesArray = place.category.split(',').map(c => c.trim());
@@ -89,6 +97,10 @@ export default function Beauty() {
         </View>
       </View>
 
+      <View style={{ paddingLeft: 20, paddingBottom: 10, backgroundColor: '#FFFFFF' }}>
+        <CategoryChips tags={FILTER_TAGS} activeTag={activeCategoryTag} onTagPress={handleCategoryChange} />
+      </View>
+
       <FlatList
         data={displayedPlaces}
         keyExtractor={(item: Place) => item.id}
@@ -97,12 +109,13 @@ export default function Beauty() {
         }
         renderItem={({ item }) => (
           <Card 
+            place={item}
             title={item.name} 
             imageUri={item.image} 
             location={item.branch} 
             distance={typeof item.distance === 'number' ? `${item.distance} กม.` : item.distance} 
             category={item.category} 
-            onPress={(id: string) => router.push({ pathname: '/page/PlaceDetail', params: { id } })}
+            onPress={() => router.push({ pathname: '/page/PlaceDetail', params: { id: item.id } })}
           />
         )}
         contentContainerStyle={styles.listContainer}
