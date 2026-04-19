@@ -8,16 +8,22 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AIChat } from '../../components/ui/AIChat';
 import { CategoryItem } from '../../components/ui/CategoryItem';
 import { Input } from '../../components/ui/Input';
-import { useAppSelector } from '../../redux/useRedux';
+import { useAppSelector, useAppDispatch } from '../../redux/useRedux';
+
+import { fetchSavedPlacesAsync } from '../../redux/slices/savedPlacesSlice';
+import { fetchWeeklyTrendingAsync } from '../../redux/slices/placeSlice'; // 🌟 ใช้ Weekly
 
 export default function HomePage() {
   const router = useRouter();
+  const dispatch = useAppDispatch();
   
-  // ลบ Mock ทิ้ง ดึง User จาก DB จริง
   const user = useAppSelector((state: any) => state.auth?.user);
-  
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // 🌟 ดึงข้อมูลฮิตประจำสัปดาห์ (Weekly) แล้วหั่นเอาแค่ 5 อันดับแรก
+  const weeklyTrending = useAppSelector((state: any) => state.places?.weeklyTrending || []);
+  const top5Places = weeklyTrending.slice(0, 5);
 
   useFocusEffect(
     useCallback(() => {
@@ -25,12 +31,18 @@ export default function HomePage() {
         try {
           const storedAvatar = await AsyncStorage.getItem('@user_avatar');
           if (storedAvatar) setAvatarUri(storedAvatar);
+          
+          if (user?.id) {
+            dispatch(fetchSavedPlacesAsync(user.id));
+          }
+          // 🌟 สั่งดึงข้อมูลประจำสัปดาห์
+          dispatch(fetchWeeklyTrendingAsync());
         } catch (error) {
           console.error("Failed to load home data", error);
         }
       };
       fetchHomeData();
-    }, [user?.id])
+    }, [user?.id, dispatch])
   );
 
   const handleSearchSubmit = () => {
@@ -38,7 +50,7 @@ export default function HomePage() {
       router.push({
         pathname: '/page/AIChat',
         params: { initialMessage: searchQuery }
-      });
+      } as any);
       setSearchQuery('');
     }
   };
@@ -76,21 +88,49 @@ export default function HomePage() {
               <Text style={styles.sectionTitle}>AI Recommendation</Text>
               <Sparkles size={18} color="#2D3748" />
             </View>
-            <TouchableOpacity onPress={() => router.push('/(tabs)/SmartFeed' as Href)}>
+            <TouchableOpacity onPress={() => router.push('/page/Trending' as any)}>
               <Text style={styles.seeAllText}>ดูทั้งหมด</Text>
             </TouchableOpacity>
           </View>
           
+          {/* 🌟 แสดง 5 อันดับร้านฮิตประจำสัปดาห์ */}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
-            <TouchableOpacity activeOpacity={0.9} onPress={() => router.push('/(tabs)/SmartFeed' as Href)}>
-              <AIChat
-                title="Copper Beyond Buffet" 
-                imageUri="https://images.unsplash.com/photo-1544025162-d76694265947?w=500" 
-                location="The Sense Pinklao" 
-                distance="0.8 กม." 
-                tags={['ร้านอาหาร', 'พรีเมียม']} 
-              />
-            </TouchableOpacity>
+            {top5Places.length > 0 ? (
+              top5Places.map((place: any, index: number) => {
+                let imgArray: string[] = [];
+                const parseString = (str: string | undefined) => {
+                  if (!str) return [];
+                  if (str.startsWith('[') && str.endsWith(']')) {
+                    try { return JSON.parse(str); } catch (e) { return [str]; }
+                  }
+                  if (str.includes(',')) return str.split(',').map((s: string) => s.trim());
+                  return [str];
+                };
+                if (place.coverUrl) imgArray = parseString(place.coverUrl);
+                if (imgArray.length === 0 && place.image) imgArray = parseString(place.image);
+                const displayImg = imgArray[0] || 'https://via.placeholder.com/400x200';
+                
+                const tags = place.category ? place.category.split(',').map((c: string) => c.trim()).slice(0, 2) : [];
+
+                return (
+                  <TouchableOpacity 
+                    key={place.id || index} 
+                    activeOpacity={0.9} 
+                    onPress={() => router.push({ pathname: '/page/PlaceDetail', params: { id: place.id } } as any)}
+                  >
+                    <AIChat
+                      title={place.name} 
+                      imageUri={displayImg} 
+                      location={place.branch || 'สาขาหลัก'} 
+                      distance={place.distance ? `${place.distance} กม.` : '-'} 
+                      tags={tags} 
+                    />
+                  </TouchableOpacity>
+                );
+              })
+            ) : (
+              <Text style={{ marginLeft: 20, color: '#718096' }}>กำลังวิเคราะห์ข้อมูลร้าน...</Text>
+            )}
           </ScrollView>
 
           <View style={styles.sectionHeader}>

@@ -62,6 +62,7 @@ export interface Ticket {
   tableType?: string | null;
   queuesAhead?: number;
   estimatedWaitTime?: number;
+  tableCount?: number;
 }
 
 export type ActivityStatus = "Open" | "Closed" | "Completed" | "Cancelled";

@@ -167,24 +167,23 @@ export class PlaceService {
       }
     });
 
-    // 4. เรียงลำดับร้านที่ถูกจองเยอะสุด 10 อันดับแรก
-    const top10ShopIds = Object.keys(shopCounts)
-      .sort((a, b) => shopCounts[b] - shopCounts[a])
-      .slice(0, 10);
+    // 4. เรียงลำดับร้านที่ถูกจองเยอะสุด (เอา .slice ออก เพื่อส่งไปทั้งหมด แล้วให้หน้าบ้านไปกรอง Sub-filter)
+    const topShopIds = Object.keys(shopCounts)
+      .sort((a, b) => shopCounts[b] - shopCounts[a]);
       
-    if (top10ShopIds.length === 0) return [];
+    if (topShopIds.length === 0) return [];
 
-    // 5. ดึงข้อมูลร้านค้าทั้ง 10 ร้าน (เฉพาะร้านที่ Active)
+    // 5. ดึงข้อมูลร้านค้า (เฉพาะร้านที่ Active)
     const { data: places, error: placeError } = await supabase
       .from('Place')
       .select('*')
-      .in('id', top10ShopIds)
+      .in('id', topShopIds)
       .eq('status', 'Active');
 
     if (placeError) throw new Error(placeError.message);
 
     // 6. ประกอบร่างข้อมูลร้าน + ยอดจองรายสัปดาห์ แล้วเรียงลำดับให้ถูกต้องตามยอดจอง
-    const trendingPlaces = top10ShopIds.map(id => {
+    const trendingPlaces = topShopIds.map(id => {
       const place = places?.find(p => p.id === id);
       if (place) {
         // แปะ weeklyBookings เข้าไปใน Object ด้วย

@@ -21,11 +21,12 @@ export default function Restaurant() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   
-  // 🌟 เพิ่มยอดฮิตเข้าไป
-  const FILTER_TAGS = ['ยอดฮิต', 'ร้านอาหาร', 'คาเฟ่', 'เสริมสวยอื่นๆ'];
+  const FILTER_TAGS = ['ร้านอาหาร', 'คาเฟ่', 'เสริมสวยอื่นๆ', 'ยอดฮิต'];
 
   useEffect(() => {
-    if (allPlaces.length === 0) dispatch(fetchPlacesAsync());
+    if (allPlaces.length === 0) {
+      dispatch(fetchPlacesAsync());
+    }
   }, [dispatch, allPlaces.length]);
 
   const onRefresh = useCallback(async () => {
@@ -34,7 +35,6 @@ export default function Restaurant() {
     setRefreshing(false);
   }, [dispatch]);
 
-  // 🌟 เชื่อมระบบนำทางไปหน้าอื่นๆ
   const handleCategoryChange = (tag: string) => {
     if (tag === activeCategoryTag) return;
     if (tag === 'ยอดฮิต') router.replace('/page/Trending');
@@ -82,8 +82,7 @@ export default function Restaurant() {
         </View>
       </View>
 
-      <View style={{ paddingLeft: 20, paddingBottom: 10, backgroundColor: '#FFFFFF' }}>
-        {/* 🌟 ใช้งาน CategoryChips พร้อมสั่งโชว์ไอคอนไฟที่ ยอดฮิต */}
+      <View style={{ backgroundColor: '#FFFFFF' }}>
         <CategoryChips tags={FILTER_TAGS} activeTag={activeCategoryTag} onTagPress={handleCategoryChange} showFlameOn="ยอดฮิต" />
       </View>
 
@@ -110,7 +109,8 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 16, paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 16 : 16, backgroundColor: '#FFFFFF' },
   headerTitle: { fontSize: 18, fontWeight: '800', color: '#1F2937' },
   searchPadding: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 10, backgroundColor: '#FFFFFF' },
-  searchMinimalWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F7FAFC', paddingHorizontal: 16, borderRadius: 24, height: 48 }, 
+  // 🌟 ปรับกรอบ Search Bar ให้มนขึ้นและดูสะอาดตาเหมือนหน้า Trending
+  searchMinimalWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', paddingHorizontal: 16, borderRadius: 16, height: 48, borderWidth: 1, borderColor: '#EDF2F7' }, 
   searchInput: { flex: 1, marginLeft: 10, fontSize: 14, color: '#2D3748', height: '100%' },
   listContainer: { paddingHorizontal: 20, paddingBottom: 40, paddingTop: 10 },
   emptyText: { textAlign: 'center', color: '#A0AEC0', marginTop: 40, fontSize: 14 }

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react'; 
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Platform, StatusBar, FlatList, ActivityIndicator, TextInput, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Platform, StatusBar, FlatList, ActivityIndicator, TextInput, RefreshControl, ScrollView } from 'react-native';
 import { ArrowLeft, Search } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
@@ -13,8 +13,6 @@ import { Place } from '../../types';
 export default function Trending() {
   const router = useRouter();
   const dispatch = useAppDispatch();
-  
-  // 🌟 กำหนดหน้าปัจจุบัน
   const activeCategoryTag = 'ยอดฮิต'; 
   
   const placesState = useAppSelector((state: any) => state.places);
@@ -25,9 +23,11 @@ export default function Trending() {
   const [displayedCount, setDisplayedCount] = useState(10); 
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  
+  const FILTER_TAGS = ['ร้านอาหาร', 'คาเฟ่', 'เสริมสวยอื่นๆ', 'ยอดฮิต'];
 
-  // 🌟 เพิ่ม "ยอดฮิต" เข้าไปในลิสต์
-  const FILTER_TAGS = ['ยอดฮิต', 'ร้านอาหาร', 'คาเฟ่', 'เสริมสวยอื่นๆ'];
+  const [subFilter, setSubFilter] = useState('ทั้งหมด');
+  const SUB_FILTERS = ['ทั้งหมด', 'ร้านอาหาร', 'คาเฟ่', 'เสริมสวยอื่นๆ'];
 
   useEffect(() => {
     if (allPlaces.length === 0) {
@@ -41,7 +41,6 @@ export default function Trending() {
     setRefreshing(false);
   }, [dispatch]);
 
-  // 🌟 ฟังก์ชันสลับหน้าเมื่อกดชิป
   const handleCategoryChange = (tag: string) => {
     if (tag === activeCategoryTag) return;
     if (tag === 'ยอดฮิต') router.replace('/page/Trending');
@@ -52,16 +51,25 @@ export default function Trending() {
 
   const processedPlaces = useMemo(() => {
     let result = [...allPlaces];
+    
+    if (subFilter !== 'ทั้งหมด') {
+      result = result.filter((place: Place) => 
+        place.category && place.category.includes(subFilter)
+      );
+    }
+
     if (searchQuery) {
       result = result.filter((place: Place) => 
         place.name.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
+    
+    result.sort((a, b) => (b.weeklyBookings || 0) - (a.weeklyBookings || 0));
     return result;
-  }, [allPlaces, searchQuery]);
+  }, [allPlaces, searchQuery, subFilter]);
 
   const displayedPlaces = useMemo(() => {
-    return processedPlaces.slice(0, displayedCount);
+    return processedPlaces.slice(0, displayedCount); 
   }, [processedPlaces, displayedCount]);
 
   const loadMorePlaces = useCallback(() => {
@@ -80,34 +88,54 @@ export default function Trending() {
         <TouchableOpacity onPress={() => router.back()} style={{ padding: 4 }}>
           <ArrowLeft size={24} color="#1F2937" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>ยอดฮิต 🚀</Text>
+        <Text style={styles.headerTitle}>{activeCategoryTag}</Text>
         <View style={{ width: 24 }} /> 
       </View>
 
       <View style={styles.searchPadding}>
         <View style={styles.searchMinimalWrapper}>
-          <Search size={18} color="#DD6B20" />
+          <Search size={18} color="#A0AEC0" />
           <TextInput 
             style={styles.searchInput}
-            placeholder="ค้นหาร้านยอดฮิต..."
-            placeholderTextColor="#FBD38D"
+            placeholder={`ค้นหา${activeCategoryTag}...`}
+            placeholderTextColor="#A0AEC0"
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
         </View>
       </View>
 
-      <View style={{ paddingLeft: 20, paddingBottom: 16, backgroundColor: '#FFFFFF' }}>
-        {/* 🌟 ใช้งาน CategoryChips พร้อมสั่งโชว์ไอคอนไฟที่ ยอดฮิต */}
+      <View style={{ backgroundColor: '#FFFFFF' }}>
         <CategoryChips tags={FILTER_TAGS} activeTag={activeCategoryTag} onTagPress={handleCategoryChange} showFlameOn="ยอดฮิต" />
+      </View>
+
+      <View style={{ backgroundColor: '#FFFFFF', paddingBottom: 16 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 10 }}>
+          {SUB_FILTERS.map(tag => (
+            <TouchableOpacity
+              key={tag}
+              onPress={() => setSubFilter(tag)}
+              style={{
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+                borderRadius: 20,
+                backgroundColor: subFilter === tag ? '#2D3748' : '#F8FAFC',
+                borderWidth: 1,
+                borderColor: subFilter === tag ? '#2D3748' : '#EDF2F7',
+              }}
+            >
+              <Text style={{ color: subFilter === tag ? '#FFFFFF' : '#718096', fontSize: 13, fontWeight: '700' }}>
+                {tag}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       </View>
 
       <FlatList
         data={displayedPlaces}
         keyExtractor={(item: Place) => item.id}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#DD6B20']} tintColor="#DD6B20" />
-        }
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#D69E2E']} tintColor="#D69E2E" />}
         renderItem={({ item, index }) => (
           <View style={{ position: 'relative' }}>
             <Card 
@@ -128,16 +156,16 @@ export default function Trending() {
         )}
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
-        ListEmptyComponent={<Text style={styles.emptyText}>ยังไม่มีข้อมูลการจองในสัปดาห์นี้</Text>}
+        ListEmptyComponent={<Text style={styles.emptyText}>ยังไม่มีข้อมูลการจองในหมวดหมู่นี้</Text>}
         onEndReached={loadMorePlaces}
         onEndReachedThreshold={0.5}
         ListHeaderComponent={
           <View style={styles.listHeader}>
-            <Text style={styles.listTitle}>Top 10 ร้านฮิตสัปดาห์นี้!</Text>
+            <Text style={styles.listTitle}>Top 10 {subFilter === 'ทั้งหมด' ? 'สัปดาห์นี้' : subFilter}</Text>
             <Text style={styles.listSubtitle}>จัดอันดับจากยอดการจองสูงสุดในรอบ 7 วันล่าสุด</Text>
           </View>
         }
-        ListFooterComponent={() => loadingMore ? <ActivityIndicator size="large" color="#DD6B20" style={{ marginVertical: 20 }} /> : null}
+        ListFooterComponent={() => loadingMore ? <ActivityIndicator size="large" color="#D69E2E" style={{ marginVertical: 20 }} /> : null}
       />
     </SafeAreaView>
   );
@@ -146,15 +174,15 @@ export default function Trending() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#FFFFFF' },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 16, paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 16 : 16, backgroundColor: '#FFFFFF' },
-  headerTitle: { fontSize: 18, fontWeight: '900', color: '#DD6B20' }, 
+  headerTitle: { fontSize: 18, fontWeight: '800', color: '#1F2937' }, 
   searchPadding: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 10, backgroundColor: '#FFFFFF' },
-  searchMinimalWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF7ED', paddingHorizontal: 16, borderRadius: 24, height: 48, borderWidth: 1, borderColor: '#FEEBC8' }, 
-  searchInput: { flex: 1, fontSize: 15, color: '#DD6B20', marginLeft: 8, height: '100%' },
+  searchMinimalWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', paddingHorizontal: 16, borderRadius: 16, height: 48, borderWidth: 1, borderColor: '#EDF2F7' }, 
+  searchInput: { flex: 1, fontSize: 14, color: '#2D3748', marginLeft: 10, height: '100%' },
   listHeader: { marginBottom: 20 },
   listTitle: { fontSize: 20, fontWeight: '900', color: '#2D3748', marginBottom: 4 },
   listSubtitle: { fontSize: 13, color: '#718096' },
   listContainer: { paddingHorizontal: 20, paddingBottom: 40, paddingTop: 10 },
   emptyText: { textAlign: 'center', color: '#A0AEC0', marginTop: 40, fontSize: 14 },
-  rankBadge: { position: 'absolute', top: -10, left: -10, backgroundColor: '#DD6B20', width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: '#FFFFFF', zIndex: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
+  rankBadge: { position: 'absolute', top: -10, left: -10, backgroundColor: '#D69E2E', width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: '#FFFFFF', zIndex: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
   rankText: { color: '#FFFFFF', fontSize: 14, fontWeight: '900' }
 });

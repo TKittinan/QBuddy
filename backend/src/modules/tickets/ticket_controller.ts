@@ -22,7 +22,6 @@ export class TicketController {
     }
   }
 
-  // 🌟 จุดที่แก้ไข: เปลี่ยนมาใช้ update_ticket เพื่ออัปเดตข้อมูลทั้งหมด (ไม่ใช่แค่ Status)
   async update(req: Request, res: Response) {
     try {
       const updated_ticket = await ticket_service.update_ticket(req.params.id as string, req.body);
@@ -56,6 +55,30 @@ export class TicketController {
       res.json(statusData);
     } catch (error: any) {
       res.status(404).json({ message: error.message });
+    }
+  }
+
+  async get_booked_slots(req: Request, res: Response) {
+    try {
+      const { shopId, date } = req.query;
+      if (!shopId || !date) return res.status(400).json({ message: 'Missing shopId or date' });
+      
+      const bookedData = await ticket_service.get_booked_slots(shopId as string, date as string);
+      res.json(bookedData);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  }
+
+  async get_active_bookings(req: Request, res: Response) {
+    try {
+      const { shopId } = req.query;
+      if (!shopId) return res.status(400).json({ message: 'Missing shopId' });
+      
+      const bookedData = await ticket_service.get_active_bookings(shopId as string);
+      res.json(bookedData);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
     }
   }
 }

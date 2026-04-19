@@ -10,10 +10,7 @@ export default function TabsLayout() {
   const user = useAppSelector((state: any) => state.auth?.user);
 
   useEffect(() => {
-    // ถ้าไม่มี User (ยังไม่ได้ Login) ไม่ต้องเริ่มดักฟัง
     if (!user?.id) return;
-
-    // เริ่มต้นการดักฟัง Realtime จากตาราง User เฉพาะ ID ของเราเอง
     const channel = supabase
       .channel(`global-user-status-${user.id}`)
       .on(
