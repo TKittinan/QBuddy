@@ -24,7 +24,7 @@ export class TicketService {
     const { data, error } = await supabase
       .from('Ticket')
       .select('bookTime, tableType, tableCount, status')
-      .eq('shopId', shopId)
+      .eq('placeId', shopId)
       .eq('bookDate', date)
       .in('status', ['Waiting', 'Serving']);
       
@@ -32,13 +32,12 @@ export class TicketService {
     return data || [];
   }
 
-  // 🌟 เพิ่มฟังก์ชันนี้สำหรับหน้า Calendar (ดึงคิวของวันนี้เป็นต้นไปทั้งหมด)
   async get_active_bookings(shopId: string) {
     const today = new Date().toISOString().split('T')[0];
     const { data, error } = await supabase
       .from('Ticket')
       .select('bookDate, bookTime, tableType, tableCount, status')
-      .eq('shopId', shopId)
+      .eq('placeId', shopId)
       .gte('bookDate', today)
       .in('status', ['Waiting', 'Serving']);
       
