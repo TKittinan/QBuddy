@@ -12,10 +12,10 @@
       "supportsTablet": true
     },
     "android": {
-      "adaptiveIcon": {
-      },
+      "adaptiveIcon": {},
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.texdev.frontendmobile"
     },
     "web": {
       "output": "static"
@@ -38,6 +38,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "07b22ed1-f6a9-4abb-ab54-c6343d864c67"
+      }
     }
   }
 }
