@@ -9,7 +9,7 @@ export default function TabsLayout() {
   const dispatch = useAppDispatch();
   const user = useAppSelector((state: any) => state.auth?.user);
 
-  useEffect(() => {
+useEffect(() => {
     if (!user?.id) return;
     const channel = supabase
       .channel(`global-user-status-${user.id}`)
@@ -22,16 +22,14 @@ export default function TabsLayout() {
           filter: `id=eq.${user.id}`,
         },
         (payload) => {
-          // เมื่อมีการเปลี่ยนแปลงสถานะใน Database ให้ส่งค่าไปอัปเดต Redux ทันที
           if (payload.new && payload.new.status) {
             dispatch(updateStatusSuccess(payload.new.status));
           }
         }
       )
       .subscribe();
-
-    // ลบการเชื่อมต่อเมื่อ Component ถูกถอดออก หรือ User เปลี่ยนแปลง
     return () => {
+      channel.unsubscribe();
       supabase.removeChannel(channel);
     };
   }, [user?.id, dispatch]);

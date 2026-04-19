@@ -47,13 +47,11 @@ export class TicketService {
 
   private get_table_code(tableType: string): string {
     const typeStr = String(tableType || '').toLowerCase().replace(/\s/g, '');
-    
     if (typeStr.includes('1-2')) return 'A';
     if (typeStr.includes('3-4')) return 'B';
     if (typeStr.includes('5-6')) return 'C';
     if (typeStr.includes('7-8')) return 'D';
     if (typeStr.includes('10')) return 'E'; 
-    
     return 'X';
   }
 
@@ -109,7 +107,6 @@ export class TicketService {
     const targetPlaceId = data.placeId || data.shopId;
     const targetTableType = data.tableType || '1-2 คน';
     const bookDate = data.bookDate;
-    
     const tableCount = data.tableCount || 1;
 
     const { data: tableInfo } = await supabase
@@ -120,16 +117,20 @@ export class TicketService {
       .single();
 
     if (tableInfo && bookDate) {
-      const { count } = await supabase
+      const { data: activeTickets } = await supabase
         .from('Ticket')
-        .select('*', { count: 'exact', head: true })
+        .select('tableCount')
         .eq('placeId', targetPlaceId)
         .eq('tableType', targetTableType)
         .eq('bookDate', bookDate)
+        .eq('bookTime', data.bookTime)
         .in('status', ['Waiting', 'Serving']); 
 
-      if (count !== null && count >= tableInfo.capacity) {
-        throw new Error(`โต๊ะประเภท ${targetTableType} เต็มแล้วสำหรับวันที่ ${bookDate}`);
+      const bookedSum = activeTickets?.reduce((sum, t) => sum + (t.tableCount || 1), 0) || 0;
+      const totalStock = tableInfo.capacity || 1; 
+
+      if (bookedSum + tableCount > totalStock) {
+        throw new Error(`โต๊ะประเภท ${targetTableType} เต็มแล้วสำหรับเวลา ${data.bookTime} น.`);
       }
     }
 
@@ -206,16 +207,13 @@ export class TicketService {
 
   async delete_ticket(id: string) {
     const { data: ticket } = await supabase.from('Ticket').select('name, placeId, status').eq('id', id).single();
-    
     if (ticket && ticket.status === 'Waiting') {
       const { data: place } = await supabase.from('Place').select('queueCount').eq('id', ticket.placeId).single();
       const newCount = Math.max(0, (place?.queueCount || 0) - 1);
       await supabase.from('Place').update({ queueCount: newCount }).eq('id', ticket.placeId);
     }
-    
     const { error } = await supabase.from('Ticket').delete().eq('id', id);
     if (error) throw new Error(error.message);
-
     if (ticket) await this.log_activity(ticket.name, `ลบคิวออกจากระบบ`, 'Booking', 'Cancelled');
     return true;
   }
