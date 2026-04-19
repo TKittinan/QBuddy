@@ -100,7 +100,7 @@ export interface PartyActivity {
   hostId: string;
   placeId?: string;
   createdAt: string;
-
+  bookingId?: string | null;
   host?: {
     id?: string;
     name: string;

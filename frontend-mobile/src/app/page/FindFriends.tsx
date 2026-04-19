@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Image, ScrollView, Modal, Alert, SafeAreaView, KeyboardAvoidingView, Platform, StatusBar, RefreshControl } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Image, ScrollView, Modal, Alert, SafeAreaView, KeyboardAvoidingView, Platform, StatusBar, RefreshControl, ActivityIndicator } from 'react-native';
 import { Search, Plus, Minus, X, ArrowLeft, MessageCircle, UserCheck } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import axios from 'axios';
@@ -30,6 +30,7 @@ export default function FindFriendsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('ทั้งหมด');
   const [refreshing, setRefreshing] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
   const [activityDesc, setActivityDesc] = useState('');
@@ -41,7 +42,6 @@ export default function FindFriendsPage() {
 
   const [isChatListModalVisible, setIsChatListModalVisible] = useState(false);
 
-  // 🌟 ดึงหมวดหมู่ที่มีในระบบจริง + เพิ่มหมวดหมู่ "ประกาศของฉัน"
   const dynamicCategories = useMemo(() => {
     const cats = new Set(allActivities.map(a => a.category));
     return ['ทั้งหมด', 'ประกาศของฉัน', ...Array.from(cats)];
@@ -71,7 +71,6 @@ export default function FindFriendsPage() {
     let aiRecommended: ExtendedPartyActivity[] = [];
 
     allActivities.forEach((act) => {
-      // 🌟 กรองตาม Filter (ประกาศของฉัน / หมวดหมู่)
       if (activeFilter === 'ประกาศของฉัน') {
         if (act.hostId !== user?.id) return;
       } else if (activeFilter !== 'ทั้งหมด' && act.category !== activeFilter) {
@@ -81,14 +80,12 @@ export default function FindFriendsPage() {
       const searchMatch = (act.title?.toLowerCase().includes(searchQuery.toLowerCase()) || act.description?.toLowerCase().includes(searchQuery.toLowerCase()));
       if (searchQuery && !searchMatch) return;
       
-      // 🌟 คำนวณที่ว่างจริงจากการจองที่โฮสต์ยืนยันแล้ว
       const confirmedPax = act.joinedGuests?.filter((g: Guest) => g.status === 'confirmed').reduce((sum, g) => sum + (g.pax || 0), 0) || 0;
       const remaining = Math.max(0, (act.maxGuests || 0) - confirmedPax);
 
       const actWithDetails = { ...act, remainingSeats: remaining };
       list.push(actWithDetails);
 
-      // 🌟 AI แนะนำ: Match Rate >= 85% และ Host Success Rate >= 85%
       const hostRate = act.host?.successRate || 0;
       if (act.matchRate && act.matchRate >= 85 && hostRate >= 85 && act.hostId !== user?.id && act.status === 'Open') {
         aiRecommended.push(actWithDetails);
@@ -98,41 +95,63 @@ export default function FindFriendsPage() {
     return { list, aiRecommended: aiRecommended.sort((a, b) => (Number(b.matchRate) || 0) - (Number(a.matchRate) || 0)) };
   }, [allActivities, activeFilter, searchQuery, user]);
 
-  const handleCreateActivity = () => {
+  // 🌟 อัปเกรดให้เป็น Async/Await เต็มรูปแบบเพื่อรับ Error 
+  const handleCreateActivity = async () => {
     if (!user) return;
     if (!activityDesc || !selectedTicketId) return Alert.alert('แจ้งเตือน', 'กรุณาระบุรายละเอียดและเลือกคิว');
 
-    const linkedTicket = allTickets.find(t => t.id === selectedTicketId);
-    const shop = places.find(p => p.id === linkedTicket?.shopId || p.id === linkedTicket?.placeId);
-    // 🌟 แก้ไข: เทียบด้วย label เพราะ Ticket เก็บชื่อประเภทโต๊ะไว้
-    const tableInfo = shop?.tableTypes?.find(t => t.label === linkedTicket?.tableType);
+    const linkedTicket = myActiveTickets.find(t => t.id === selectedTicketId);
+    if (!linkedTicket) return Alert.alert('ข้อผิดพลาด', 'ไม่พบข้อมูลคิวที่คุณเลือก');
 
-    if (!tableInfo || tableInfo.capacity <= (linkedTicket?.guests || 0)) {
+    const shop = places.find(p => p.id === linkedTicket.shopId || p.id === linkedTicket.placeId);
+    const tableInfo = shop?.tableTypes?.find(t => t.label === linkedTicket.tableType);
+
+    // คำนวณความจุโต๊ะที่เหลือ
+    const maxGuests = tableInfo ? tableInfo.capacity - (linkedTicket.guests || 0) : 2;
+
+    if (maxGuests <= 0) {
       return Alert.alert('สร้างไม่ได้', 'โต๊ะที่คุณจองมีความจุพอดีกับจำนวนคนของคุณแล้ว ไม่มีที่ว่างให้เพื่อนร่วมโต๊ะครับ');
     }
 
     const newActivity: Partial<PartyActivity> = {
       title: `ไป ${shop?.name || 'ร้านอาหาร'}`,
       description: activityDesc,
-      category: linkedTicket?.service || 'ร้านอาหาร',
-      meetingDate: linkedTicket?.bookDate,
-      meetingTime: linkedTicket?.bookTime,
-      maxGuests: tableInfo.capacity - (linkedTicket?.guests || 0),
+      category: linkedTicket.service || 'ร้านอาหาร',
+      tags: [linkedTicket.tableType || 'General'],
+      meetingDate: linkedTicket.bookDate,
+      meetingTime: linkedTicket.bookTime,
+      maxGuests: maxGuests,
       status: 'Open',
       hostId: user.id,
-      placeId: shop?.id,
-      lat: 0, lng: 0 // ไม่ใช้ระยะทางแล้ว
+      placeId: shop?.id || linkedTicket.placeId || linkedTicket.shopId,
+      bookingId: selectedTicketId,
+      lat: 0, 
+      lng: 0 
     };
 
-    dispatch(addPostAsync(newActivity as PartyActivity));
-    setIsCreateModalVisible(false);
-    setActivityDesc('');
+    setIsSubmitting(true);
+    try {
+      // 🌟 ใช้ .unwrap() เพื่อให้มัน Catch Error ที่ Backend ส่งมาได้
+      await dispatch(addPostAsync(newActivity as PartyActivity)).unwrap();
+      Alert.alert('สำเร็จ', 'ประกาศหากิจกรรมถูกสร้างเรียบร้อยแล้ว');
+      setIsCreateModalVisible(false);
+      setActivityDesc('');
+      setSelectedTicketId(null);
+      
+      // 🌟 ดึงข้อมูลใหม่ทันทีหลังสร้างเสร็จ
+      dispatch(fetchPostsAsync());
+    } catch (error: any) {
+      // 🌟 โชว์ให้เห็นเลยว่าพังตรงไหน
+      Alert.alert('เกิดข้อผิดพลาดในการสร้าง', error.message || error || 'กรุณาลองใหม่อีกครั้ง');
+      console.error(error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  // 🌟 ฟังก์ชันสำหรับให้ Host กดยืนยันสมาชิกจากหน้ารายการแชท
   const handleConfirmGuest = async (activityId: string, guestUserId: string) => {
     try {
-      await axios.post(`${API_BASE_URL}/posts/confirm-guest`, { activityId, userId: guestUserId });
+      await axios.post(`${API_BASE_URL}/parties/confirm-guest`, { activityId, userId: guestUserId });
       Alert.alert('สำเร็จ', 'ยืนยันเพื่อนร่วมโต๊ะเรียบร้อยแล้ว');
       dispatch(fetchPostsAsync());
     } catch (e) {
@@ -212,7 +231,6 @@ export default function FindFriendsPage() {
                 </View>
                 <Text style={{ fontSize: 14, color: '#4A5568' }}>{act.description}</Text>
                 <View style={{ marginTop: 10, backgroundColor: '#F7FAFC', padding: 8, borderRadius: 8 }}>
-                  {/* 🌟 แสดงจำนวนที่ว่างจริงที่คำนวณมาแล้ว */}
                   <Text style={{ fontSize: 12 }}>ที่นั่งว่างสำหรับเพื่อน: <Text style={{ fontWeight: 'bold', color: '#DD6B20' }}>{act.remainingSeats} ท่าน</Text></Text>
                 </View>
                 <TouchableOpacity onPress={() => { setSelectedActivityToJoin(act); setJoinPax(1); setIsJoinModalVisible(true); }} disabled={act.status === 'Closed'} style={{ marginTop: 12, backgroundColor: act.status === 'Closed' ? '#EDF2F7' : '#6FA4A1', paddingVertical: 10, borderRadius: 10, alignItems: 'center' }}>
@@ -230,7 +248,7 @@ export default function FindFriendsPage() {
         <MessageCircle size={28} color="#FFFFFF" />
       </TouchableOpacity>
 
-      {/* Modal ยืนยันเข้าร่วมพร้อมระบุจำนวนคน */}
+      {/* Modal ยืนยันเข้าร่วม */}
       <Modal visible={isJoinModalVisible} transparent animationType="fade">
         <View style={{ flex: 1, justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.6)', padding: 20 }}>
           <View style={{ backgroundColor: '#FFF', borderRadius: 24, padding: 24 }}>
@@ -253,7 +271,7 @@ export default function FindFriendsPage() {
         </View>
       </Modal>
 
-      {/* Modal รายการแชทและการยืนยันของ Host */}
+      {/* Modal รายการแชท */}
       <Modal visible={isChatListModalVisible} transparent animationType="slide">
         <View style={{ flex: 1, backgroundColor: '#F7FAFC' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#EDF2F7' }}>
@@ -294,7 +312,7 @@ export default function FindFriendsPage() {
         </View>
       </Modal>
 
-      {/* Modal สร้างกิจกรรม (UI เดิม) */}
+      {/* Modal สร้างกิจกรรม */}
       <Modal visible={isCreateModalVisible} animationType="slide" transparent>
         <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' }}>
           <View style={{ backgroundColor: '#FFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, height: '70%' }}>
@@ -305,15 +323,18 @@ export default function FindFriendsPage() {
             <TextInput multiline style={{ backgroundColor: '#F7FAFC', borderRadius: 12, padding: 16, height: 100, textAlignVertical: 'top' }} placeholder="รายละเอียด..." value={activityDesc} onChangeText={setActivityDesc} />
             <Text style={{ fontWeight: 'bold', marginVertical: 15 }}>เลือกคิวที่ต้องการแชร์</Text>
             <ScrollView>
-              {myActiveTickets.map(ticket => (
+              {myActiveTickets.length > 0 ? myActiveTickets.map(ticket => (
                 <TouchableOpacity key={ticket.id} onPress={() => setSelectedTicketId(ticket.id)} style={{ padding: 16, borderRadius: 12, borderWidth: 1, marginBottom: 8, backgroundColor: selectedTicketId === ticket.id ? '#E6FFFA' : '#FFF', borderColor: selectedTicketId === ticket.id ? '#38B2AC' : '#EDF2F7' }}>
                   <Text style={{ fontWeight: 'bold' }}>{places.find(p => p.id === ticket.shopId || p.id === ticket.placeId)?.name}</Text>
                   <Text style={{ fontSize: 12 }}>คิว: {ticket.id} | ประเภท: {ticket.tableType}</Text>
                 </TouchableOpacity>
-              ))}
+              )) : (
+                <Text style={{ color: '#A0AEC0', textAlign: 'center', marginTop: 20 }}>คุณไม่มีคิวที่สามารถแชร์ได้</Text>
+              )}
             </ScrollView>
-            <TouchableOpacity onPress={handleCreateActivity} style={{ backgroundColor: '#6FA4A1', padding: 16, borderRadius: 16, alignItems: 'center', marginTop: 20 }}>
-              <Text style={{ color: '#FFF', fontWeight: 'bold' }}>ประกาศหากิจกรรม</Text>
+            <TouchableOpacity onPress={handleCreateActivity} disabled={isSubmitting} style={{ backgroundColor: isSubmitting ? '#A0AEC0' : '#6FA4A1', padding: 16, borderRadius: 16, alignItems: 'center', marginTop: 20, flexDirection: 'row', justifyContent: 'center' }}>
+              {isSubmitting && <ActivityIndicator color="#FFF" style={{ marginRight: 10 }} />}
+              <Text style={{ color: '#FFF', fontWeight: 'bold' }}>{isSubmitting ? 'กำลังสร้าง...' : 'ประกาศหากิจกรรม'}</Text>
             </TouchableOpacity>
           </View>
         </View>
