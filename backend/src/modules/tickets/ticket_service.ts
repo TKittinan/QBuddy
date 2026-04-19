@@ -14,24 +14,32 @@ export class TicketService {
       .from('Ticket')
       .select('*')
       .eq('placeId', placeId)
-      .order('created_at', { ascending: true }); 
+      // 🌟 ใช้ createdAt ตามรูปใน Database
+      .order('createdAt', { ascending: true }); 
     if (error) throw new Error(error.message);
-    return (data || []).map((t: any) => ({ ...t, createdAt: t.created_at || t.createdAt }));
+    return data || [];
   }
 
   async get_tickets_by_user(identifier: string) {
+    const cleanId = identifier.trim();
     let query = supabase.from('Ticket').select('*');
     
-    if (identifier.includes('@')) {
-      query = query.eq('email', identifier);
+    if (cleanId.includes('@')) {
+      query = query.ilike('email', cleanId);
     } else {
-      query = query.eq('name', identifier);
+      query = query.ilike('name', cleanId);
     }
     
-    const { data, error } = await query.order('created_at', { ascending: false }); 
+    // 🌟 ใช้ createdAt ตามรูปใน Database
+    const { data, error } = await query.order('createdAt', { ascending: false }); 
       
     if (error) throw new Error(error.message);
-    return (data || []).map((t: any) => ({ ...t, createdAt: t.created_at || t.createdAt }));
+
+    return (data || []).map((t: any) => ({ 
+      ...t, 
+      status: t.status || 'Waiting',
+      placeId: t.placeId || t.shopId || null
+    }));
   }
 
   async get_booked_slots(shopId: string, date: string) {
@@ -82,8 +90,9 @@ export class TicketService {
       .select('*', { count: 'exact', head: true })
       .eq('placeId', placeId) 
       .eq('tableType', tableType)
-      .gte('created_at', cycleStart.toISOString())
-      .lt('created_at', cycleEnd.toISOString());
+      // 🌟 ใช้ createdAt ตามรูปใน Database
+      .gte('createdAt', cycleStart.toISOString())
+      .lt('createdAt', cycleEnd.toISOString());
 
     if (error) throw new Error(error.message);
 
@@ -109,7 +118,8 @@ export class TicketService {
       .eq('placeId', currentTicket.placeId)
       .eq('tableType', currentTicket.tableType)
       .eq('status', 'Waiting')
-      .lt('created_at', currentTicket.created_at || currentTicket.createdAt);
+      // 🌟 ใช้ createdAt ตามรูปใน Database
+      .lt('createdAt', currentTicket.createdAt);
       
     const avgServiceTime = (currentTicket.place as any)?.avgServiceTime || 15;
     return { 
@@ -176,7 +186,7 @@ export class TicketService {
     await supabase.from('Place').update({ queueCount: (place?.queueCount || 0) + 1 }).eq('id', targetPlaceId);
 
     await this.log_activity(data.name, `จองคิวใหม่: ${customId}`, 'Booking', 'Waiting');
-    return { ...ticket, createdAt: ticket.created_at || ticket.createdAt };
+    return ticket;
   }
 
   async update_ticket(id: string, data: any) {
@@ -200,7 +210,7 @@ export class TicketService {
     if (updateError) throw new Error(updateError.message);
 
     await this.log_activity(ticket.name, `แก้ไขข้อมูลการจอง: ${id}`, 'Booking', ticket.status);
-    return { ...ticket, createdAt: ticket.created_at || ticket.createdAt };
+    return ticket;
   }
 
   async update_ticket_status(id: string, status: string) {
@@ -219,7 +229,7 @@ export class TicketService {
     }
 
     await this.log_activity(ticket.name, `เปลี่ยนสถานะคิวเป็น: ${status}`, 'Booking', status);
-    return { ...ticket, createdAt: ticket.created_at || ticket.createdAt };
+    return ticket;
   }
 
   async delete_ticket(id: string) {
