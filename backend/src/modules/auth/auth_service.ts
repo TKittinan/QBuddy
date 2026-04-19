@@ -19,7 +19,7 @@ export class AuthService {
         phone: data.phone,
         password: hashed_password,
         role: data.role || 'CUSTOMER',
-        status: 'INACTIVE' // บังคับส่งค่านี้ไปที่ Supabase เสมอ
+        status: 'INACTIVE'
       }])
       .select()
       .single();

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react'; 
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Platform, StatusBar, FlatList, ActivityIndicator, TextInput, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Platform, StatusBar, FlatList, ActivityIndicator, TextInput, RefreshControl, ScrollView } from 'react-native';
 import { ArrowLeft, Search } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
@@ -13,8 +13,6 @@ import { Place } from '../../types';
 export default function Trending() {
   const router = useRouter();
   const dispatch = useAppDispatch();
-  
-  // 🌟 กำหนดหน้าปัจจุบัน
   const activeCategoryTag = 'ยอดฮิต'; 
   
   const placesState = useAppSelector((state: any) => state.places);
@@ -25,9 +23,12 @@ export default function Trending() {
   const [displayedCount, setDisplayedCount] = useState(10); 
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-
-  // 🌟 เพิ่ม "ยอดฮิต" เข้าไปในลิสต์
+  
   const FILTER_TAGS = ['ยอดฮิต', 'ร้านอาหาร', 'คาเฟ่', 'เสริมสวยอื่นๆ'];
+
+  // 🌟 เพิ่ม State สำหรับกรองหมวดหมู่ย่อย ภายในหน้ายอดฮิต
+  const [subFilter, setSubFilter] = useState('ทั้งหมด');
+  const SUB_FILTERS = ['ทั้งหมด', 'ร้านอาหาร', 'คาเฟ่', 'เสริมสวยอื่นๆ'];
 
   useEffect(() => {
     if (allPlaces.length === 0) {
@@ -41,7 +42,6 @@ export default function Trending() {
     setRefreshing(false);
   }, [dispatch]);
 
-  // 🌟 ฟังก์ชันสลับหน้าเมื่อกดชิป
   const handleCategoryChange = (tag: string) => {
     if (tag === activeCategoryTag) return;
     if (tag === 'ยอดฮิต') router.replace('/page/Trending');
@@ -52,16 +52,29 @@ export default function Trending() {
 
   const processedPlaces = useMemo(() => {
     let result = [...allPlaces];
+    
+    // 🌟 กรองตามปุ่ม Sub Filter ย่อยที่กด
+    if (subFilter !== 'ทั้งหมด') {
+      result = result.filter((place: Place) => 
+        place.category && place.category.includes(subFilter)
+      );
+    }
+
     if (searchQuery) {
       result = result.filter((place: Place) => 
         place.name.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
+    
+    // จัดเรียงตามยอดจองอีกรอบเพื่อความชัวร์ 
+    result.sort((a, b) => (b.weeklyBookings || 0) - (a.weeklyBookings || 0));
+
     return result;
-  }, [allPlaces, searchQuery]);
+  }, [allPlaces, searchQuery, subFilter]);
 
   const displayedPlaces = useMemo(() => {
-    return processedPlaces.slice(0, displayedCount);
+    // 🌟 โชว์ 10 อันดับ ของหมวดหมู่นั้นๆ
+    return processedPlaces.slice(0, displayedCount); 
   }, [processedPlaces, displayedCount]);
 
   const loadMorePlaces = useCallback(() => {
@@ -97,9 +110,33 @@ export default function Trending() {
         </View>
       </View>
 
-      <View style={{ paddingLeft: 20, paddingBottom: 16, backgroundColor: '#FFFFFF' }}>
-        {/* 🌟 ใช้งาน CategoryChips พร้อมสั่งโชว์ไอคอนไฟที่ ยอดฮิต */}
+      <View style={{ paddingLeft: 20, paddingBottom: 10, backgroundColor: '#FFFFFF' }}>
         <CategoryChips tags={FILTER_TAGS} activeTag={activeCategoryTag} onTagPress={handleCategoryChange} showFlameOn="ยอดฮิต" />
+      </View>
+
+      {/* 🌟 ปุ่ม Sub-filter ตัวกรองย่อยภายในหน้า Trending */}
+      <View style={{ backgroundColor: '#FFFFFF', paddingBottom: 16 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 10 }}>
+          {SUB_FILTERS.map(tag => (
+            <TouchableOpacity
+              key={tag}
+              onPress={() => setSubFilter(tag)}
+              style={{
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+                borderRadius: 20,
+                backgroundColor: subFilter === tag ? '#DD6B20' : '#FFF7ED',
+                borderWidth: 1,
+                borderColor: subFilter === tag ? '#DD6B20' : '#FEEBC8',
+                marginRight: 10
+              }}
+            >
+              <Text style={{ color: subFilter === tag ? '#FFFFFF' : '#DD6B20', fontSize: 13, fontWeight: '700' }}>
+                {tag}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       </View>
 
       <FlatList
@@ -128,12 +165,12 @@ export default function Trending() {
         )}
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
-        ListEmptyComponent={<Text style={styles.emptyText}>ยังไม่มีข้อมูลการจองในสัปดาห์นี้</Text>}
+        ListEmptyComponent={<Text style={styles.emptyText}>ยังไม่มีข้อมูลการจองในหมวดหมู่นี้</Text>}
         onEndReached={loadMorePlaces}
         onEndReachedThreshold={0.5}
         ListHeaderComponent={
           <View style={styles.listHeader}>
-            <Text style={styles.listTitle}>Top 10 ร้านฮิตสัปดาห์นี้!</Text>
+            <Text style={styles.listTitle}>Top 10 {subFilter === 'ทั้งหมด' ? 'สัปดาห์นี้!' : subFilter}</Text>
             <Text style={styles.listSubtitle}>จัดอันดับจากยอดการจองสูงสุดในรอบ 7 วันล่าสุด</Text>
           </View>
         }

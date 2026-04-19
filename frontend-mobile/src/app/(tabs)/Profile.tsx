@@ -12,8 +12,9 @@ import { Input } from '../../components/ui/Input';
 import { Pagination } from '../../components/ui/Pagination'; 
 import { useAppDispatch, useAppSelector } from '../../redux/useRedux';
 import { logoutAsync, updateStatusSuccess } from '../../redux/slices/authSlice'; 
-// 🌟 1. เปลี่ยนจาก toggleSavePlace เป็น toggleSavePlaceAsync
-import { toggleSavePlaceAsync } from '../../redux/slices/savedPlacesSlice'; 
+
+// 🌟 1. นำเข้า fetchSavedPlacesAsync
+import { fetchSavedPlacesAsync, toggleSavePlaceAsync, toggleSavePlaceLocal } from '../../redux/slices/savedPlacesSlice'; 
 import { Place } from '../../types';
 import { supabase } from '../../config'; 
 
@@ -57,6 +58,13 @@ export default function ProfilePage() {
     defaultValues: { name: user?.name || '', email: user?.email || '' }
   });
 
+  // 🌟 2. เพิ่ม useEffect ตัวนี้ เพื่อดึงรายการ Save มาจาก Database ทุกครั้งที่เข้ามาหน้านี้
+  useEffect(() => {
+    if (user?.id) {
+      dispatch(fetchSavedPlacesAsync(user.id));
+    }
+  }, [dispatch, user?.id]);
+
   useEffect(() => {
     if (!user?.id) return;
     const channel = supabase
@@ -96,8 +104,6 @@ export default function ProfilePage() {
   };
   const closeModal = (key: keyof typeof modals) => setModals({ ...modals, [key]: false });
 
-  const handlePickImage = async () => {};
-
   const toggleLocation = async (value: boolean) => {
     if (value) {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -124,22 +130,16 @@ export default function ProfilePage() {
     closeModal('edit');
   };
 
-  // 🌟 2. ใช้ toggleSavePlaceAsync และส่ง userId เข้าไปให้ถูกต้อง
   const removeSavedPlace = (placeId: string) => {
-    dispatch(toggleSavePlaceAsync({ userId: user?.id || 'guest-123', placeId }));
+    const userId = user?.id || 'guest-123';
+    dispatch(toggleSavePlaceLocal({ userId, placeId }));
+    dispatch(toggleSavePlaceAsync({ userId, placeId }));
     if (savedPlacesList.length <= 1) closeModal('saved'); 
   };
 
   const submitReport = () => {
     if (reportIssue.trim() === '') return Alert.alert('แจ้งเตือน', 'กรุณาระบุรายละเอียดปัญหาที่พบ');
     Alert.alert('ส่งรายงานเรียบร้อย', 'เราได้รับข้อมูล Ticket ของคุณแล้ว เจ้าหน้าที่จะทำการตรวจสอบและแจ้งกลับให้เร็วที่สุดครับ', [{ text: 'ตกลง', onPress: () => { setReportIssue(''); closeModal('report'); } }]);
-  };
-
-  const handleDeleteAccount = () => {
-    Alert.alert('ลบบัญชีผู้ใช้ถาวร', 'หากลบบัญชี ข้อมูลส่วนตัว ประวัติการจองทั้งหมดจะถูกลบ ยืนยันหรือไม่?', [
-      { text: 'ยกเลิก', style: 'cancel' },
-      { text: 'ยืนยันการลบ', style: 'destructive', onPress: async () => { await AsyncStorage.clear(); dispatch(logoutAsync(user?.id)); } }
-    ]);
   };
 
   const handleLogout = () => {
@@ -191,6 +191,7 @@ export default function ProfilePage() {
         </ScrollView>
       </View>
 
+      {/* Modal ต่างๆ คงเดิมตามปกติ... */}
       <Modal visible={modals.saved} animationType="slide" statusBarTranslucent={true}>
         <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
           <View className="flex-1 bg-[#F7FAFC]">
@@ -244,7 +245,6 @@ export default function ProfilePage() {
         </SafeAreaView>
       </Modal>
 
-      {/* Modal Report */}
       <Modal visible={modals.report} animationType="slide" transparent={true} statusBarTranslucent={true}>
         <View className="flex-1 justify-end bg-black/50">
           <View className="bg-white rounded-t-3xl p-6 pb-10">

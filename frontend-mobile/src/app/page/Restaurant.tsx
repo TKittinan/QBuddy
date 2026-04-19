@@ -21,8 +21,7 @@ export default function Restaurant() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   
-  // 🌟 เพิ่มยอดฮิตเข้าไป
-  const FILTER_TAGS = ['ยอดฮิต', 'ร้านอาหาร', 'คาเฟ่', 'เสริมสวยอื่นๆ'];
+  const FILTER_TAGS = ['ร้านอาหาร', 'คาเฟ่', 'เสริมสวยอื่นๆ','ยอดฮิต'];
 
   useEffect(() => {
     if (allPlaces.length === 0) dispatch(fetchPlacesAsync());
