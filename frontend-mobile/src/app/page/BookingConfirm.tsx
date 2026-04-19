@@ -32,12 +32,14 @@ export default function BookingConfirm() {
     [allPlaces, ticket]
   );
   const user = useAppSelector((state: any) => state.auth?.user);
-  useEffect(() => {
-    if (!ticket && user?.name) {
-      dispatch(fetchTicketsAsync(user.name));
-    }
-  }, [ticket, dispatch, user?.name]);
+  const identifier = user?.email || user?.name;
 
+  useEffect(() => {
+    if (!ticket && identifier) {
+      dispatch(fetchTicketsAsync(identifier));
+    }
+  }, [ticket, dispatch, identifier]);
+  
   const formatThaiDate = (dateString: string) => {
     if (!dateString) return "-";
     try {
