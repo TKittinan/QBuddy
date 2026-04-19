@@ -1,12 +1,12 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import axios from 'axios';
 import { Place } from '../../types';
-// 🌟 1. นำเข้า API_BASE_URL
 import { API_BASE_URL } from "../../config";
 
 interface PlaceState {
   places: Place[];
   recommendedPlaces: Place[]; 
+  weeklyTrending: Place[];
   isLoading: boolean;
   error: string | null;
 }
@@ -14,6 +14,7 @@ interface PlaceState {
 const initialState: PlaceState = {
   places: [],
   recommendedPlaces: [], 
+  weeklyTrending: [],
   isLoading: false,
   error: null,
 };
@@ -22,7 +23,6 @@ export const fetchPlacesAsync = createAsyncThunk(
   "places/fetchPlaces",
   async (_, { rejectWithValue }) => {
     try {
-      // 🌟 2. ใช้ API_BASE_URL
       const response = await axios.get(`${API_BASE_URL}/places`);
       return response.data;
     } catch (error: any) {
@@ -35,11 +35,22 @@ export const fetchRecommendedPlacesAsync = createAsyncThunk(
   "places/fetchRecommended",
   async (userName: string, { rejectWithValue }) => {
     try {
-      // 🌟 3. ใช้ API_BASE_URL
       const response = await axios.get(`${API_BASE_URL}/places/recommend?user_name=${userName}`);
       return response.data;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || "Failed to fetch recommendations");
+    }
+  }
+);
+
+export const fetchWeeklyTrendingAsync = createAsyncThunk(
+  "places/fetchWeeklyTrending",
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/places/trending/weekly`);
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || "Failed to fetch trending");
     }
   }
 );
@@ -59,7 +70,6 @@ const placeSlice = createSlice({
       })
       .addCase(fetchPlacesAsync.fulfilled, (state, action) => {
         state.isLoading = false;
-        // 🌟 ดักจับ Array ป้องกันหน้าจอขาว
         state.places = Array.isArray(action.payload) ? action.payload : (action.payload?.data || []);
       })
       .addCase(fetchPlacesAsync.rejected, (state, action) => {
@@ -74,6 +84,17 @@ const placeSlice = createSlice({
         state.recommendedPlaces = Array.isArray(action.payload) ? action.payload : (action.payload?.data || []);
       })
       .addCase(fetchRecommendedPlacesAsync.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      })
+      .addCase(fetchWeeklyTrendingAsync.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(fetchWeeklyTrendingAsync.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.weeklyTrending = Array.isArray(action.payload) ? action.payload : [];
+      })
+      .addCase(fetchWeeklyTrendingAsync.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string;
       });

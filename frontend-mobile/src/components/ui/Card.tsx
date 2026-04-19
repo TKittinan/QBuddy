@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
-import { MapPin, Users, Store } from 'lucide-react-native';
+import { MapPin, Users } from 'lucide-react-native';
 import { SaveButton } from './SaveButton';
 import { Place } from '../../types';
 
@@ -12,7 +12,7 @@ interface CardProps {
   imageUri?: string;
   location?: string;
   distance?: string | number;
-  category?: string; // 🌟 เปลี่ยนจาก tags เป็น category
+  category?: string; 
 }
 
 export const Card: React.FC<CardProps> = ({ 
@@ -29,8 +29,12 @@ export const Card: React.FC<CardProps> = ({
   const displayImage = place?.image || imageUri || 'https://via.placeholder.com/400x200';
   const displayLocation = place?.branch || location || 'Unknown Location';
   const displayDistance = place?.distance || distance;
-  const displayCategory = place?.category || category || ''; // 🌟 ดึงค่า category
+  const displayCategory = place?.category || category || ''; 
   const placeId = place?.id || 'unknown_id';
+
+  const categoryTags = displayCategory
+    ? displayCategory.split(',').map(c => c.trim()).filter(Boolean)
+    : [];
 
   return (
     <TouchableOpacity style={styles.card} activeOpacity={0.9} onPress={() => onPress(placeId)}>
@@ -52,11 +56,13 @@ export const Card: React.FC<CardProps> = ({
           <MapPin size={14} color="#718096" style={{ marginRight: 4 }} />
           <Text style={styles.distanceText}>{displayDistance || 'ไม่ทราบระยะทาง'}</Text>
         </View>
+
         <View style={styles.tagsRow}>
-          {/* 🌟 แสดง category ตรงๆ ไม่ต้อง map แล้ว */}
-          {displayCategory ? (
-            <Text style={styles.tagText}>{displayCategory}</Text>
-          ) : null}
+          {categoryTags.map((cat, index) => (
+            <Text key={index} style={styles.tagText}>
+              {cat}{index < categoryTags.length - 1 ? '    ' : ''}
+            </Text>
+          ))}
         </View>
       </View>
     </TouchableOpacity>
