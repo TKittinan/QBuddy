@@ -33,128 +33,137 @@ export class AuthService {
   }
 
   async login(data: any) {
-    const { data: user, error } = await supabase
-      .from('User')
-      .select('*')
-      .eq('email', data.email)
-      .single();
+    // 🌟 ปรับให้รองรับการค้นหาทั้ง Email และ Phone
+    let query = supabase.from('User').select('*');
+    
+    if (data.email) {
+      query = query.eq('email', data.email);
+    } else if (data.phone) {
+      query = query.eq('phone', data.phone);
+    } else {
+      throw new Error('กรุณาระบุอีเมลหรือเบอร์โทรศัพท์');
+    }
 
+    const { data: user, error } = await query.single();
+
+    // 🌟 ถ้าค้นหาไม่เจอ (error) หรือไม่มีรหัสผ่าน
     if (error || !user || !user.password) {
-      throw new Error('Email or password incorrect');
+      throw new Error('อีเมล/เบอร์โทรศัพท์ หรือรหัสผ่านไม่ถูกต้อง');
     }
 
-    const is_match = await bcrypt.compare(data.password, user.password);
-    if (!is_match) {
-      throw new Error('Email or password incorrect');
+    // ตรวจสอบรหัสผ่านที่ถูกเข้ารหัส (Bcrypt)
+    const isPasswordValid = await bcrypt.compare(data.password, user.password);
+    if (!isPasswordValid) {
+      throw new Error('อีเมล/เบอร์โทรศัพท์ หรือรหัสผ่านไม่ถูกต้อง');
     }
 
-    // เมื่อ Login สำเร็จค่อยเปลี่ยนเป็น ACTIVE
-    const { error: updateError } = await supabase
+    // ตรวจสอบสถานะว่าถูกแบนหรือไม่
+    if (user.status === 'BANNED') {
+      throw new Error('บัญชีของคุณถูกระงับการใช้งาน');
+    }
+
+    // อัปเดตสถานะเป็น ACTIVE เมื่อล็อกอินสำเร็จ
+    await supabase
       .from('User')
       .update({ status: 'ACTIVE' })
       .eq('id', user.id);
 
-    if (updateError) {
-      console.error("Failed to update user status to ACTIVE:", updateError);
-    }
-
+    // สร้าง JWT Token
     const token = jwt.sign(
-      { user_id: user.id, role: user.role },
-      ENV.JWT_SECRET, 
-      { expiresIn: '1d' }
+      { user_id: user.id, email: user.email, role: user.role },
+      ENV.JWT_SECRET,
+      { expiresIn: '24h' }
     );
 
-    const { password, ...userWithoutPassword } = user;
-    userWithoutPassword.status = 'ACTIVE';
-
-    return { user: userWithoutPassword, token };
+    // ลบรหัสผ่านออกจากออบเจกต์ก่อนส่งกลับไปที่แอป (เพื่อความปลอดภัย)
+    delete user.password;
+    
+    return { user: { ...user, status: 'ACTIVE' }, token };
   }
 
   async logout(userId: string) {
-    if (!userId) return;
-
+    // อัปเดตสถานะเป็น INACTIVE เมื่อออกจากระบบ
     const { error } = await supabase
       .from('User')
       .update({ status: 'INACTIVE' })
       .eq('id', userId);
 
     if (error) {
-      console.error("Failed to update user status to INACTIVE:", error);
-      throw new Error("Logout failed on server");
+      throw new Error(`Logout failed: ${error.message}`);
     }
 
-    return { success: true };
+    return { message: "ออกจากระบบสำเร็จ" };
+  }
+
+  async get_me(userId: string) {
+    const { data: user, error } = await supabase
+      .from('User')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    if (error || !user) {
+      throw new Error('User not found');
+    }
+
+    delete user.password; // ลบรหัสผ่านก่อนส่งกลับ
+    return user;
   }
 
   async forgotPassword(email: string) {
-    console.log("--- มีการร้องขอ Forgot Password สำหรับเมล: ", email);
+    // 1. ตรวจสอบว่ามีอีเมลนี้ในระบบหรือไม่
     const { data: user, error } = await supabase
       .from('User')
-      .select('id, email, name')
+      .select('id, name')
       .eq('email', email)
       .single();
 
-    // จุดแก้ไข 1: ถ้าไม่พบ User ต้องบอกให้ Controller รู้
-    if (!user) {
-      throw new Error("User not found");
+    if (error || !user) {
+      throw new Error('ไม่พบอีเมลนี้ในระบบ');
     }
 
+    // 2. สร้าง Token สุ่มสำหรับ Reset Password
     const resetToken = crypto.randomBytes(32).toString('hex');
-    const expires = new Date();
-    expires.setHours(expires.getHours() + 1);
+    const hashedResetToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+    const resetTokenExpires = new Date(Date.now() + 30 * 60 * 1000); // 30 นาที
 
+    // 3. บันทึก Token ลงใน Database
     const { error: updateError } = await supabase
       .from('User')
-      .update({
-        resetPasswordToken: resetToken,
-        resetPasswordExpires: expires
+      .update({ 
+        resetPasswordToken: hashedResetToken, 
+        resetPasswordExpires: resetTokenExpires.toISOString()
       })
-      .eq('id', user.id);
+      .eq('email', email);
 
-    if (updateError) throw new Error("Failed to update reset token");
-
-    // จุดแก้ไข 2: ส่งอีเมลจริงผ่าน Service
-    // หมายเหตุ: URL ควรเปลี่ยนจาก localhost เป็น IP เครื่องนาย เพื่อให้กดจากมือถือได้
-    const resetUrl = `${ENV.FRONTEND_URL}/reset-password?token=${resetToken}`;
-    
-    try {
-      await sendResetPasswordEmail(user.email, user.name, resetUrl);
-      console.log(`Reset email sent to: ${email}`);
-    } catch (mailError) {
-      console.error("Mail service error:", mailError);
-      throw new Error("Failed to send email");
+    if (updateError) {
+      throw new Error('เกิดข้อผิดพลาดในการสร้างรหัสผ่านใหม่');
     }
+
+    // 4. ส่งอีเมล (ใส่ URL ของหน้า Reset Password ฝั่ง Frontend)
+    const resetUrl = `${ENV.FRONTEND_URL}/reset-password?token=${resetToken}&email=${email}`;
+    await sendResetPasswordEmail(email, user.name, resetUrl);
+
+    return { message: 'ลิงก์รีเซ็ตรหัสผ่านถูกส่งไปยังอีเมลของคุณแล้ว' };
   }
 
-  // ฟังก์ชันสำหรับอัปเดต Profile
-  async updateProfile(userId: string, updateData: any) {
-    if (!userId) throw new Error("User ID is required");
-
-    const updates: any = {};
-    
-    // ตรวจสอบว่ามีการส่งฟิลด์ไหนมาบ้าง แล้วจัดเตรียมข้อมูลสำหรับอัปเดต
-    if (updateData.name) updates.name = updateData.name;
-    if (updateData.email) updates.email = updateData.email;
-    
-    // ถ้ายูสเซอร์ส่งรหัสผ่านใหม่มา ต้องจับไปเข้ารหัส (Hash) ก่อนบันทึกลง Database
-    if (updateData.password) {
-      updates.password = await bcrypt.hash(updateData.password, 10);
-    }
+  // ฟังก์ชันใหม่สำหรับแก้ไขข้อมูลส่วนตัว (ยกเว้นรหัสผ่าน และรูปภาพ)
+  async updateProfile(userId: string, data: any) {
+    const updateData: any = {};
+    if (data.name) updateData.name = data.name;
+    if (data.phone) updateData.phone = data.phone;
+    if (data.status) updateData.status = data.status; // เผื่อต้องการอัปเดตสถานะ
 
     const { data: updatedUser, error } = await supabase
       .from('User')
-      .update(updates)
+      .update(updateData)
       .eq('id', userId)
       .select()
       .single();
 
-    if (error) {
-      // ดักจับกรณีที่ยูสเซอร์เปลี่ยนอีเมลไปซ้ำกับคนอื่นในระบบ
-      if (error.code === '23505') throw new Error('อีเมลนี้มีผู้ใช้งานแล้ว');
-      throw new Error(error.message);
-    }
+    if (error) throw new Error(error.message);
 
-    // ตัดรหัสผ่านทิ้งก่อนส่งข้อมูลกลับไปให้หน้าแอปมือถือ
+    // ตัดรหัสผ่านทิ้งก่อนส่งกลับ
     if (updatedUser && updatedUser.password) {
       delete updatedUser.password;
     }
@@ -162,11 +171,9 @@ export class AuthService {
     return updatedUser;
   }
 
-  // ฟังก์ชันใหม่สำหรับจัดการการอัปโหลดรูปโปรไฟล์ไปยัง Storage
+  // ฟังก์ชันใหม่สำหรับอัปโหลดและเปลี่ยนรูปโปรไฟล์
   async updateAvatar(userId: string, file: any) {
-    if (!userId) throw new Error("User ID is required");
-
-    // 1. กำหนดชื่อไฟล์ใหม่ (สุ่มเพื่อไม่ให้ซ้ำ)
+    // 1. ตั้งชื่อไฟล์ใหม่ให้ไม่ซ้ำกัน
     const fileExt = file.originalname.split('.').pop();
     const fileName = `${userId}-${Date.now()}.${fileExt}`;
     const filePath = `avatars/${fileName}`;
@@ -207,13 +214,17 @@ export class AuthService {
   async updateAiConsent(userId: string, consented: boolean) {
     const { data: updatedUser, error } = await supabase
       .from('User')
-      .update({ aiConsented: consented }) // ใช้ชื่อฟิลด์ตามรูป b264a9
+      .update({ ai_consented: consented })
       .eq('id', userId)
       .select()
       .single();
-
-    if (error) throw new Error(error.message);
-    if (updatedUser && updatedUser.password) delete updatedUser.password;
+  
+    if (error) throw new Error(`Failed to update consent: ${error.message}`);
+    
+    if (updatedUser && updatedUser.password) {
+      delete updatedUser.password;
+    }
+  
     return updatedUser;
   }
 }
