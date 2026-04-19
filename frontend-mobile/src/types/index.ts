@@ -114,7 +114,6 @@ export interface PartyActivity {
   };
   joinedGuests: Guest[];
 
-  // ข้อมูลจากการคำนวณ
   distance?: number | string;
   matchRate?: number;
   isRecommended?: boolean;

@@ -14,7 +14,6 @@ export class TicketService {
       .from('Ticket')
       .select('*')
       .eq('placeId', placeId)
-      // 🌟 ใช้ createdAt ตามรูปใน Database
       .order('createdAt', { ascending: true }); 
     if (error) throw new Error(error.message);
     return data || [];
@@ -30,7 +29,6 @@ export class TicketService {
       query = query.ilike('name', cleanId);
     }
     
-    // 🌟 ใช้ createdAt ตามรูปใน Database
     const { data, error } = await query.order('createdAt', { ascending: false }); 
       
     if (error) throw new Error(error.message);
@@ -67,16 +65,7 @@ export class TicketService {
     return data || [];
   }
 
-  private get_table_code(tableType: string): string {
-    const typeStr = String(tableType || '').toLowerCase().replace(/\s/g, '');
-    if (typeStr.includes('1-2')) return 'A';
-    if (typeStr.includes('3-4')) return 'B';
-    if (typeStr.includes('5-6')) return 'C';
-    if (typeStr.includes('7-8')) return 'D';
-    if (typeStr.includes('10')) return 'E'; 
-    return 'X';
-  }
-
+  // ลอจิกใหม่ ตัดเรื่องรหัสโต๊ะ (A,B,C) ออกตามคำขอคุณที
   private async generate_id(placeId: string, tableType: string) {
     const now = new Date();
     const cycleStart = new Date(now);
@@ -90,17 +79,28 @@ export class TicketService {
       .select('*', { count: 'exact', head: true })
       .eq('placeId', placeId) 
       .eq('tableType', tableType)
-      // 🌟 ใช้ createdAt ตามรูปใน Database
       .gte('createdAt', cycleStart.toISOString())
       .lt('createdAt', cycleEnd.toISOString());
 
     if (error) throw new Error(error.message);
 
-    const tableCode = this.get_table_code(tableType);
-    const cleanPlaceId = placeId.replace(/-/g, '').replace(/([A-Z]+)0+/, '$1');
+    //ดึง Place ID ออกมาหั่นตามสูตรใหม่ (เช่น "SMP-001" -> "SMP" กับ "1")
+    let prefixPart = 'XX';
+    let branchNumPart = '1';
+
+    if (placeId.includes('-')) {
+      const parts = placeId.split('-');
+      prefixPart = parts[0];
+      branchNumPart = parseInt(parts[1], 10).toString();
+    } else {
+      prefixPart = placeId.replace(/[0-9]/g, '').toUpperCase();
+      const nums = placeId.match(/\d+/);
+      branchNumPart = nums ? parseInt(nums[0], 10).toString() : "1";
+    }
+
     const runningNumber = (count || 0) + 1;
     
-    return `${cleanPlaceId}${tableCode}-CM${runningNumber}`;
+    return `${prefixPart}${branchNumPart}-CM${runningNumber}`;
   }
 
   async get_queue_status(ticketId: string) {
@@ -118,7 +118,6 @@ export class TicketService {
       .eq('placeId', currentTicket.placeId)
       .eq('tableType', currentTicket.tableType)
       .eq('status', 'Waiting')
-      // 🌟 ใช้ createdAt ตามรูปใน Database
       .lt('createdAt', currentTicket.createdAt);
       
     const avgServiceTime = (currentTicket.place as any)?.avgServiceTime || 15;
