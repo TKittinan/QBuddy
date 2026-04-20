@@ -511,7 +511,6 @@ export default function BookingManagement() {
               )} />
             </div>
 
-            {/* 🌟 จุดที่แก้ไข: ลบ disabled ออก แล้วล็อกด้วย CSS แทน */}
             <div className="space-y-1 pointer-events-none opacity-80">
               <label className="text-xs font-bold text-slate-500 uppercase block">4. Table Type (Auto-selected)</label>
               <select 

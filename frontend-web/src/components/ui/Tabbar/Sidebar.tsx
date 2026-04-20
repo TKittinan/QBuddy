@@ -36,7 +36,6 @@ const handleLogout = () => {
 
       <nav className="flex-1 px-4 py-4 space-y-1.5 overflow-y-auto no-scrollbar">
         <SidebarItem to="/dashboard" icon={<DashboardIcon />} label="Dashboard" />
-        {/* 🌟 ลบเมนู Live Queue ออกไปแล้ว เหลือแค่ Booking Manage */}
         <SidebarItem to="/bookingManagement" icon={<CalendarIcon />} label="Booking Manage" />
         <SidebarItem to="/placemanagement" icon={<PersonIcon />} label="Place Management" />
         <SidebarItem to="/postmanagement" icon={<MessageSquare size={16} />} label="Post Management" />

@@ -39,7 +39,6 @@ export function SearchSelect<T = unknown>({ label, placeholder, options, value, 
   }, [value]);
 
   const filteredOptions = useMemo(() => {
-    // 🌟 แก้ไขตรงนี้: ถ้ายังไม่ได้พิมพ์อะไรเลย ให้ส่ง Array ว่างกลับไป (ไม่แสดงรายชื่อ)
     if (!query || query.trim() === "") return [];
     
     return options.filter(opt => 
@@ -77,7 +76,6 @@ export function SearchSelect<T = unknown>({ label, placeholder, options, value, 
         
         {isOpen && (
           <div className="absolute z-50 w-full mt-2 bg-white border border-slate-100 rounded-xl shadow-lg max-h-60 overflow-y-auto">
-            {/* 🌟 เช็คเงื่อนไข: ถ้าไม่ได้พิมพ์ vs พิมพ์แล้วไม่เจอ vs พิมพ์แล้วเจอ */}
             {query.trim() === "" ? (
               <div className="px-4 py-3 text-sm text-slate-400 text-center bg-slate-50/50">พิมพ์ข้อความเพื่อเริ่มค้นหา...</div>
             ) : filteredOptions.length > 0 ? (

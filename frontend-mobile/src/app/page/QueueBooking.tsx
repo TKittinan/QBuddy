@@ -45,7 +45,7 @@ export default function QueueBooking() {
   const [guests, setGuests] = useState<number>(2);
   const [currentStep, setCurrentStep] = useState(1);
   
-  // 🌟 เพิ่ม State ป้องกันการกดจองเบิ้ล
+  // เพิ่ม State ป้องกันการกดจองเบิ้ล
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [activeBookings, setActiveBookings] = useState<any[]>([]);
@@ -201,7 +201,7 @@ export default function QueueBooking() {
     try {
       const res = await dispatch(addQueueAsync(newTicket)).unwrap();
       
-      // 🌟 ดักจับความปลอดภัย ป้องกัน undefined 100%
+      // ดักจับความปลอดภัย ป้องกัน undefined 100%
       const finalId = res?.data?.id || res?.id;
       
       if (!finalId) {

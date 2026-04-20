@@ -35,7 +35,6 @@ export default function PostManagementLayout() {
 
         <main className="flex-1 p-4 lg:p-8 overflow-y-auto bg-slate-50">
           <div className="max-w-[1400px] mx-auto">
-            {/* 🌟 ส่งคำค้นหาลงไปให้หน้าลูก (Page) ดึงไปใช้ */}
             <Outlet context={{ searchQuery }} />
           </div>
         </main>

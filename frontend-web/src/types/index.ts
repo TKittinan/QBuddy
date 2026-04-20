@@ -51,7 +51,7 @@ export interface Place {
 
 export interface Ticket {
   id: string;
-  placeId: string; // 🌟 แก้จาก shopId/place_id เป็น placeId ให้ตรงกับ Supabase 100%
+  placeId: string;
   name: string;
   service: string;
   guests: number;

@@ -23,7 +23,6 @@ export const addUserAsync = createAsyncThunk("users/add", async (newUser: Partia
   }
 });
 
-// 🌟 3. AsyncThunk สำหรับอัปเดตข้อมูลผู้ใช้ (เพิ่มส่วนนี้)
 export const updateUserAsync = createAsyncThunk(
   "users/update",
   async (user: User, { rejectWithValue }) => {
@@ -80,7 +79,6 @@ const userSlice = createSlice({
       .addCase(addUserAsync.fulfilled, (state, action) => {
         state.users.push(action.payload);
       })
-      // 🌟 Update User (เพิ่มส่วนนี้)
       .addCase(updateUserAsync.pending, (state) => {
         state.loading = true;
       })

@@ -82,7 +82,6 @@ export function Dropdown({ trigger, items, className = "w-48", align = "right" }
         {trigger}
       </div>
       
-      {/* 🌟 พระเอกของงาน: createPortal จะย้ายเมนูนี้ออกไปลอยอยู่นอกสุดของจอ (document.body) ไม่มีทางโดนกรอบใดๆ ตัดอีกต่อไป */}
       {isOpen && typeof document !== "undefined" && createPortal(
         <div 
           ref={menuRef}

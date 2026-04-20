@@ -33,7 +33,7 @@ export const Card: React.FC<CardProps> = ({
   const displayDistance = place?.distance || distance;
   const displayCategory = place?.category || category || '';
   
-  // 🌟 สร้าง Fallback เสมอ เพื่อให้มั่นใจว่าจะเป็น Array เปล่า (ไม่เป็น undefined)
+  // สร้าง Fallback เสมอ เพื่อให้มั่นใจว่าจะเป็น Array เปล่า (ไม่เป็น undefined)
   const displayTags = place?.tags || tags || []; 
   const placeId = place?.id || 'unknown_id';
 
@@ -62,7 +62,6 @@ export const Card: React.FC<CardProps> = ({
             <Text style={styles.tagText}>{displayCategory}</Text>
           ) : null}
           
-          {/* 🌟 แก้ไข: ใช้ displayTags.length แทน place.tags.length ป้องกัน Error undefined */}
           {displayTags.map((tag: string, idx: number) => (
             <Text key={idx} style={styles.tagText}>
               {tag}{idx < displayTags.length - 1 ? '    ' : ''}

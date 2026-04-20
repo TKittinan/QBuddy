@@ -85,7 +85,7 @@ export default function PlaceManagement() {
     }
   };
 
-  // 🌟 จุดที่แก้ไข: ใส่ Logic แมปค่ากลับเข้าฟอร์ม โดยไม่แตะต้อง Style ครับ
+  // จุดที่แก้ไข: ใส่ Logic แมปค่ากลับเข้าฟอร์ม โดยไม่แตะต้อง Style ครับ
   const handleEdit = (place: any) => {
     setEditingPlace(place);
     let parsedCovers: string[] = [];
@@ -98,7 +98,7 @@ export default function PlaceManagement() {
     // ค้นหาข้อมูลโต๊ะจากชื่อ Property ที่เป็นไปได้ทั้งหมด
     const dbTables = place.tableTypes || place.TableType || [];
     
-    // 🌟 แมปค่า label จาก DB กลับเป็น value (English) เพื่อให้ปุ่มใน UI แสดงสถานะ "ถูกเลือก"
+    // แมปค่า label จาก DB กลับเป็น value (English) เพื่อให้ปุ่มใน UI แสดงสถานะ "ถูกเลือก"
     const currentTables = dbTables.map((t: any) => {
       const foundOption = TABLE_SIZE_OPTIONS.find(opt => opt.label === t.label);
       return {
@@ -146,7 +146,7 @@ export default function PlaceManagement() {
 
   const currentData = displayPlaces.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  // 🌟 จัด Layout ของตารางใหม่ทั้งหมดให้สวยและตรงตามที่ต้องการ
+  // จัด Layout ของตารางใหม่ทั้งหมดให้สวยและตรงตามที่ต้องการ
   const columns: Column<Place>[] = [
     { 
       header: "Place Info", 

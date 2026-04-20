@@ -6,9 +6,9 @@ interface AIChatProps {
   title: string;
   imageUri: string;
   location: string;
-  distance: string | number; // 🌟 รองรับตัวเลข
+  distance: string | number;
   tags: string[];
-  onPress?: () => void; // 🌟 เพิ่ม props สำหรับการกดลิงก์ไปหน้า Detail
+  onPress?: () => void;
 }
 
 export const AIChat: React.FC<AIChatProps> = ({ title, imageUri, location, distance, tags, onPress }) => {
