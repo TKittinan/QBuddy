@@ -9,13 +9,12 @@ import { StatusBadge } from "../components/ui/StatusBadge";
 import { Clock, Filter, Calendar, ChevronDown, BarChart2, Hourglass, CheckCircle2 } from "lucide-react";
 import type { Column } from "../types";
 
-// 🌟 ส่วนที่เพิ่ม 1: Import supabase client
 import { supabase } from "../config";
 
 export default function Dashboard() {
   const dispatch = useAppDispatch();
   
-  // 🌟 ส่วนที่เพิ่ม 2: ดึงข้อมูล User จาก Auth State เพื่อใช้ ID ในการส่งสัญญาณ
+  //ดึงข้อมูล User จาก Auth State เพื่อใช้ ID ในการส่งสัญญาณ
   const { user } = useAppSelector((state: any) => state.auth);
   const { stats, activities, loading } = useAppSelector((state: any) => state.dashboard);
 

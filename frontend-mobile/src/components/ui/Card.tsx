@@ -31,7 +31,6 @@ export const Card: React.FC<CardProps> = ({
   const displayCategory = place?.category || category || ''; 
   const placeId = place?.id || 'unknown_id';
 
-  // 🌟 ฟังก์ชันดึงรูปภาพรูปแรกจาก coverUrl หรือ image
   const getCoverImage = () => {
     if (imageUri) return imageUri;
     if (!place) return 'https://via.placeholder.com/400x200';

@@ -27,7 +27,7 @@ export class PlaceService {
     return data;
   }
 
-  // 🌟 ลอจิกใหม่สุดเป๊ะ: สร้าง Place ID แบบ SMP-001
+
   private generate_place_id_string(name: string, branch?: string, branchNumber: number = 1): string {
     const cleanName = (name || '').trim().replace(/[^a-zA-Zก-ฮ0-9\s]/g, '');
     const words = cleanName.split(/\s+/).filter(w => w.length > 0);

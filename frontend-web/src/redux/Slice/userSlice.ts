@@ -3,7 +3,7 @@ import axios from "axios";
 import { API_BASE_URL } from "../../config";
 import type { User } from "../../types";
 
-//  1. AsyncThunk สำหรับดึงข้อมูลผู้ใช้ทั้งหมด
+// AsyncThunk สำหรับดึงข้อมูลผู้ใช้ทั้งหมด
 export const fetchUsers = createAsyncThunk("users/fetchAll", async (_, { rejectWithValue }) => {
   try {
     const response = await axios.get(`${API_BASE_URL}/users`);
@@ -13,7 +13,7 @@ export const fetchUsers = createAsyncThunk("users/fetchAll", async (_, { rejectW
   }
 });
 
-//  2. AsyncThunk สำหรับเพิ่มผู้ใช้ใหม่
+//  AsyncThunk สำหรับเพิ่มผู้ใช้ใหม่
 export const addUserAsync = createAsyncThunk("users/add", async (newUser: Partial<User>, { rejectWithValue }) => {
   try {
     const response = await axios.post(`${API_BASE_URL}/users`, newUser);
@@ -23,7 +23,6 @@ export const addUserAsync = createAsyncThunk("users/add", async (newUser: Partia
   }
 });
 
-// 🌟 3. AsyncThunk สำหรับอัปเดตข้อมูลผู้ใช้ (เพิ่มส่วนนี้)
 export const updateUserAsync = createAsyncThunk(
   "users/update",
   async (user: User, { rejectWithValue }) => {
@@ -80,7 +79,6 @@ const userSlice = createSlice({
       .addCase(addUserAsync.fulfilled, (state, action) => {
         state.users.push(action.payload);
       })
-      // 🌟 Update User (เพิ่มส่วนนี้)
       .addCase(updateUserAsync.pending, (state) => {
         state.loading = true;
       })

@@ -17,7 +17,6 @@ const initialState: QueueState = {
   error: null,
 };
 
-// 🌟 แก้ไข: บังคับให้รับค่า userName และยิงไปที่ API ใหม่
 export const fetchTicketsAsync = createAsyncThunk(
   "queue/fetchTickets",
   async (userName: string, { rejectWithValue }) => {

@@ -39,7 +39,7 @@ export function SearchSelect<T = unknown>({ label, placeholder, options, value, 
   }, [value]);
 
   const filteredOptions = useMemo(() => {
-    // 🌟 แก้ไขตรงนี้: ถ้ายังไม่ได้พิมพ์อะไรเลย ให้ส่ง Array ว่างกลับไป (ไม่แสดงรายชื่อ)
+    //แก้ไขตรงนี้: ถ้ายังไม่ได้พิมพ์อะไรเลย ให้ส่ง Array ว่างกลับไป (ไม่แสดงรายชื่อ)
     if (!query || query.trim() === "") return [];
     
     return options.filter(opt => 

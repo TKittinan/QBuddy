@@ -27,7 +27,6 @@ export default function QueuePage() {
 
   const identifier = user?.email || user?.name;
 
-  // 🌟 ดึงข้อมูลเฉพาะตอนเปิดหน้านี้เท่านั้น
   useFocusEffect(
     useCallback(() => {
       if (identifier) {
@@ -54,8 +53,6 @@ export default function QueuePage() {
   }, [dispatch, identifier]);
 
   const myTickets = allTickets;
-
-  // 🌟 เพิ่มเงื่อนไขดักจับ กรณีข้อมูลเก่ามากๆ ไม่มี status หลุดมา
   const activeTickets = myTickets.filter((t: any) => !t.status || t.status === 'Waiting' || t.status === 'Serving');
   const historyTickets = myTickets.filter((t: any) => t.status === 'Completed' || t.status === 'Cancelled' || t.status === 'Skipped');
 

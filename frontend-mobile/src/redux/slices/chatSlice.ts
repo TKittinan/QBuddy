@@ -1,6 +1,5 @@
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 import axios from "axios";
-// 🌟 1. นำเข้า API_BASE_URL
 import { API_BASE_URL } from "../../config";
 
 export interface ChatMessage {
@@ -26,7 +25,6 @@ export const fetchChatHistoryAsync = createAsyncThunk(
   "chat/fetchHistory",
   async (activityId: string, { rejectWithValue }) => {
     try {
-      // 🌟 2. ใช้ API_BASE_URL
       const response = await axios.get(`${API_BASE_URL}/chat/${activityId}`);
       return response.data;
     } catch (error: any) {
@@ -39,7 +37,6 @@ export const sendChatMessageAsync = createAsyncThunk(
   "chat/sendMessage",
   async (messageData: Partial<ChatMessage>, { rejectWithValue }) => {
     try {
-      // 🌟 3. ใช้ API_BASE_URL
       const response = await axios.post(`${API_BASE_URL}/chat`, messageData);
       return response.data;
     } catch (error: any) {
@@ -59,7 +56,6 @@ const chatSlice = createSlice({
   extraReducers: (builder) => {
     builder
       .addCase(fetchChatHistoryAsync.fulfilled, (state, action) => {
-        // 🌟 ดักจับ Array ป้องกันหน้าจอขาว
         state.messages = Array.isArray(action.payload) ? action.payload : (action.payload?.data || []);
       })
       .addCase(sendChatMessageAsync.fulfilled, (state, action) => {

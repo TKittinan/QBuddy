@@ -1,4 +1,3 @@
-// 🌟 Utility กลางสำหรับจัดการเรื่องเวลาเปิด-ปิดร้าน
 export const checkIsShopOpen = (openTime: string, closeTime: string): boolean => {
   if (!openTime || !closeTime) return false;
   

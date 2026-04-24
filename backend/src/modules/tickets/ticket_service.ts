@@ -65,7 +65,6 @@ export class TicketService {
     return data || [];
   }
 
-  // 🌟 อัปเกรดฟังก์ชัน: ดึงตัวเลขจากประเภทโต๊ะมาคำนวณ (ฉลาดและแม่นยำกว่าเดิม)
   private get_table_code(tableType: string): string {
     // ดึงเฉพาะตัวเลขออกมาจากข้อความ (เช่น "3-4 คน" -> ได้อาเรย์ [3, 4])
     const nums = String(tableType || '').match(/\d+/g);
@@ -81,8 +80,6 @@ export class TicketService {
     if (maxCapacity <= 6) return 'C';
     if (maxCapacity <= 8) return 'D';
     if (maxCapacity <= 10) return 'E';
-    
-    // 🌟 ถ้ามากกว่า 10 (เช่น 11, 12, 20) ให้เป็น X ทันที!
     return 'X';
   }
 

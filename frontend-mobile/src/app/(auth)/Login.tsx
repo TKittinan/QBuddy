@@ -37,7 +37,7 @@ export default function LoginPage() {
     setApiError('');
     setIsLoading(true);
     try {
-      // 🌟 ยิงไปที่ Backend จริงผ่าน Redux Async Thunk
+      //ยิงไปที่ Backend จริงผ่าน Redux Async Thunk
       const payload = {
         email: data.emailOrPhone, 
         password: data.password

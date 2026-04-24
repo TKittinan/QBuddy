@@ -32,7 +32,7 @@ export default function Settings() {
     dispatch(fetchSettings());
   }, [dispatch]);
 
-  // 🔥 ฟังก์ชันจัดฟอร์แมตเบอร์โทรแบบบังคับ 02 และใส่ขีด
+  // ฟังก์ชันจัดฟอร์แมตเบอร์โทรแบบบังคับ 02 และใส่ขีด
   const formatPhoneNumber = (value: string) => {
     let numbers = value.replace(/\D/g, "");
 
